@@ -60,6 +60,10 @@ import {
   X,
 } from "lucide-react"
 import { Cart } from "@/api/shop"
+// Gast-Warenkorb: der Import fehlte seit e4dfdba - jeder Gast-Checkout endete mit
+// "ReferenceError: getGuestCart is not defined".
+import { getGuestCart, clearGuestCart } from "@/utils/guestCart"
+import { saveLastCheckout, getOrCreateCheckoutAttemptId, clearCheckoutAttemptId } from "@/lib/lastCheckout"
 import { CountrySelect } from "@/components/checkout/CountrySelect"
 import { DEFAULT_COUNTRY_CODE } from "@/lib/countries"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -254,12 +258,98 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
 
   const totals = useMemo(() => {
     const subtotal = Number((checkoutPricing?.subtotal ?? reviewCart?.subtotal) || 0)
-    const tax = Number((checkoutPricing?.taxAmount ?? reviewCart?.tax) || 0)
+    // FIN-5: Im Gast-Checkout kennt der Client den MwSt.-Anteil nicht (keine Serverpreisbildung).
+    // Frueher wurde dafuer 0 eingesetzt und als "MwSt. 0,00 €" angezeigt. Ein unbekannter Wert
+    // wird jetzt nicht als echte Null dargestellt (taxKnown = false).
+    const serverTax = checkoutPricing?.taxAmount
+    const taxKnown = serverTax !== undefined && serverTax !== null
+      ? true
+      : mode !== "guest" && reviewCart?.tax !== undefined && reviewCart?.tax !== null
+    const tax = Number((serverTax ?? reviewCart?.tax) || 0)
     const discount = Number((checkoutPricing?.totalDiscount ?? reviewCart?.discount) || 0)
     const payableTotal = Number((checkoutPricing?.payableTotal ?? reviewCart?.total) || 0)
     const normalTotal = Number(checkoutPricing?.normalTotal ?? payableTotal + discount)
-    return { subtotal, tax, discount, total: payableTotal, payableTotal, normalTotal }
-  }, [reviewCart, checkoutPricing])
+    return { subtotal, tax, taxKnown, discount, total: payableTotal, payableTotal, normalTotal }
+  }, [reviewCart, checkoutPricing, mode])
+
+  // ── Abschluss → /order-success (DHL-1/DHL-10/DHL-14) ──
+  // Einheitliche Uebergabe fuer Karte/Rechnung UND PayPal: nur Kennungen in sessionStorage
+  // ('lastCheckout'), die Bestaetigungsseite laedt Einsendelabel und Betraege vom Server.
+  const runSuccessCleanup = () => {
+    Promise.resolve()
+      .then(() => onSuccess())
+      .catch((err: unknown) => console.error('Cleanup error:', err))
+  }
+
+  const finishGuestCheckout = (response: any, usedPaymentMethod: string) => {
+    clearGuestCart()
+    clearCheckoutAttemptId()
+    const orders: any[] = Array.isArray(response?.orders) ? response.orders : []
+    const orderNumbers = orders.map((o: any) => o?.orderNumber).filter(Boolean)
+    const bookingTotal = Number(response?.booking?.totalCost)
+    const ordersTotal = Number(orders.reduce((sum: number, o: any) => sum + Number(o?.totalCost || 0), 0) || 0)
+    const totalAmount = Number.isFinite(bookingTotal) && bookingTotal > 0 ? bookingTotal : ordersTotal
+    const bookingNumber = response?.bookingNumber || response?.booking?.bookingNumber || ''
+
+    saveLastCheckout({
+      kind: 'guest',
+      bookingId: response?.bookingId || null,
+      bookingNumber,
+      orderIds: Array.isArray(response?.orderIds) ? response.orderIds : [],
+      orderNumbers,
+      orderCount: Array.isArray(response?.orderIds) ? response.orderIds.length : orderNumbers.length,
+      totalAmount,
+      bookingTrackingToken: response?.bookingTrackingToken || null,
+      guestEmail: response?.guestEmail || null,
+    })
+
+    setGuestCheckoutResult({
+      success: true,
+      bookingNumber,
+      orderNumbers,
+      totalAmount,
+      guestEmail: response?.guestEmail,
+      orderTrackingToken: response?.trackingToken,
+      bookingTrackingToken: response?.bookingTrackingToken,
+      orderCount: Array.isArray(response?.orderIds) ? response.orderIds.length : 0,
+      paymentMethod: usedPaymentMethod,
+    })
+
+    toast({
+      title: t("common.success"),
+      description: response?.message || t("checkout.guestCheckoutSuccessful"),
+    })
+
+    onOpenChange(false)
+    runSuccessCleanup()
+    navigate('/order-success')
+  }
+
+  const finishAccountCheckout = (checkoutResult: any) => {
+    clearCheckoutAttemptId()
+    const orders: any[] = Array.isArray(checkoutResult?.orders) ? checkoutResult.orders : []
+    const bookingId = checkoutResult?.bookingId || null
+    saveLastCheckout({
+      kind: 'account',
+      bookingId,
+      bookingNumber: checkoutResult?.bookingNumber || checkoutResult?.booking?.bookingNumber || '',
+      orderIds: Array.isArray(checkoutResult?.orderIds) ? checkoutResult.orderIds : [],
+      orderNumbers: orders.map((o: any) => o?.orderNumber).filter(Boolean),
+      orderCount: Array.isArray(checkoutResult?.orderIds) ? checkoutResult.orderIds.length : orders.length,
+      totalAmount: null,
+    })
+
+    setCheckoutSuccessResult(checkoutResult)
+
+    toast({
+      title: t("common.success"),
+      description: checkoutResult?.message || t("checkout.checkoutDone"),
+    })
+
+    onOpenChange(false)
+    runSuccessCleanup()
+    navigate(bookingId ? `/order-success?booking=${encodeURIComponent(bookingId)}` : '/order-success')
+  }
 
   const paymentOptions = [
     {
@@ -379,22 +469,12 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
         country: (billingAddressCountryDraft || "DE").trim(),
       }
 
-      const existingPaymentAddress = userInfo?.shippingAddress || {}
-      const sameAsInvoice = !existingPaymentAddress?.street
-
-      await updateUserProfile({
-        invoiceAddress,
-        paymentAddress: sameAsInvoice
-          ? { ...invoiceAddress, sameAsInvoice: true }
-          : {
-              street: existingPaymentAddress.street || "",
-              city: existingPaymentAddress.city || "",
-              state: existingPaymentAddress.state || "",
-              zipCode: existingPaymentAddress.zipCode || "",
-              country: existingPaymentAddress.country || invoiceAddress.country,
-              sameAsInvoice: false,
-            },
-      })
+      // Nur die Rechnungsadresse speichern - die Lieferadresse (wie Rechnung / eigene Adresse /
+      // Packstation) bleibt unverändert. Vorher wurde "wie Rechnung" aus einer leeren Straße
+      // abgeleitet; /api/checkout/initialize liefert bei "wie Rechnung" aber die Rechnungsanschrift
+      // als Lieferadresse - dadurch wurde die ALTE Anschrift als eigene Lieferadresse gespeichert
+      // (sameAsInvoice=false) und eine Packstation verlor ihre Angaben.
+      await updateUserProfile({ invoiceAddress })
 
       setUserInfo((prev: any) => ({
         ...(prev || {}),
@@ -687,11 +767,13 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
       const missingBillingAddress = hasMissingBillingAddress(billingAddress)
       const shippingAddr = checkoutUserInfo?.shippingAddress || {}
 
-      // Determine initial shipping delivery type from profile
+      // Determine initial shipping delivery type from profile.
+      // "Wie Rechnung" folgt dem Flag sameAsInvoice: der Server füllt die Straße in dem Fall
+      // mit der Rechnungsanschrift, eine gesetzte Straße heißt also NICHT "eigene Adresse".
       const initDeliveryType: "same" | "address" | "packstation" =
         shippingAddr.deliveryType === "packstation" && shippingAddr.packstationNumber
           ? "packstation"
-          : shippingAddr.sameAsInvoice !== false && !shippingAddr.street
+          : shippingAddr.sameAsInvoice !== false
           ? "same"
           : shippingAddr.street
           ? "address"
@@ -925,35 +1007,11 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                   paypalCaptureId: capture.captureId,
                   paypalReceiptId: capture.receipt?.transactionId,
                   paypalEmail,
-                }
+                },
+                { checkoutAttemptId: getOrCreateCheckoutAttemptId() }
               )
 
-              clearGuestCart()
-
-              const guestOrderData = {
-                success: true,
-                bookingNumber: response.booking?.bookingNumber,
-                orderNumbers: response.orders?.map((o: any) => o.orderNumber) || [],
-                totalAmount: Number(response.orders?.reduce((sum: number, o: any) => sum + Number(o.totalCost || 0), 0) || 0),
-                guestEmail: response.guestEmail,
-                orderTrackingToken: response.trackingToken,
-                bookingTrackingToken: response.bookingTrackingToken,
-                orderCount: response.orderIds?.length || 0,
-              }
-
-              setGuestCheckoutResult(guestOrderData)
-
-              toast({
-                title: t("common.success"),
-                description: t("checkout.guestCheckoutSuccessful"),
-              })
-
-              // Store order data and navigate to success page
-              sessionStorage.setItem('lastOrderData', JSON.stringify(guestOrderData))
-              onOpenChange(false)
-              // Fire cleanup in background without blocking navigation
-              onSuccess().catch((err) => console.error('Cleanup error:', err))
-              navigate('/order-success')
+              finishGuestCheckout(response, "paypal")
               return
             }
 
@@ -963,21 +1021,9 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
               paypalCaptureId: capture.captureId,
               paypalReceiptId: capture.receipt?.paymentId,
               paypalEmail,
-            })
+            }, { checkoutAttemptId: getOrCreateCheckoutAttemptId() })
 
-            setCheckoutSuccessResult(checkoutResult)
-
-            toast({
-              title: t("common.success"),
-              description: checkoutResult.message || t("checkout.checkoutDone"),
-            })
-
-            // Store order data and navigate to success page
-            sessionStorage.setItem('lastOrderData', JSON.stringify(checkoutResult))
-            onOpenChange(false)
-            // Fire cleanup in background without blocking navigation
-            onSuccess().catch((err) => console.error('Cleanup error:', err))
-            navigate('/order-success')
+            finishAccountCheckout(checkoutResult)
           } catch (error: any) {
             toast({
               title: t("common.error"),
@@ -1322,65 +1368,63 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
           guestInfo as any,
           { items: localGuestCart.items, repairOrders: localGuestCart.repairOrders },
           paymentMethod,
-          paymentData
+          paymentData,
+          { checkoutAttemptId: getOrCreateCheckoutAttemptId() }
         )
 
-        clearGuestCart()
-
-        const guestOrderData = {
-          success: true,
-          bookingNumber: response.booking?.bookingNumber,
-          orderNumbers: response.orders?.map((o: any) => o.orderNumber) || [],
-          totalAmount: Number(response.orders?.reduce((sum: number, o: any) => sum + Number(o.totalCost || 0), 0) || 0),
-          guestEmail: response.guestEmail,
-          orderTrackingToken: response.trackingToken,
-          bookingTrackingToken: response.bookingTrackingToken,
-          orderCount: response.orderIds?.length || 0,
-        }
-
-        setGuestCheckoutResult(guestOrderData)
-
-        toast({
-          title: t("common.success"),
-          description: t("checkout.guestCheckoutSuccessful"),
-        })
-
-        // Store order data and navigate to success page
-        sessionStorage.setItem('lastOrderData', JSON.stringify(guestOrderData))
-        onOpenChange(false)
-        // Fire cleanup in background without blocking navigation
-        onSuccess().catch((err) => console.error('Cleanup error:', err))
-        navigate('/order-success')
+        finishGuestCheckout(response, paymentMethod)
         return
       }
 
-      const checkoutResult = await completeCheckout(paymentMethod, paymentData)
-      setCheckoutSuccessResult(checkoutResult)
-
-      toast({
-        title: t("common.success"),
-        description: checkoutResult.message || t("checkout.checkoutDone"),
+      const checkoutResult = await completeCheckout(paymentMethod, paymentData, {
+        checkoutAttemptId: getOrCreateCheckoutAttemptId(),
       })
-
-      // Store order data and navigate to success page
-      sessionStorage.setItem('lastOrderData', JSON.stringify(checkoutResult))
-      onOpenChange(false)
-      // Fire cleanup in background without blocking navigation
-      onSuccess().catch((err) => console.error('Cleanup error:', err))
-      navigate('/order-success')
+      finishAccountCheckout(checkoutResult)
     } catch (error: any) {
       const checkoutError = error as CheckoutApiError
       if (
         mode === "authenticated" &&
         checkoutError?.status === 400 &&
         checkoutError?.missingFields &&
-        (checkoutError.missingFields.street || checkoutError.missingFields.city || checkoutError.missingFields.zipCode)
+        (checkoutError.missingFields.street || checkoutError.missingFields.city || checkoutError.missingFields.zipCode || checkoutError.missingFields.houseNumber)
       ) {
         setBillingAddressNeedsAttention(true)
         setBillingAddressEditorOpen(true)
         toast({
-          title: "Fehlende Rechnungsadresse",
-          description: "Bitte ergänzen Sie Ihre Rechnungsadresse im Bereich Kontakt & Rechnungsadresse.",
+          title: checkoutError.missingFields.houseNumber ? "Hausnummer fehlt" : "Fehlende Rechnungsadresse",
+          description: checkoutError.missingFields.houseNumber
+            ? (checkoutError.message || "Bitte ergänzen Sie die Hausnummer in Ihrer Rechnungsadresse – sie wird für das DHL-Einsendelabel benötigt.")
+            : "Bitte ergänzen Sie Ihre Rechnungsadresse im Bereich Kontakt & Rechnungsadresse.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Gast: die Adresse steht im Gastformular; der Servertext nennt Liefer- bzw. Rechnungsadresse.
+      if (mode === "guest" && checkoutError?.status === 400 && checkoutError?.missingFields?.houseNumber) {
+        toast({
+          title: "Hausnummer fehlt",
+          description: checkoutError.message || "Bitte ergänzen Sie die Hausnummer in Ihrer Adresse – sie wird für das DHL-Einsendelabel benötigt.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // DHL-14: Dieselbe Bestellung wird gerade in einer parallelen Anfrage angelegt.
+      if (checkoutError?.code === "CHECKOUT_IN_PROGRESS") {
+        toast({
+          title: "Bestellung wird angelegt",
+          description: checkoutError.message || "Ihre Bestellung wird gerade angelegt. Bitte nicht erneut bezahlen – prüfen Sie in einem Moment Ihre Buchungen.",
+        })
+        return
+      }
+
+      // DHL-11: Ein leerer Warenkorb direkt nach einem Zahlungsversuch bedeutet meist, dass die
+      // Buchung bereits angelegt wurde (z. B. Antwort unterwegs verloren).
+      if (mode === "authenticated" && checkoutError?.code === "CART_EMPTY") {
+        toast({
+          title: "Bestellung möglicherweise bereits angelegt",
+          description: "Möglicherweise wurde Ihre Bestellung bereits angelegt – bitte prüfen Sie Ihre Buchungen unter „Buchungen“.",
           variant: "destructive",
         })
         return
@@ -2072,17 +2116,25 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                           <span className="font-semibold text-[#15803d]">{t("checkout.shippingFreeShort")}</span>
                         </div>
 
-                        <div className="border-t border-[#d8dce6] pt-2 space-y-1.5">
-                          <div className="flex justify-between">
-                            <span className="text-[#5f6d86]">{t("cart.netto")}</span>
-                            <span className="font-semibold text-[#1a2a5e]">{formatEUR(totals.total - totals.tax)}</span>
-                          </div>
+                        {totals.taxKnown ? (
+                          <div className="border-t border-[#d8dce6] pt-2 space-y-1.5">
+                            <div className="flex justify-between">
+                              <span className="text-[#5f6d86]">{t("cart.netto")}</span>
+                              <span className="font-semibold text-[#1a2a5e]">{formatEUR(totals.total - totals.tax)}</span>
+                            </div>
 
-                          <div className="flex justify-between">
-                            <span className="text-[#5f6d86]">{t("cart.tax")}</span>
-                            <span className="font-semibold text-[#1a2a5e]">{formatEUR(totals.tax)}</span>
+                            <div className="flex justify-between">
+                              <span className="text-[#5f6d86]">{t("cart.tax")}</span>
+                              <span className="font-semibold text-[#1a2a5e]">{formatEUR(totals.tax)}</span>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="border-t border-[#d8dce6] pt-2">
+                            <p className="text-xs text-[#5f6d86]">
+                              Gesamtbetrag inkl. gesetzl. MwSt. – die Aufschlüsselung nach Netto und MwSt. finden Sie in Ihrer Rechnung.
+                            </p>
+                          </div>
+                        )}
 
                         <div className="mt-1 flex items-center justify-between rounded-lg bg-[#f0f4ff] px-2.5 py-2 text-base border-t border-[#d8e3ff]">
                           <span className="font-bold text-[#1a2a5e]">{t("cart.grandTotal")}</span>
@@ -2129,7 +2181,10 @@ export function CheckoutDialog({ open, onOpenChange, onSuccess, cart }: Checkout
                             ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("common.loading")}</>
                             : paymentMethod === "paypal"
                               ? <><Wallet className="mr-2 h-4 w-4" />Bitte den PayPal-Button oben verwenden</>
-                              : <><CreditCard className="mr-2 h-4 w-4" />{t("checkout.payNow")} — {formatEUR(totals.payableTotal)}</>
+                              : paymentMethod === "invoice"
+                                // Rechnungskauf: es wird jetzt nichts bezahlt - die Schaltflaeche nennt die Bestellung (§ 312j BGB).
+                                ? <><CreditCard className="mr-2 h-4 w-4" />{t("checkout.placeOrderInvoice", "Zahlungspflichtig bestellen")} — {formatEUR(totals.payableTotal)}</>
+                                : <><CreditCard className="mr-2 h-4 w-4" />{t("checkout.payNow")} — {formatEUR(totals.payableTotal)}</>
                           }
                         </Button>
 

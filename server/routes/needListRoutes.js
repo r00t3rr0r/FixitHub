@@ -166,7 +166,7 @@ router.post('/:id/convert-to-order', requireUser, requireRole(['admin', 'staff']
     res.status(201).json(result);
   } catch (error) {
     console.error('POST /api/need-lists/:id/convert-to-order - Error:', error.message);
-    res.status(error.message === 'Need list not found' ? 404 : 400).json({ error: error.message });
+    res.status(error.status || (error.message === 'Need list not found' ? 404 : 400)).json({ error: error.message });
   }
 });
 

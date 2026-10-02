@@ -576,6 +576,59 @@ async function main() {
   res = await request('GET', `/api/orders/${oPack._id}/shipments`, { token: customerToken });
   check(res.status === 403, 'Kunde sieht fremde Auftraege nicht', res.status);
 
+  console.log('\n[K11-Parteien] Versandkarten: Absender/Empfaenger je Richtung aus denselben Quellen wie die Labels (nur Team)');
+  const partyMatchesPayload = (party, payloadParty) => Boolean(party && payloadParty)
+    && party.name === (payloadParty.name1 || payloadParty.name)
+    && party.street === payloadParty.addressStreet && party.house === String(payloadParty.addressHouse)
+    && party.postalCode === payloadParty.postalCode && party.city === payloadParty.city;
+  const b1OutboundPayload = shippingCalls.map((call) => call.body?.shipments?.[0])
+    .find((s) => s?.refNo === b1Doc.orderNumber && s?.shipper?.name1 === 'McRepair.de GmbH') || {};
+  res = await request('GET', `/api/orders/${b1._id}/shipments`, { token: staffToken });
+  const b1Parties = res.data?.shipments?.parties;
+  check(res.status === 200 && b1Parties?.inbound?.direction === 'inbound' && b1Parties?.outbound?.direction === 'outbound'
+    && b1Parties.inbound.sender?.role === 'customer' && b1Parties.inbound.recipient?.role === 'shop'
+    && b1Parties.outbound.sender?.role === 'shop' && b1Parties.outbound.recipient?.role === 'customer',
+    'Staff: Einsendung = Kunde -> McRepair, Auslieferung = McRepair -> Kunde', show(b1Parties && { in: [b1Parties.inbound.sender?.role, b1Parties.inbound.recipient?.role], out: [b1Parties.outbound.sender?.role, b1Parties.outbound.recipient?.role] }));
+  check(partyMatchesPayload(b1Parties?.inbound?.sender, inboundShipment.shipper) && partyMatchesPayload(b1Parties?.inbound?.recipient, inboundShipment.consignee)
+    && b1Parties.inbound.sender.source === 'customer.invoiceAddress' && b1Parties.inbound.sender.missing.length === 0,
+    'Einsendung: Anzeige = Parteien des tatsaechlich gesendeten Buchungs-Einsendelabels (Rechnungsadresse München -> Shop)', show({ ui: b1Parties?.inbound, payload: { s: inboundShipment.shipper, c: inboundShipment.consignee } }));
+  check(partyMatchesPayload(b1Parties?.outbound?.sender, b1OutboundPayload.shipper) && partyMatchesPayload(b1Parties?.outbound?.recipient, b1OutboundPayload.consignee)
+    && b1Parties.outbound.recipient.city === 'Hamburg' && b1Parties.outbound.recipient.source === 'order.shippingAddress',
+    'Auslieferung: Anzeige = Parteien des gesendeten Auslieferungslabels (Shop -> Lieferweg 7, Hamburg)', show({ ui: b1Parties?.outbound, payload: { s: b1OutboundPayload.shipper, c: b1OutboundPayload.consignee } }));
+  check(!JSON.stringify(b1Parties || {}).includes('@') && !Object.values(b1Parties?.outbound?.recipient || {}).includes('anna@test.invalid'),
+    'Parteien ohne E-Mail/Telefon (nur Name + Anschrift)', show(Object.keys(b1Parties?.outbound?.recipient || {})));
+  res = await request('GET', `/api/orders/${oPack._id}/shipments`, { token: adminToken });
+  const packRecipient = res.data?.shipments?.parties?.outbound?.recipient;
+  check(packRecipient?.deliveryType === 'packstation' && packRecipient.packstationNumber === '118' && packRecipient.postalCode === '10117'
+    && packRecipient.missing.length === 0,
+    'Packstation: Empfaenger mit Packstationsnummer statt Strasse', show(packRecipient));
+  // Auftrag ohne Buchung: Einsendelabel = createReturnLabelForOrder - eine Packstation ist nie Absender,
+  // Rueckfall Rechnungsadresse des Kunden (hier keine vorhanden -> fehlt, nichts ergaenzt).
+  const packInbound = res.data?.shipments?.parties?.inbound?.sender;
+  check(packInbound && packInbound.source !== 'order.shippingAddress' && !packInbound.packstationNumber
+    && (packInbound.source === 'customer.invoiceAddress' || packInbound.missing.includes('Straße')),
+    'Einsendung ohne Buchung: Packstation nicht als Absender (wie Retourenlabel), sonst Rechnungsadresse bzw. "fehlt"', show(packInbound));
+  res = await request('GET', `/api/orders/${oMissing._id}/shipments`, { token: staffToken });
+  const missingParties = res.data?.shipments?.parties;
+  check(res.status === 200 && missingParties?.outbound?.recipient?.missing?.includes('Lieferadresse') && missingParties?.inbound?.sender?.missing?.includes('Straße')
+    && !missingParties.outbound.recipient.street && !missingParties.outbound.recipient.city,
+    'Fehlende Kundenadresse wird gemeldet (missing), nichts ergaenzt', show(missingParties?.outbound?.recipient));
+  const configDoc = await SystemConfiguration.findOne({});
+  const originalStreet = configDoc.integrations[0].settings.shipperStreet;
+  await SystemConfiguration.updateOne({ _id: configDoc._id }, { $set: { 'integrations.0.settings.shipperStreet': '' } });
+  res = await request('GET', `/api/orders/${b1._id}/shipments`, { token: staffToken });
+  const noShop = res.data?.shipments?.parties;
+  check(noShop?.outbound?.sender?.missing?.includes('Straße') && noShop?.outbound?.sender?.missing?.includes('Hausnummer')
+    && noShop?.inbound?.recipient?.missing?.includes('Straße') && !noShop.outbound.sender.street,
+    'Unvollstaendige Shop-Anschrift (DHL-Integration) wird gemeldet, nichts ergaenzt', show(noShop?.outbound?.sender));
+  await SystemConfiguration.updateOne({ _id: configDoc._id }, { $set: { 'integrations.0.settings.shipperStreet': originalStreet } });
+  res = await request('GET', `/api/orders/${b1._id}/shipments`, { token: customerToken });
+  check(res.status === 200 && res.data?.shipments && !('parties' in res.data.shipments) && !JSON.stringify(res.data).includes('Werkstattstraße'),
+    'Kunde (Inhaber): GET /shipments ohne Team-Parteien', `${res.status} keys=${Object.keys(res.data?.shipments || {}).join(',')}`);
+  res = await request('GET', `/api/orders/${b1._id}`, { token: customerToken });
+  check(res.status === 200 && res.data?.order?.shipments && !('parties' in res.data.order.shipments),
+    'Kunde (Inhaber): Auftragsdetail ohne Team-Parteien', `${res.status} keys=${Object.keys(res.data?.order?.shipments || {}).join(',')}`);
+
   console.log('\n[(d) POST /api/orders] Kunde kann Status, Versandfelder und Auftragswert nicht setzen');
   const Service = mongoose.model('Service');
   const svc = await Service.create({ name: 'Display-Tausch', description: 'Display', category: 'diagnostic', price: 100 });

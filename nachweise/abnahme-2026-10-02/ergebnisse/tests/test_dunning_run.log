@@ -1,0 +1,68 @@
+
+[1 Auf Rechnung: Frist 7 Tage bzw. Kundenfrist, Faelligkeit eingefroren]
+  PASS Standard: 7 Tage :: 7 / 7 Tage netto ohne Abzug
+  PASS Kundenfrist 10 Tage uebernommen :: 10 / 10 Tage netto ohne Abzug
+
+[2 Mahnliste: nur echte offene Forderungen]
+  PASS Mahnliste 200 :: 200
+  PASS offene und teilbezahlte Rechnung in der Liste :: 2
+  PASS bezahlt/storniert/gutgeschrieben/nur ueberzahlt/nicht faellig NICHT in der Liste :: keine
+  PASS keine Gutschrift in der Mahnliste :: 3
+  PASS Eintrag: offener Rest 150, 20 Tage, urspruengliche Faelligkeit :: {"o":150,"t":20}
+  PASS Eintrag: Stufe, naechster Termin, faellig :: none / true / 2026-09-18T22:00:00.000Z
+
+[3 Mahnlauf ueber die Route: eine Stufe, eine Mail, Protokoll; Cron am selben Tag: nichts]
+  PASS Mahnlauf 200 :: 200 
+  PASS A: genau eine Zahlungserinnerung :: Zahlungserinnerung
+  PASS A: Stufe 1 (Zahlungserinnerung) :: payment_reminder/1
+  PASS A: Faelligkeitsdatum unveraendert :: 2026-09-12T11:17:42.286Z
+  PASS A: naechster Termin heute + 7 :: Fri Oct 09 2026 00:00:00 GMT+0200 (Central European Summer Time)
+  PASS A: Protokoll (Datum, Stufe, Empfaenger, Vorlage, Ergebnis, Betrag) :: {"r":"sent","t":"Zahlungserinnerung","a":100}
+  PASS B: gemahnt wird nur der Rest (150,00) :: 150,00 €
+  PASS Cron am selben Tag: keine Mail, keine weitere Stufe :: 0 / 1
+  PASS Cron meldet keine Aktion :: 0
+
+[4 Gleichzeitige Ausloeser: eine Mail, eine Stufe]
+  PASS genau eine Mail :: 1
+  PASS genau eine Stufe :: 1 / 1
+  PASS Sperre wieder freigegeben :: null
+  PASS alle Ausloeser beendet :: 4
+
+[5 E-Mail-Fehler: sichtbar, keine Stufe, kontrolliert wiederholbar]
+  PASS Ergebnis: fehlgeschlagen (deutsch) :: failed Zahlungserinnerung wurde nicht versendet (E-Mail-Versand fehlgeschlagen). Die Mahnstufe wurde nicht erhöht; der Schritt kann erneut ausgelöst werden.
+  PASS Stufe NICHT erreicht :: 0/none
+  PASS Fehler sichtbar am Beleg :: SMTP nicht erreichbar (Test)
+  PASS Fehlversuch protokolliert (nicht als erreicht) :: failed
+  PASS Mahnliste zeigt Fehler, Beleg bleibt faellig :: {"at":"2026-10-02T11:17:43.116Z","stage":"payment_reminder","stageLabel":"Zahlungserinnerung","error":"SMTP nicht erreichbar (Test)"}
+  PASS Wiederholung: versendet, Stufe erreicht, Fehler geloescht :: 200 sent 1
+  PASS persoenliche Nachricht in der Mahnmail :: Bitte beachten Sie die Frist.
+  PASS Einzelschritt vor dem naechsten Termin abgelehnt (409, deutsch) :: 409 Nächste Mahnstufe erst ab 9.10.2026 möglich.
+
+[6 Stufenfolge, Ende der Automatik, Inkasso nur manuell]
+  PASS Vorlagen je Stufe, danach keine automatische Mail :: Zahlungserinnerung > Mahnung > Letzte Mahnung > -
+  PASS Automatik endet bei "Letzte Mahnung" :: final_notice
+  PASS Liste: nicht mehr automatisch faellig, Hinweis Inkasso :: Letzte Mahnung versendet – eine Übergabe an das Inkasso erfolgt nur manuell.
+  PASS Inkasso vor der letzten Mahnung abgelehnt :: 409 Die Übergabe an das Inkasso ist erst nach der Letzten Mahnung möglich.
+  PASS Inkasso manuell: Stufe + Mitteilung :: 200 collection Inkasso
+  PASS nach Inkasso: keine automatische Aktion :: 0 collection
+
+[7 Volle Zahlung beendet das Mahnverfahren]
+  PASS bezahlt: keine Mahnung, nicht in der Liste :: 0 / false
+
+[8 Gespeicherter Mahnlauf wird ueber dieselbe Logik ausgefuehrt]
+  PASS faelliger Fall versendet, nicht faelliger uebersprungen :: 200 sent skipped 
+  PASS genau eine Mail :: 1
+  PASS erneutes Ausfuehren: keine zweite Mail :: 200 0
+  PASS Protokoll verweist auf den Lauf :: manual
+
+[9 Zahlung/Storno waehrend des Mahnversands (Wettlauf)]
+  PASS Vollzahlung waehrend des Versands: Status bleibt "bezahlt" (nicht zurueck auf ueberfaellig) :: paid
+  PASS Mahnstufe nicht erhoeht, Sperre frei :: 0 / none / null
+  PASS Versand trotzdem protokolliert (mit Hinweis) :: 1 / 1 / Stufe nicht übernommen: Die Rechnung wurde während des Versands bezahlt.
+  PASS Ergebnis meldet: versendet, Stufe nicht erhoeht (deutsch) :: Zahlungserinnerung wurde versendet, die Mahnstufe aber nicht erhöht: Die Rechnung wurde während des Versands bezahlt.
+  PASS Teilzahlung waehrend des Versands: Stufe 1, Status bleibt "teilbezahlt" :: partially_paid / 1
+  PASS Storno waehrend des Versands: 409 DUNNING_IN_PROGRESS, Mahnschritt vollstaendig protokolliert :: DUNNING_IN_PROGRESS / 1
+  PASS danach: Storno moeglich :: cancelled
+  PASS Storno in Bearbeitung: keine Mahnung :: skipped Für diese Rechnung ist ein Storno eingeleitet bzw. abgeschlossen – sie wird nicht gemahnt.
+
+==== 48 bestanden, 0 fehlgeschlagen ====

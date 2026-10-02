@@ -18,13 +18,25 @@ router.get('/me', requireUser, async (req, res) => {
 });
 
 // Update current user profile
+// SEC-PROFILE: Nur Selbstbedienungs-Felder. Vorher wurde der gesamte Body uebernommen, damit konnte
+// jeder eingeloggte Kunde role:'admin', status, email, Rabatt, Kundennummer usw. selbst setzen.
+// Rollen/Status/E-Mail aendert nur der Admin ueber /api/admin/users/:id.
+const SELF_EDITABLE_PROFILE_FIELDS = [
+  'firstName', 'lastName', 'name', 'salutation', 'title', 'company', 'phone', 'addressAddition',
+  'newsletter', 'avatar', 'invoiceAddress', 'paymentAddress', 'preferences'
+];
+
 router.put('/me', requireUser, async (req, res) => {
   console.log('Update user profile request received for user:', req.user.email);
-  console.log('Update data:', req.body);
 
   try {
     const userId = req.user._id;
-    const updateData = req.body;
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const updateData = {};
+    SELF_EDITABLE_PROFILE_FIELDS.forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(body, field)) updateData[field] = body[field];
+    });
+    console.log('Update profile fields:', Object.keys(updateData));
 
     // Update the user
     const updatedUser = await UserService.update(userId, updateData);

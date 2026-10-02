@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react"
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from 'react-i18next'
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,7 +26,9 @@ import {
   type ProfitabilitySettingsMeta,
   updateProfitabilitySettings,
 } from "@/api/adminAnalytics"
-import type { ProfitabilityReportParams } from "@/api/adminAnalytics"
+import type { ProfitabilityPeriodFigures, ProfitabilityReportParams } from "@/api/adminAnalytics"
+import { formatMoney } from "@/lib/utils"
+import { parseDecimalInput } from "@/lib/parseDecimalInput"
 import {
   BarChart3,
   CalendarRange,
@@ -44,6 +46,7 @@ import {
   X,
 } from "lucide-react"
 import "./Analytics.css"
+import { READY_NEUTRAL_LABEL } from "@/lib/returnMethod"
 
 type PeriodSummary = {
   label: string
@@ -153,12 +156,8 @@ const buildSettingsMetaFromDraft = (settings: ProfitabilitySettings): Profitabil
   }
 }
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 2,
-  }).format(Number.isFinite(value) ? value : 0)
+// Gemeinsamer Geldformatierer (lib/utils formatMoney): EUR, de-DE.
+const formatCurrency = (value: number) => formatMoney(Number.isFinite(value) ? value : 0, "EUR")
 
 const formatHours = (value: number) => `${roundHours(value).toFixed(1)} h`
 const formatPercent = (value: number) => `${(Number.isFinite(value) ? value : 0).toFixed(1)} %`
@@ -183,7 +182,7 @@ const STATUS_META: Record<string, { label: string; tone: StatusTone }> = {
   "in-progress": { label: "In Arbeit", tone: "info" },
   "quality-check": { label: "Qualitaetspruefung", tone: "warning" },
   "diagnostic-assessment": { label: "Diagnose", tone: "warning" },
-  "ready-for-pickup": { label: "Abholbereit", tone: "success" },
+  "ready-for-pickup": { label: READY_NEUTRAL_LABEL, tone: "success" },
   open: { label: "Offen", tone: "neutral" },
   paid: { label: "Bezahlt", tone: "success" },
   unpaid: { label: "Unbezahlt", tone: "warning" },
@@ -294,6 +293,8 @@ type ProfitabilityColumnId =
   | "status"
   | "grossAmount"
   | "netRevenue"
+  | "invoicedNet"
+  | "collectedGross"
   | "totalCosts"
   | "contributionMargin"
   | "target30Percent"
@@ -430,15 +431,15 @@ const DENSE_VIEW_STORAGE_KEY = "fixithub-profitability-dense-view-v1"
 const ORDER_DETAIL_COLUMNS: OrderDetailColumnDefinition[] = [
   {
     id: "invoiceDate",
-    label: "RG Datum",
-    description: "Rechnungsdatum.",
+    label: "Rechnungsdatum",
+    description: "Datum der ausgestellten Rechnung (– ohne Rechnung).",
     defaultVisible: true,
     cell: (order) => formatDate(order.invoiceDate),
   },
   {
     id: "invoiceNumber",
-    label: "RG Nr.",
-    description: "Rechnungsnummer.",
+    label: "Rechnung Nr.",
+    description: "Nummer der ausgestellten Rechnung (nie eine Gutschrift; – ohne Rechnung).",
     defaultVisible: true,
     cell: (order) => order.invoiceNumber || "-",
   },
@@ -459,16 +460,16 @@ const ORDER_DETAIL_COLUMNS: OrderDetailColumnDefinition[] = [
   },
   {
     id: "grossAmount",
-    label: "RG Brutto",
-    description: "Rechnungsbetrag brutto.",
+    label: "Auftragswert brutto",
+    description: "Auftragswert brutto (wie Auftragsdetail; storniert = 0).",
     defaultVisible: true,
     align: "right",
     cell: (order) => formatCurrency(order.grossAmount ?? 0),
   },
   {
     id: "netAmount",
-    label: "RG Netto",
-    description: "Rechnungsbetrag netto.",
+    label: "Auftragswert netto",
+    description: "Auftragswert netto (brutto ÷ (1 + MwSt.-Satz der Finanzeinstellungen); steuerfrei = brutto).",
     defaultVisible: true,
     align: "right",
     cell: (order) => formatCurrency(order.netAmount ?? order.netRevenue),
@@ -558,8 +559,8 @@ const ORDER_DETAIL_COLUMNS: OrderDetailColumnDefinition[] = [
   },
   {
     id: "contributionMargin",
-    label: "dB",
-    description: "Deckungsbeitrag.",
+    label: "DB (Schätzung)",
+    description: "Deckungsbeitrag – Kosten teilweise kalkuliert.",
     defaultVisible: true,
     align: "right",
     cell: (order) => <span className={(order.contributionMargin ?? order.profit) >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(order.contributionMargin ?? order.profit)}</span>,
@@ -799,8 +800,8 @@ const PROFITABILITY_COLUMNS: ProfitabilityColumnDefinition[] = [
   },
   {
     id: "grossAmount",
-    label: "Umsatz brutto",
-    description: "Bruttoumsatz je Buchung.",
+    label: "Auftragswert brutto",
+    description: "Summe der Auftragswerte brutto (ohne stornierte Aufträge).",
     defaultVisible: true,
     align: "right",
     cell: (row) => formatCurrency(row.grossAmount ?? 0),
@@ -808,12 +809,30 @@ const PROFITABILITY_COLUMNS: ProfitabilityColumnDefinition[] = [
   },
   {
     id: "netRevenue",
-    label: "Erloese netto",
-    description: "Nettoerloes nach Abzug der Steuer.",
+    label: "Auftragswert netto",
+    description: "Auftragswert ohne MwSt. (Satz aus den Finanzeinstellungen; steuerfrei/Reverse Charge = brutto).",
     defaultVisible: true,
     align: "right",
-    cell: (row) => formatCurrency(row.netRevenue),
-    csvValue: (row) => row.netRevenue.toFixed(2),
+    cell: (row) => formatCurrency(row.orderValueNet ?? row.netRevenue),
+    csvValue: (row) => (row.orderValueNet ?? row.netRevenue).toFixed(2),
+  },
+  {
+    id: "invoicedNet",
+    label: "Fakturiert netto",
+    description: "Ausgestellte Rechnungen netto minus wertmindernde Gutschriften (– ohne Rechnung).",
+    defaultVisible: true,
+    align: "right",
+    cell: (row) => (row.hasInvoice || (row.invoicedNet ?? 0) !== 0 ? formatCurrency(row.invoicedNet ?? 0) : "–"),
+    csvValue: (row) => (row.invoicedNet ?? 0).toFixed(2),
+  },
+  {
+    id: "collectedGross",
+    label: "Zahlungseingang brutto",
+    description: "Abgeschlossene Zahlungen minus Erstattungen; jede Zahlung einmal.",
+    defaultVisible: true,
+    align: "right",
+    cell: (row) => formatCurrency(row.collectedGross ?? 0),
+    csvValue: (row) => (row.collectedGross ?? 0).toFixed(2),
   },
   {
     id: "totalCosts",
@@ -826,8 +845,8 @@ const PROFITABILITY_COLUMNS: ProfitabilityColumnDefinition[] = [
   },
   {
     id: "contributionMargin",
-    label: "Deckungsbeitrag",
-    description: "Netto-Umsatz minus Gesamtkosten.",
+    label: "Deckungsbeitrag (Schätzung)",
+    description: "Auftragswert netto minus kalkulierte Kosten – keine Buchhaltungszahl.",
     defaultVisible: true,
     align: "right",
     cell: (row) => <span className={(row.contributionMargin ?? 0) >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(row.contributionMargin ?? 0)}</span>,
@@ -1081,11 +1100,13 @@ const normalizeColumnPreferences = (value: unknown): ProfitabilityColumnPreferen
   return normalized
 }
 
-const aggregateRows = (rows: ProfitabilityBookingRow[]): PeriodSummary => {
+const aggregateRows = (allRows: ProfitabilityBookingRow[]): PeriodSummary => {
+  // Stornierte Buchungen bleiben sichtbar, zaehlen aber in keiner Summe (FIN-7).
+  const rows = allRows.filter((row) => !row.excludedFromTotals)
   const totals = rows.reduce(
     (accumulator, row) => ({
       bookings: accumulator.bookings + 1,
-      netRevenue: accumulator.netRevenue + row.netRevenue,
+      netRevenue: accumulator.netRevenue + (row.orderValueNet ?? row.netRevenue),
       profit: accumulator.profit + row.profit,
     }),
     { bookings: 0, netRevenue: 0, profit: 0 },
@@ -1103,14 +1124,31 @@ const aggregateRows = (rows: ProfitabilityBookingRow[]): PeriodSummary => {
 const isSameMonth = (date: Date, now: Date) => date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()
 const isSameQuarter = (date: Date, now: Date) => date.getFullYear() === now.getFullYear() && Math.floor(date.getMonth() / 3) === Math.floor(now.getMonth() / 3)
 
+// Meldet ungueltige Eingaben eines NumberField an den Dialog: "Einstellungen speichern"
+// bleibt gesperrt, solange ein Feld einen Fehler zeigt (sonst wuerde still der letzte
+// gueltige Wert gespeichert, waehrend das Feld etwas anderes anzeigt).
+const SettingsFieldValidityContext = createContext<((fieldId: string, invalid: boolean) => void) | null>(null)
+
+// "2.600" ist im Deutschen eine Tausendergruppierung, parseDecimalInput liest es als 2,6.
+// Bei Betragsfeldern wird eine solche Eingabe als mehrdeutig abgelehnt statt 1000-fach zu klein gespeichert.
+const AMBIGUOUS_THOUSANDS_PATTERN = /^[+-]?\d{1,3}(\.\d{3})+$/
+
+/**
+ * SP-9/SET-6: Zahlenfeld mit Text-Entwurf. Frueher wurde ein type="number"-Feld mit der
+ * geparsten Zahl gesteuert - "0,02" wurde in deutschem Chrome zu 2 (= 200 %).
+ * - percent: Wert wird als Prozent gezeigt/eingegeben (2 = 2 %), gespeichert als Bruch 0,02.
+ * - unit: Einheit hinter dem Feld (€, h, Min., Tage, %, Faktor).
+ * Ungueltige Eingaben werden nicht uebernommen, sondern mit Hinweis markiert.
+ */
 function NumberField({
   id,
   label,
   value,
-  step = "0.01",
   min,
   max,
   description,
+  unit,
+  percent = false,
   onChange,
 }: {
   id: string
@@ -1120,21 +1158,69 @@ function NumberField({
   min?: number
   max?: number
   description?: string
+  unit?: string
+  percent?: boolean
   onChange: (value: number) => void
 }) {
+  const toDisplay = (num: number) => {
+    if (!Number.isFinite(num)) return ""
+    const shown = percent ? Math.round(num * 100 * 1000) / 1000 : num
+    return String(shown).replace(".", ",")
+  }
+  const [draft, setDraft] = useState(() => toDisplay(value))
+  const [focused, setFocused] = useState(false)
+  const [error, setError] = useState("")
+  const reportValidity = useContext(SettingsFieldValidityContext)
+  useEffect(() => {
+    // Eine ungueltige Eingabe bleibt sichtbar (mit Hinweis), statt beim Verlassen des
+    // Felds still durch den letzten gueltigen Wert ersetzt zu werden.
+    if (!focused && !error) setDraft(toDisplay(value))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, focused, percent])
+  useEffect(() => {
+    reportValidity?.(id, Boolean(error))
+  }, [error, id, reportValidity])
+  useEffect(() => () => reportValidity?.(id, false), [id, reportValidity])
+
+  const displayMin = min === undefined ? undefined : percent ? min * 100 : min
+  const displayMax = max === undefined ? undefined : percent ? max * 100 : max
+
+  const handleChange = (text: string) => {
+    setDraft(text)
+    const isAmountField = !percent && (unit === "€" || displayMax === undefined || displayMax >= 1000)
+    if (isAmountField && AMBIGUOUS_THOUSANDS_PATTERN.test(text.replace(/\s+/g, ""))) {
+      setError("Bitte ohne Tausenderpunkt eingeben, z. B. 2600 oder 2600,50.")
+      return
+    }
+    const parsed = parseDecimalInput(text)
+    if (parsed === null) {
+      setError(percent ? "Bitte eine Zahl eingeben, z. B. 2 für 2 %." : "Bitte eine Zahl eingeben, z. B. 0,5.")
+      return
+    }
+    if ((displayMin !== undefined && parsed < displayMin) || (displayMax !== undefined && parsed > displayMax)) {
+      setError(`Erlaubt: ${String(displayMin ?? "–").replace(".", ",")} bis ${String(displayMax ?? "–").replace(".", ",")}${unit ? ` ${unit}` : ""}.`)
+      return
+    }
+    setError("")
+    onChange(percent ? Math.round((parsed / 100) * 100000) / 100000 : parsed)
+  }
+
   return (
     <div className="analytics-settings-field">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id}>{label}{unit ? ` (${unit})` : ""}</Label>
       <Input
         id={id}
-        type="number"
-        step={step}
-        min={min}
-        max={max}
-        value={String(Number.isFinite(value) ? value : 0)}
-        onChange={(event) => onChange(Number(event.target.value || 0))}
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        aria-invalid={Boolean(error)}
+        aria-describedby={description ? `${id}-help` : undefined}
+        onFocus={() => setFocused(true)}
+        onBlur={() => { setFocused(false); if (!error) setDraft(toDisplay(value)) }}
+        onChange={(event) => handleChange(event.target.value)}
       />
-      {description ? <p>{description}</p> : null}
+      {error ? <p className="analytics-settings-error" role="alert" style={{ color: "#b91c1c" }}>{error}</p> : null}
+      {description ? <p id={`${id}-help`}>{description}</p> : null}
     </div>
   )
 }
@@ -1283,6 +1369,17 @@ export function Analytics() {
   const [refreshing, setRefreshing] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Ungueltige Felder im Einstellungsdialog (Speichern gesperrt) und Schluessel zum
+  // Zuruecksetzen aller Feldentwuerfe bei "Änderungen verwerfen".
+  const [invalidSettingFields, setInvalidSettingFields] = useState<string[]>([])
+  const [settingsFormKey, setSettingsFormKey] = useState(0)
+  const reportSettingValidity = useCallback((fieldId: string, invalid: boolean) => {
+    setInvalidSettingFields((current) => {
+      const has = current.includes(fieldId)
+      if (invalid) return has ? current : [...current, fieldId]
+      return has ? current.filter((entry) => entry !== fieldId) : current
+    })
+  }, [])
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [orderColumnsOpen, setOrderColumnsOpen] = useState(false)
   const [rows, setRows] = useState<ProfitabilityBookingRow[]>([])
@@ -1297,7 +1394,14 @@ export function Analytics() {
   const [settingsDraft, setSettingsDraft] = useState<ProfitabilitySettings>(DEFAULT_SETTINGS)
   const [settingsMeta, setSettingsMeta] = useState<ProfitabilitySettingsMeta>(DEFAULT_SETTINGS_META)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  // FIN-7: Standard "Ohne Stornierte" - stornierte Buchungen zaehlen in keiner Summe.
+  const [statusFilter, setStatusFilter] = useState("active")
+  const [periodFigures, setPeriodFigures] = useState<ProfitabilityPeriodFigures | null>(null)
+  const [reportTruncated, setReportTruncated] = useState<{ truncated: boolean; matching: number }>({ truncated: false, matching: 0 })
+  const [figureDefinitions, setFigureDefinitions] = useState<Record<string, string>>({})
+  const [vatRatePercent, setVatRatePercent] = useState<number | null>(null)
+  // Laden / Fehler getrennt: ein Fehler zeigt nie "0 €" als waere es ein Ergebnis.
+  const [reportError, setReportError] = useState("")
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
@@ -1361,11 +1465,16 @@ export function Analytics() {
       }
 
       const response = await getProfitabilityReport({
-        limit: 500,
+        limit: 2000,
         startDate: params?.startDate ?? (dateFrom || null),
         endDate: params?.endDate ?? (dateTo || null),
       })
       const nextRows = Array.isArray(response?.rows) ? response.rows : []
+      setReportError("")
+      setPeriodFigures(response?.periodFigures || null)
+      setReportTruncated({ truncated: Boolean(response?.truncated), matching: Number(response?.matchingBookingCount || nextRows.length) })
+      setFigureDefinitions(response?.calculationMeta?.figures || {})
+      setVatRatePercent(Number.isFinite(Number(response?.calculationMeta?.vatRate)) ? Math.round(Number(response?.calculationMeta?.vatRate) * 10000) / 100 : null)
       const nextSettings = response?.settings || DEFAULT_SETTINGS
       const nextMeta = response?.settingsMeta || DEFAULT_SETTINGS_META
       const nextPeriodSummary = response?.periodSummary || null
@@ -1383,6 +1492,7 @@ export function Analytics() {
         })
       }
     } catch (error: any) {
+      setReportError(error?.message || "Unbekannter Fehler")
       toast({
         variant: "destructive",
         title: t('common.error'),
@@ -1448,12 +1558,12 @@ export function Analytics() {
             String(order.device || "").toLowerCase().includes(normalizedSearch),
         )
 
-      const matchesStatus = statusFilter === "all" || row.status === statusFilter
+      const matchesStatus = statusFilter === "all"
+        || (statusFilter === "active" ? row.status !== "cancelled" : row.status === statusFilter)
       return matchesSearch && matchesStatus
     })
   }, [rows, searchTerm, statusFilter])
 
-  const totals = useMemo(() => aggregateRows(filteredRows), [filteredRows])
   const controllingTotals = useMemo(() => {
     return filteredRows.reduce(
       (acc, row) => ({
@@ -1813,19 +1923,23 @@ export function Analytics() {
     try {
       setSavingSettings(true)
       const sanitizedSettings = sanitizeSettingsDraft(settingsDraft)
-      setSettingsDraft(sanitizedSettings)
-      await updateProfitabilitySettings(sanitizedSettings)
-      setSettings(sanitizedSettings)
+      const response = await updateProfitabilitySettings(sanitizedSettings)
+      // FIN-8/SET-2: Werte aus der NEU GELESENEN Serverantwort uebernehmen, nicht aus dem
+      // Entwurf - so ist sichtbar, was tatsaechlich gespeichert wurde.
+      const saved = response?.settings || sanitizedSettings
+      setSettings(saved)
+      setSettingsDraft(saved)
       await loadReport(false)
       setSettingsOpen(false)
       toast({
         title: t('common.success'),
-        description: "Die Rentabilitaetsparameter wurden im Backend aktualisiert.",
+        description: "Gespeichert – Auswertung mit neuen Werten berechnet.",
       })
     } catch (error: any) {
+      // Eingaben bleiben im Dialog erhalten.
       toast({
         variant: "destructive",
-        title: t('common.error'),
+        title: "Einstellungen nicht gespeichert",
         description: error?.message || "Unbekannter Fehler",
       })
     } finally {
@@ -1853,7 +1967,7 @@ export function Analytics() {
               Rentabilitaet pro Buchung und Auftrag
             </h1>
             <p>
-              Die Tabelle nutzt jetzt echte Zeiterfassungsdaten aus WorkSessions, reale E-Part-Einstandskosten aus dem Lager und eine zentrale Backend-Konfiguration fuer Gemeinkosten, Abschreibung und Risikoreserven.
+              Drei getrennte Kennzahlen: Auftragswert (was beauftragt ist), Fakturiert (was in Rechnung gestellt ist) und Zahlungseingang (was bezahlt ist). Kosten und Deckungsbeitrag sind kalkuliert (Zeiterfassung, Teilekosten, Pauschalen) und keine Buchhaltungszahl.
             </p>
           </div>
 
@@ -1873,35 +1987,94 @@ export function Analytics() {
           </div>
         </section>
 
+        {/* FIN-7: drei ausdrücklich benannte, getrennte Kennzahlen + Schätzung klar gekennzeichnet. */}
+        <p className="analytics-figure-scope" style={{ fontSize: 13, color: "#475569", margin: "0 0 8px" }}>
+          Zeitraum: {dateFrom || dateTo
+            ? `${dateFrom ? formatDate(dateFrom) : "Beginn"} – ${dateTo ? formatDate(dateTo) : "heute"}`
+            : "gesamter Bestand"}
+          {" · "}Die Kennzahlen beziehen sich auf den Zeitraum; Suche und Statusfilter wirken nur auf die Tabelle.
+          {vatRatePercent !== null ? ` · Netto mit ${String(vatRatePercent).replace(".", ",")} % MwSt. (Finanzeinstellungen).` : ""}
+        </p>
+        {reportError && (
+          <div role="alert" style={{ border: "1px solid #fecaca", background: "#fef2f2", color: "#991b1b", borderRadius: 8, padding: "10px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <span>Die Auswertung konnte nicht geladen werden: {reportError}</span>
+            <Button type="button" variant="outline" size="sm" onClick={() => loadReport(true)}>Erneut versuchen</Button>
+          </div>
+        )}
+        {reportTruncated.truncated && (
+          <div role="status" style={{ border: "1px solid #fde68a", background: "#fffbeb", color: "#92400e", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
+            Es wurden {rows.length} von {reportTruncated.matching} Buchungen geladen. Bitte den Zeitraum eingrenzen, damit alle Buchungen in die Tabelle eingehen.
+          </div>
+        )}
         <section className="analytics-kpi-grid">
-          <Card className="analytics-kpi-card analytics-kpi-card-primary">
+          <Card className="analytics-kpi-card analytics-kpi-card-primary" title={figureDefinitions.orderValueNet || undefined}>
             <CardHeader>
               <CardTitle>
                 <Wallet className="h-4 w-4" />
-                {t('analyticsPage.revenue')}
+                Auftragswert (netto)
               </CardTitle>
-              <CardDescription>Gefilterte Backend-Auswertung</CardDescription>
+              <CardDescription>Wert der Aufträge, ohne stornierte Buchungen</CardDescription>
             </CardHeader>
             <CardContent>
-              <strong>{formatCurrency(totals.netRevenue)}</strong>
-              <span>{filteredRows.length} Buchungen im aktuellen Filter</span>
+              <strong>{periodFigures ? formatCurrency(periodFigures.orderValueNet) : "–"}</strong>
+              <span>brutto {periodFigures ? formatCurrency(periodFigures.orderValueGross) : "–"}</span>
             </CardContent>
           </Card>
 
-          <Card className="analytics-kpi-card">
+          <Card className="analytics-kpi-card" title={figureDefinitions.invoicedNet || undefined}>
+            <CardHeader>
+              <CardTitle>
+                <BarChart3 className="h-4 w-4" />
+                Fakturiert (netto)
+              </CardTitle>
+              <CardDescription>Ausgestellte Rechnungen minus Gutschriften (Belegdatum)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <strong>{periodFigures ? formatCurrency(periodFigures.invoicedNet) : "–"}</strong>
+              <span>
+                {periodFigures
+                  ? `brutto ${formatCurrency(periodFigures.invoicedGross)} · ${periodFigures.invoiceCount} Rechnungen${periodFigures.creditNoteCount ? `, ${periodFigures.creditNoteCount} Gutschriften` : ""}`
+                  : "–"}
+              </span>
+            </CardContent>
+          </Card>
+
+          <Card className="analytics-kpi-card" title={figureDefinitions.collectedGross || undefined}>
+            <CardHeader>
+              <CardTitle>
+                <Wallet className="h-4 w-4" />
+                Zahlungseingang (brutto)
+              </CardTitle>
+              <CardDescription>Abgeschlossene Zahlungen minus Erstattungen</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <strong>{periodFigures ? formatCurrency(periodFigures.collectedGross) : "–"}</strong>
+              <span>{periodFigures ? `${periodFigures.paymentCount} Zahlungen` : "–"}</span>
+            </CardContent>
+          </Card>
+
+          <Card className="analytics-kpi-card" title={figureDefinitions.marginPercentOnInvoiced || undefined}>
             <CardHeader>
               <CardTitle>
                 <TrendingUp className="h-4 w-4" />
-                Gewinn / Verlust
+                Deckungsbeitrag (Schätzung)
               </CardTitle>
-              <CardDescription>Nach echter Zeit und Kostenkonfiguration</CardDescription>
+              <CardDescription>Kosten teilweise kalkuliert – keine Buchhaltungszahl</CardDescription>
             </CardHeader>
             <CardContent>
-              <strong className={totals.profit >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(totals.profit)}</strong>
-              <span>{formatPercent(totals.marginPercent)} Umsatzrentabilitaet</span>
+              <strong className={(periodFigures?.estimatedContributionMargin ?? 0) >= 0 ? "analytics-positive" : "analytics-negative"}>
+                {periodFigures ? formatCurrency(periodFigures.estimatedContributionMargin) : "–"}
+              </strong>
+              <span>
+                {periodFigures && periodFigures.marginPercentOnInvoiced !== null
+                  ? `${formatPercent(periodFigures.marginPercentOnInvoiced)} Marge auf fakturiertem Netto (${periodFigures.invoicedBookingCount} Buchungen mit Rechnung)`
+                  : "Noch keine Rechnung im Zeitraum – Marge nicht berechenbar"}
+              </span>
             </CardContent>
           </Card>
+        </section>
 
+        <section className="analytics-kpi-grid">
           <Card className="analytics-kpi-card">
             <CardHeader>
               <CardTitle>
@@ -1912,7 +2085,7 @@ export function Analytics() {
             </CardHeader>
             <CardContent>
               <strong>{formatHours(filteredRows.reduce((sum, row) => sum + row.actualHours, 0))}</strong>
-              <span>{formatHours(filteredRows.reduce((sum, row) => sum + row.varianceHours, 0))} Abweichung gesamt</span>
+              <span>{formatHours(filteredRows.reduce((sum, row) => sum + row.varianceHours, 0))} Abweichung gesamt (Tabellenfilter)</span>
             </CardContent>
           </Card>
 
@@ -1920,9 +2093,9 @@ export function Analytics() {
             <CardHeader>
               <CardTitle>
                 <Filter className="h-4 w-4" />
-                Profitabel
+                Positiver Deckungsbeitrag
               </CardTitle>
-              <CardDescription>Anteil positiver Buchungen</CardDescription>
+              <CardDescription>Anteil der Buchungen im Tabellenfilter (Schätzung)</CardDescription>
             </CardHeader>
             <CardContent>
               <strong>{formatPercent(profitabilityShare)}</strong>
@@ -1944,11 +2117,11 @@ export function Analytics() {
               </CardHeader>
               <CardContent>
                 <div className="analytics-period-metric">
-                  <span>{t('analyticsPage.revenue')}</span>
+                  <span>Auftragswert netto</span>
                   <strong>{formatCurrency(card.netRevenue)}</strong>
                 </div>
                 <div className="analytics-period-metric">
-                  <span>Ergebnis</span>
+                  <span>Deckungsbeitrag (Schätzung)</span>
                   <strong className={card.profit >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(card.profit)}</strong>
                 </div>
                 <div className="analytics-period-footer">
@@ -2047,8 +2220,9 @@ export function Analytics() {
 
               <label className="analytics-select-field">
                 <Filter className="h-4 w-4" />
-                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                  <option value="all">{t('common.selectStatus')}</option>
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Statusfilter">
+                  <option value="active">Ohne Stornierte</option>
+                  <option value="all">Alle (inkl. stornierte)</option>
                   {statusOptions.map((option) => (
                     <option key={option} value={option}>
                         {getStatusMeta(option).label}
@@ -2131,11 +2305,20 @@ export function Analytics() {
 
           <CardContent>
             {filteredRows.length === 0 ? (
+              reportError ? (
+                <div className="analytics-empty-state" role="alert">
+                  <BarChart3 className="h-12 w-12" />
+                  <h3>Die Auswertung konnte nicht geladen werden.</h3>
+                  <p>{reportError}</p>
+                  <Button type="button" variant="outline" onClick={() => loadReport(true)}>Erneut versuchen</Button>
+                </div>
+              ) : (
               <div className="analytics-empty-state">
                 <BarChart3 className="h-12 w-12" />
-                <h3>Keine Buchungen im aktuellen Filter</h3>
-                <p>Pruefe Suchbegriff oder Statusfilter und aktualisiere die Ansicht bei Bedarf.</p>
+                <h3>{rows.length === 0 ? "Noch keine Buchungen im Zeitraum" : "Keine Buchungen im aktuellen Filter"}</h3>
+                <p>{rows.length === 0 ? "Zeitraum anpassen oder später erneut laden." : "Suchbegriff oder Statusfilter prüfen."}</p>
               </div>
+              )
             ) : (
               <>
                 <div className="analytics-controlling-summary">
@@ -2183,10 +2366,12 @@ export function Analytics() {
                       <TableRow className="analytics-profit-table-head">
                         <TableHead>Buchung</TableHead>
                         <TableHead>Datum / Kunde</TableHead>
-                        <TableHead className="text-right">Brutto</TableHead>
-                        <TableHead className="text-right">Netto</TableHead>
-                        <TableHead>Kostenbloecke</TableHead>
-                        <TableHead className="text-right">Deckungsbeitrag</TableHead>
+                        <TableHead className="text-right">Auftragswert brutto</TableHead>
+                        <TableHead className="text-right">Auftragswert netto</TableHead>
+                        <TableHead className="text-right">Fakturiert netto</TableHead>
+                        <TableHead className="text-right">Zahlungseingang</TableHead>
+                        <TableHead>Kostenblöcke (kalkuliert)</TableHead>
+                        <TableHead className="text-right">DB (Schätzung)</TableHead>
                         <TableHead className="text-right">Rentabilitaet</TableHead>
                         <TableHead className="text-right">30% Referenz</TableHead>
                         <TableHead className="text-right">Diff.</TableHead>
@@ -2203,23 +2388,29 @@ export function Analytics() {
                               <TableCell>
                                 <div className="analytics-profit-booking">
                                   <strong>{row.bookingNumber}</strong>
-                                  <span>{row.orderCount} Auftraege</span>
+                                  <span>{row.orderCount} Aufträge</span>
                                   <StatusBadge status={row.status} />
+                                  {row.excludedFromTotals ? <span style={{ fontSize: 11, color: "#92400e" }}>zählt nicht (storniert)</span> : null}
                                 </div>
                               </TableCell>
                               <TableCell>
                                 <div className="analytics-profit-customer">
-                                  <strong>{formatDate(row.invoiceDate || row.bookingDate)}</strong>
+                                  <strong>{formatDate(row.bookingDate)}</strong>
                                   <span>{row.customerName}</span>
                                   <span>{row.customerGroup}</span>
+                                  {row.invoiceNumber && row.invoiceNumber !== "-" ? <span>Rechnung {row.invoiceNumber} vom {formatDate(row.invoiceDate)}</span> : <span>Noch keine Rechnung</span>}
                                 </div>
                               </TableCell>
                               <TableCell className="text-right">
                                 <strong>{formatCurrency(row.grossAmount ?? 0)}</strong>
                               </TableCell>
                               <TableCell className="text-right">
-                                <strong>{formatCurrency(row.netAmount ?? row.netRevenue)}</strong>
+                                <strong>{formatCurrency(row.orderValueNet ?? row.netAmount ?? row.netRevenue)}</strong>
                               </TableCell>
+                              <TableCell className="text-right">
+                                {row.hasInvoice || (row.invoicedNet ?? 0) !== 0 ? formatCurrency(row.invoicedNet ?? 0) : "–"}
+                              </TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.collectedGross ?? 0)}</TableCell>
                               <TableCell>
                                 <div className="analytics-cost-blocks">
                                   <span>Technik: {formatCurrency(row.technicianCost ?? row.laborCost)}</span>
@@ -2253,14 +2444,14 @@ export function Analytics() {
 
                             {isExpanded ? (
                               <TableRow className="analytics-profit-detail-row">
-                                <TableCell colSpan={10}>
+                                <TableCell colSpan={12}>
                                   <div className="analytics-profit-detail-panel">
                                     <div className="analytics-profit-detail-table-wrapper">
                                       <table className="analytics-profit-detail-table">
                                         <thead>
                                           <tr>
                                             <th>Rechnung</th>
-                                            <th>Netto-Umsatz</th>
+                                            <th>Auftragswert netto</th>
                                             <th>Gesamtkosten</th>
                                             <th>Technikerkosten</th>
                                             <th>DHL / Versand</th>
@@ -2323,7 +2514,7 @@ export function Analytics() {
                           <div>
                             <strong>{row.bookingNumber}</strong>
                             <span>{row.customerName}</span>
-                            <span>{formatDate(row.invoiceDate || row.bookingDate)}</span>
+                            <span>{formatDate(row.bookingDate)}</span>
                           </div>
                           <div className="analytics-mobile-card-header-actions">
                             <StatusBadge status={row.status} />
@@ -2333,15 +2524,23 @@ export function Analytics() {
 
                         <div className="analytics-mobile-card-metrics">
                           <div>
-                            <span>Brutto</span>
+                            <span>Auftragswert brutto</span>
                             <strong>{formatCurrency(row.grossAmount ?? 0)}</strong>
                           </div>
                           <div>
-                            <span>Netto</span>
-                            <strong>{formatCurrency(row.netAmount ?? row.netRevenue)}</strong>
+                            <span>Auftragswert netto</span>
+                            <strong>{formatCurrency(row.orderValueNet ?? row.netAmount ?? row.netRevenue)}</strong>
                           </div>
                           <div>
-                            <span>Deckungsbeitrag</span>
+                            <span>Fakturiert netto</span>
+                            <strong>{row.hasInvoice || (row.invoicedNet ?? 0) !== 0 ? formatCurrency(row.invoicedNet ?? 0) : "–"}</strong>
+                          </div>
+                          <div>
+                            <span>Zahlungseingang</span>
+                            <strong>{formatCurrency(row.collectedGross ?? 0)}</strong>
+                          </div>
+                          <div>
+                            <span>DB (Schätzung)</span>
                             <strong className={(row.contributionMargin ?? row.profit) >= 0 ? "analytics-positive" : "analytics-negative"}>{formatCurrency(row.contributionMargin ?? row.profit)}</strong>
                           </div>
                           <div>
@@ -2570,13 +2769,17 @@ export function Analytics() {
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="analytics-settings-dialog">
           <DialogHeader>
-            <DialogTitle>Rentabilitaets-Einstellungen</DialogTitle>
+            <DialogTitle>Einstellungen der Auswertung</DialogTitle>
             <DialogDescription>
-              Alle Parameter dieser Tabelle werden zentral im Backend gespeichert und bei der naechsten Berechnung sofort verwendet.
+              Wirkt nur auf die Auswertung „Analysen“. Rechnungen, Preise und Aufträge bleiben unverändert. Die Auswertung wird bei jedem Laden mit den aktuellen Werten neu berechnet – auch für vergangene Zeiträume.
             </DialogDescription>
           </DialogHeader>
+          <p style={{ fontSize: 12, color: "#475569", margin: "0 0 4px" }}>
+            Quoten werden in Prozent eingegeben (2 = 2 %). Mehrwertsteuer: {vatRatePercent !== null ? `${String(vatRatePercent).replace(".", ",")} %` : "–"} aus den Finanzeinstellungen (dort änderbar).
+          </p>
 
-          <Tabs defaultValue="labor" className="analytics-settings-tabs">
+          <SettingsFieldValidityContext.Provider value={reportSettingValidity}>
+          <Tabs key={settingsFormKey} defaultValue="labor" className="analytics-settings-tabs">
             <TabsList className="analytics-settings-tab-list">
               <TabsTrigger value="labor">Zeit</TabsTrigger>
               <TabsTrigger value="materials">Material</TabsTrigger>
@@ -2589,31 +2792,42 @@ export function Analytics() {
               <NumberField
                 id="labor-rate"
                 label="Stundensatz"
+                unit="€ pro Stunde"
+                min={0}
+                max={1000}
                 value={settingsDraft.labor.defaultHourlyRate}
-                description="Basis fuer Arbeitszeitkosten pro effektiver Stunde."
+                description="Kosten einer erfassten Arbeitsstunde (Technikerkosten = Ist-Stunden × Satz)."
                 onChange={(value) => updateLaborNumber("defaultHourlyRate", value)}
               />
               <NumberField
                 id="labor-progress"
-                label="Fallback Fortschrittsgewicht"
+                label="Fallback-Fortschrittsgewicht"
+                unit="%"
+                percent
+                min={0}
+                max={1}
                 value={settingsDraft.labor.fallbackProgressWeight}
-                step="0.01"
-                description="Minimaler Faktor fuer noch nicht vollstaendig erfasste Auftraege."
+                description="Nur ohne Zeiterfassung: Anteil der Sollzeit, der für laufende Aufträge angesetzt wird."
                 onChange={(value) => updateLaborNumber("fallbackProgressWeight", value)}
               />
               <NumberField
                 id="labor-minimum"
-                label="Minimaler Progressfaktor"
+                label="Minimaler Fortschrittsfaktor"
+                unit="%"
+                percent
+                min={0}
+                max={1}
                 value={settingsDraft.labor.minimumProgressFactor}
-                step="0.01"
-                description="Untergrenze fuer die Fallback-Stundenableitung."
+                description="Untergrenze der Sollzeit-Schätzung, wenn keine Zeit erfasst ist."
                 onChange={(value) => updateLaborNumber("minimumProgressFactor", value)}
               />
               <NumberField
                 id="labor-product"
-                label="Produkt-Handling in Minuten"
+                label="Produkt-Handling"
+                unit="Min. je Produkt"
+                min={0}
+                max={600}
                 value={settingsDraft.labor.productHandlingMinutes}
-                step="1"
                 description="Sollzeit pro Shop-Produkt im Auftrag."
                 onChange={(value) => updateLaborNumber("productHandlingMinutes", value)}
               />
@@ -2634,45 +2848,65 @@ export function Analytics() {
             <TabsContent value="materials" className="analytics-settings-grid">
               <NumberField
                 id="repair-base"
-                label="Repair Material Basisrate"
+                label="Material-Basisquote Reparatur"
+                unit="%"
+                percent
+                min={0}
+                max={1}
                 value={settingsDraft.materials.repairMaterialBaseRate}
-                step="0.01"
-                description="Fallback nur wenn keine echten Teilekosten vorliegen."
+                description="Anteil vom Auftragswert netto – nur wenn keine echten Teilekosten vorliegen."
                 onChange={(value) => updateMaterialsNumber("repairMaterialBaseRate", value)}
               />
               <NumberField
                 id="repair-service"
                 label="Zuschlag pro Service"
+                unit="%"
+                percent
+                min={0}
+                max={1}
+                description="Zusätzliche Materialquote je Service (Fallback ohne Teilekosten)."
                 value={settingsDraft.materials.repairMaterialPerServiceRate}
-                step="0.01"
                 onChange={(value) => updateMaterialsNumber("repairMaterialPerServiceRate", value)}
               />
               <NumberField
                 id="repair-min"
-                label="Minimale Repairrate"
+                label="Minimale Materialquote"
+                unit="%"
+                percent
+                min={0}
+                max={1}
                 value={settingsDraft.materials.minimumRepairMaterialRate}
-                step="0.01"
                 onChange={(value) => updateMaterialsNumber("minimumRepairMaterialRate", value)}
               />
               <NumberField
                 id="repair-max"
-                label="Maximale Repairrate"
+                label="Maximale Materialquote"
+                unit="%"
+                percent
+                min={0}
+                max={1}
                 value={settingsDraft.materials.maximumRepairMaterialRate}
-                step="0.01"
                 onChange={(value) => updateMaterialsNumber("maximumRepairMaterialRate", value)}
               />
               <NumberField
                 id="product-rate"
                 label="Produkt-Materialquote"
+                unit="%"
+                percent
+                min={0}
+                max={1}
                 value={settingsDraft.materials.productMaterialRate}
-                step="0.01"
                 onChange={(value) => updateMaterialsNumber("productMaterialRate", value)}
               />
               <NumberField
                 id="product-fallback"
-                label="Shop-Produkt Kostenfallback"
+                label="Einkaufsquote Shop-Produkte"
+                unit="% vom Verkaufspreis"
+                percent
+                min={0}
+                max={1}
+                description="Kalkulierter Einkaufspreis je verkauftem Shop-Produkt."
                 value={settingsDraft.materials.fallbackShopProductCostRate}
-                step="0.01"
                 onChange={(value) => updateMaterialsNumber("fallbackShopProductCostRate", value)}
               />
               <ToggleField
@@ -2690,8 +2924,12 @@ export function Analytics() {
               <NumberField
                 id="subcontracting-rate"
                 label="Fremdleistungsquote"
+                unit="%"
+                percent
+                min={0}
+                max={1}
+                description="Anteil vom Auftragswert netto, wenn ein Fremdleistungs-Stichwort passt."
                 value={settingsDraft.subcontracting.defaultRate}
-                step="0.01"
                 onChange={(value) => updateSubcontractingNumber("defaultRate", value)}
               />
               <TextField
@@ -2712,17 +2950,20 @@ export function Analytics() {
             </TabsContent>
 
             <TabsContent value="overhead" className="analytics-settings-grid">
-              <NumberField id="rent" label="Miete pro Monat" value={settingsDraft.overhead.monthlyRent} onChange={(value) => updateOverheadNumber("monthlyRent", value)} />
-              <NumberField id="utilities" label="Nebenkosten pro Monat" value={settingsDraft.overhead.monthlyUtilities} onChange={(value) => updateOverheadNumber("monthlyUtilities", value)} />
-              <NumberField id="admin-payroll" label="Admin-Personal pro Monat" value={settingsDraft.overhead.monthlyAdminPayroll} onChange={(value) => updateOverheadNumber("monthlyAdminPayroll", value)} />
-              <NumberField id="software" label="Software pro Monat" value={settingsDraft.overhead.monthlySoftware} onChange={(value) => updateOverheadNumber("monthlySoftware", value)} />
-              <NumberField id="insurance" label="Versicherung pro Monat" value={settingsDraft.overhead.monthlyInsurance} onChange={(value) => updateOverheadNumber("monthlyInsurance", value)} />
-              <NumberField id="marketing" label="Marketing pro Monat" value={settingsDraft.overhead.monthlyMarketing} onChange={(value) => updateOverheadNumber("monthlyMarketing", value)} />
-              <NumberField id="other-fixed" label="Sonstige Fixkosten pro Monat" value={settingsDraft.overhead.monthlyOtherFixedCosts} onChange={(value) => updateOverheadNumber("monthlyOtherFixedCosts", value)} />
-              <NumberField id="billable-hours" label="Ziel-Billable-Hours pro Monat" value={settingsDraft.overhead.targetMonthlyBillableHours} step="1" onChange={(value) => updateOverheadNumber("targetMonthlyBillableHours", value)} />
-              <NumberField id="depreciation" label="Abschreibung pro Monat" value={settingsDraft.depreciation.monthlyEquipmentDepreciation} onChange={(value) => updateDepreciationNumber("monthlyEquipmentDepreciation", value)} />
-              <NumberField id="packaging" label="Verpackungsquote" value={settingsDraft.otherCosts.packagingRate} step="0.01" onChange={(value) => updateOtherCostsNumber("packagingRate", value)} />
-              <NumberField id="payment-fee" label="Zahlungsgebuehrenquote" value={settingsDraft.otherCosts.paymentFeeRate} step="0.01" onChange={(value) => updateOtherCostsNumber("paymentFeeRate", value)} />
+              <NumberField id="rent" label="Miete pro Monat" unit="€" min={0} max={10000000} value={settingsDraft.overhead.monthlyRent} onChange={(value) => updateOverheadNumber("monthlyRent", value)} />
+              <NumberField id="utilities" label="Nebenkosten pro Monat" unit="€" min={0} max={10000000} value={settingsDraft.overhead.monthlyUtilities} onChange={(value) => updateOverheadNumber("monthlyUtilities", value)} />
+              <NumberField id="admin-payroll" label="Admin-Personal pro Monat" unit="€" min={0} max={10000000} value={settingsDraft.overhead.monthlyAdminPayroll} onChange={(value) => updateOverheadNumber("monthlyAdminPayroll", value)} />
+              <NumberField id="software" label="Software pro Monat" unit="€" min={0} max={10000000} value={settingsDraft.overhead.monthlySoftware} onChange={(value) => updateOverheadNumber("monthlySoftware", value)} />
+              <NumberField id="insurance" label="Versicherung pro Monat" unit="€" min={0} max={10000000} value={settingsDraft.overhead.monthlyInsurance} onChange={(value) => updateOverheadNumber("monthlyInsurance", value)} />
+              <NumberField id="marketing" label="Marketing pro Monat" unit="€" min={0} max={10000000} value={settingsDraft.overhead.monthlyMarketing} onChange={(value) => updateOverheadNumber("monthlyMarketing", value)} />
+              <NumberField id="other-fixed" label="Sonstige Fixkosten pro Monat" unit="€" min={0} max={10000000} value={settingsDraft.overhead.monthlyOtherFixedCosts} onChange={(value) => updateOverheadNumber("monthlyOtherFixedCosts", value)} />
+              <NumberField id="billable-hours" label="Verrechenbare Stunden pro Monat (Ziel)" unit="h" min={1} max={100000} description="Verteilt die monatlichen Fixkosten auf Arbeitsstunden (Gemeinkosten je Stunde)." value={settingsDraft.overhead.targetMonthlyBillableHours} onChange={(value) => updateOverheadNumber("targetMonthlyBillableHours", value)} />
+              <NumberField id="depreciation" label="Abschreibung pro Monat" unit="€" min={0} max={10000000} value={settingsDraft.depreciation.monthlyEquipmentDepreciation} onChange={(value) => updateDepreciationNumber("monthlyEquipmentDepreciation", value)} />
+              <NumberField id="packaging" label="Verpackungsquote" unit="%" percent min={0} max={1} description="Anteil vom Auftragswert netto." value={settingsDraft.otherCosts.packagingRate} onChange={(value) => updateOtherCostsNumber("packagingRate", value)} />
+              <NumberField id="payment-fee" label="Zahlungsgebührenquote" unit="%" percent min={0} max={1} description="Nur wenn das Zahlungs-Gateway keine eigene Gebühr hinterlegt hat." value={settingsDraft.otherCosts.paymentFeeRate} onChange={(value) => updateOtherCostsNumber("paymentFeeRate", value)} />
+              <NumberField id="payment-fee-fixed" label="Feste Gebühr je Zahlung" unit="€" min={0} max={100} description="Wird je Zahlung zusätzlich zur Quote angesetzt." value={settingsDraft.otherCosts.paymentFeeFixedAmount ?? 0} onChange={(value) => updateOtherCostsNumber("paymentFeeFixedAmount", value)} />
+              <NumberField id="target-margin" label="Ziel-Deckungsbeitrag" unit="% vom Brutto" percent min={0} max={1} description="Referenzwert in der Spalte „Ziel vom Brutto“." value={settingsDraft.accounting?.targetGrossMarginRate ?? 0.3} onChange={(value) => setSettingsDraft((current) => ({ ...current, accounting: { vatRate: current.accounting?.vatRate ?? 0.19, defaultProjectionWorkdays: current.accounting?.defaultProjectionWorkdays ?? 22, targetGrossMarginRate: value } }))} />
+              <NumberField id="projection-days" label="Prognose-Arbeitstage" unit="Tage" min={1} max={31} description="Arbeitstage für die Hochrechnung des Deckungsbeitrags." value={settingsDraft.accounting?.defaultProjectionWorkdays ?? 22} onChange={(value) => setSettingsDraft((current) => ({ ...current, accounting: { vatRate: current.accounting?.vatRate ?? 0.19, targetGrossMarginRate: current.accounting?.targetGrossMarginRate ?? 0.3, defaultProjectionWorkdays: Math.round(value) } }))} />
             </TabsContent>
 
             <TabsContent value="formula" className="analytics-settings-grid">
@@ -2748,8 +2989,8 @@ export function Analytics() {
               <NumberField
                 id="shipping-flat"
                 label="Versandkostenpauschale pro Buchung"
+                unit="€"
                 value={settingsDraft.otherCosts.flatShippingCostPerBooking}
-                step="0.01"
                 min={0}
                 max={500}
                 description="Zusatzkosten, die pauschal jeder Buchung zugeschlagen werden."
@@ -2759,7 +3000,7 @@ export function Analytics() {
                 id="weight-net-revenue"
                 label="Faktor Nettoerloes"
                 value={settingsDraft.formula.profitWeights.netRevenue}
-                step="0.01"
+                unit="Faktor"
                 min={0}
                 max={3}
                 description="1.00 = unveraendert. Hoehere Werte gewichten Erloese staerker."
@@ -2769,7 +3010,7 @@ export function Analytics() {
                 id="weight-direct-costs"
                 label="Faktor Direktkosten"
                 value={settingsDraft.formula.profitWeights.directCosts}
-                step="0.01"
+                unit="Faktor"
                 min={0}
                 max={3}
                 description="Material + Fremdleistung + Lohn."
@@ -2779,7 +3020,7 @@ export function Analytics() {
                 id="weight-overhead"
                 label="Faktor Gemeinkosten"
                 value={settingsDraft.formula.profitWeights.overheadCost}
-                step="0.01"
+                unit="Faktor"
                 min={0}
                 max={3}
                 onChange={(value) => updateFormulaNumber("profitWeights", "overheadCost", value)}
@@ -2788,7 +3029,7 @@ export function Analytics() {
                 id="weight-depreciation"
                 label="Faktor Abschreibung"
                 value={settingsDraft.formula.profitWeights.depreciationCost}
-                step="0.01"
+                unit="Faktor"
                 min={0}
                 max={3}
                 onChange={(value) => updateFormulaNumber("profitWeights", "depreciationCost", value)}
@@ -2797,7 +3038,7 @@ export function Analytics() {
                 id="weight-other-operating"
                 label="Faktor Sonstige Kosten"
                 value={settingsDraft.formula.profitWeights.otherOperatingCost}
-                step="0.01"
+                unit="Faktor"
                 min={0}
                 max={3}
                 onChange={(value) => updateFormulaNumber("profitWeights", "otherOperatingCost", value)}
@@ -2806,7 +3047,7 @@ export function Analytics() {
                 id="weight-packaging"
                 label="Faktor Verpackung"
                 value={settingsDraft.formula.operatingCostWeights.packaging}
-                step="0.01"
+                unit="Faktor"
                 min={0}
                 max={3}
                 onChange={(value) => updateFormulaNumber("operatingCostWeights", "packaging", value)}
@@ -2815,7 +3056,7 @@ export function Analytics() {
                 id="weight-payment-fallback"
                 label="Faktor Zahlungs-Fallback"
                 value={settingsDraft.formula.operatingCostWeights.paymentFallback}
-                step="0.01"
+                unit="Faktor"
                 min={0}
                 max={3}
                 description="Wirkt nur, wenn keine echten Gateway-Transaktionen vorliegen."
@@ -2825,7 +3066,7 @@ export function Analytics() {
                 id="weight-payment-gateway"
                 label="Faktor Gateway-Gebuehren"
                 value={settingsDraft.formula.operatingCostWeights.paymentGateway}
-                step="0.01"
+                unit="Faktor"
                 min={0}
                 max={3}
                 onChange={(value) => updateFormulaNumber("operatingCostWeights", "paymentGateway", value)}
@@ -2834,7 +3075,7 @@ export function Analytics() {
                 id="weight-warranty"
                 label="Faktor Gewaehrleistungsreserve"
                 value={settingsDraft.formula.operatingCostWeights.warrantyReserve}
-                step="0.01"
+                unit="Faktor"
                 min={0}
                 max={3}
                 onChange={(value) => updateFormulaNumber("operatingCostWeights", "warrantyReserve", value)}
@@ -2843,7 +3084,7 @@ export function Analytics() {
                 id="weight-order-shipping"
                 label="Faktor Auftragsversand"
                 value={settingsDraft.formula.operatingCostWeights.orderShipping}
-                step="0.01"
+                unit="Faktor"
                 min={0}
                 max={3}
                 description="Gewichtet die am Auftrag erfassten Versandkosten."
@@ -2853,7 +3094,7 @@ export function Analytics() {
                 id="weight-flat-shipping"
                 label="Faktor Versandpauschale"
                 value={settingsDraft.formula.operatingCostWeights.bookingFlatShipping}
-                step="0.01"
+                unit="Faktor"
                 min={0}
                 max={3}
                 description="Gewichtet die pauschalen Versandkosten je Buchung."
@@ -2911,7 +3152,7 @@ export function Analytics() {
             </TabsContent>
 
             <TabsContent value="warranty" className="analytics-settings-grid">
-              <NumberField id="warranty-rate" label="Gewaehrleistungsreserve" value={settingsDraft.otherCosts.warrantyReserveRate} step="0.01" onChange={(value) => updateOtherCostsNumber("warrantyReserveRate", value)} />
+              <NumberField id="warranty-rate" label="Gewährleistungsreserve" unit="%" percent min={0} max={1} description="Anteil vom Auftragswert netto bei markierten Nacharbeits-/Garantiefällen." value={settingsDraft.otherCosts.warrantyReserveRate} onChange={(value) => updateOtherCostsNumber("warrantyReserveRate", value)} />
               <TextField
                 id="warranty-keywords"
                 label="Garantie-Keywords"
@@ -2969,14 +3210,20 @@ export function Analytics() {
               </div>
             </TabsContent>
           </Tabs>
+          </SettingsFieldValidityContext.Provider>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSettingsDraft(settings)}>
-              {t('common.reset')}
+          {invalidSettingFields.length > 0 ? (
+            <p role="alert" style={{ fontSize: 12, color: "#b91c1c", margin: "4px 0 0" }}>
+              Bitte ungültige Eingaben korrigieren – erst dann kann gespeichert werden.
+            </p>
+          ) : null}
+          <DialogFooter className="analytics-settings-footer">
+            <Button variant="outline" onClick={() => { setSettingsDraft(settings); setSettingsFormKey((key) => key + 1) }}>
+              Änderungen verwerfen
             </Button>
-            <Button className="analytics-settings-save" onClick={saveSettings} disabled={savingSettings}>
+            <Button className="analytics-settings-save" onClick={saveSettings} disabled={savingSettings || invalidSettingFields.length > 0}>
               <Save className="h-4 w-4" />
-              {savingSettings ? t('common.loading') : t('common.save')}
+              {savingSettings ? "Wird gespeichert …" : "Einstellungen speichern"}
             </Button>
           </DialogFooter>
         </DialogContent>

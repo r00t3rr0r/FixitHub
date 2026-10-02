@@ -1,0 +1,21 @@
+  PASS "Weitere laden" vorhanden (erste Seite 18 Gespraeche) 
+  PASS nach "Weitere laden" mehr als 50 Gespraeche sichtbar (57) 
+  PASS aeltestes Gespraech ORD-K03-001 per Nachladen erreichbar 
+  PASS Suche findet das aelteste Gespraech direkt (serverseitig) 
+   [shot] 01_k03_suche_aeltestes.png
+   Testdaten: Reklamation auf "genehmigt" mit Test-PDF gesetzt (die echte Genehmigung wuerde ein DHL-Label anfordern - im Test gesperrt)
+  PASS Reklamation: Schaltflaeche "Versandlabel herunterladen" sichtbar 
+   [shot] 02_k05_reklamation_label.png
+  PASS Download liefert das PDF ueber die autorisierte Route :: Versandlabel-CMP-2026-0001.pdf
+  PASS fremder Kunde erhaelt das Label nicht :: 403
+  PASS ohne Anmeldung: 401 :: 401
+  PASS alte Benachrichtigung mit eingebettetem PDF zeigt keine base64-Zeichenkette 
+  PASS keine Uebersetzungsschluessel/Platzhalter auf der Benachrichtigungsseite 
+   [shot] 03_k05_benachrichtigungen.png
+  PASS Tab erreicht "Details ansehen" :: {"text":"Details ansehen","outline":true,"ring":true}
+  PASS Fokus ist sichtbar (Outline/Ring) :: {"text":"Details ansehen","outline":true,"ring":true}
+   [shot] 04_k12_tastaturfokus.png
+  PASS Enter oeffnet die Geraetedetails :: http://127.0.0.1:5199/orders/6abf82552a854d3cec74a8b2
+  PASS Englische Oberflaeche: Betraege weiter in € (kein $/CHF) :: 47,40 €
+   [shot] 05_k13_englisch_euro.png
+==== extra: 14 bestanden, 0 fehlgeschlagen ====

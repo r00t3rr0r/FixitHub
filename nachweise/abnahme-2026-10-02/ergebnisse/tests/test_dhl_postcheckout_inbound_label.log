@@ -1,0 +1,3394 @@
+(node:1097952) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1097952) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1097952) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[C1] Checkout als Kundin (2 Geräte, Karte): deutsche Meldung, kein Base64, paymentMethod
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 99.8 discount: 0 tax: 15.93 total: 99.8 repair orders: 2
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Validating invoice address: {
+  "street": "Rechnungsallee 1",
+  "city": "München",
+  "zipCode": "80331",
+  "country": "DE",
+  "state": ""
+}
+CartService: Getting cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CartService: Found cart with 0 product items and 2 repair orders
+CheckoutRoutes: Found 2 repair orders and 0 shop products in cart
+CheckoutRoutes: Resolved shippingAddress for orders: {
+  street: 'Rechnungsallee 1',
+  city: 'München',
+  state: '',
+  zipCode: '80331',
+  country: 'DE',
+  deliveryType: 'address',
+  packstationNumber: '',
+  postNumber: ''
+}
+CheckoutRoutes: Preparing order from repair order: {
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceImage: '',
+  services: [
+    {
+      _id: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      name: 'Displaytausch',
+      articleNumber: '',
+      shortDescription: '',
+      description: '',
+      printShortDescription: '',
+      printDescription: '',
+      note: '',
+      searchKeywords: '',
+      seoName: '',
+      seoTitleTag: '',
+      seoMetaKeywords: '',
+      seoMetaDescription: '',
+      price: 49.9,
+      priceGrossCategory: 0,
+      priceGrossJtl: 0,
+      priceNet: 0,
+      priceNetCategory: 0,
+      priceNetJtl: 0,
+      purchasePrice: 0,
+      msrp: 0,
+      taxClass: '',
+      source: '',
+      estimatedTime: '60',
+      category: 'display',
+      service: '',
+      color: '',
+      deviceType: '',
+      deviceTypes: [Array],
+      manufacturer: '',
+      manufacturerPrecise: 'Apple',
+      model: '',
+      modelPrecise: 'iPhone 15',
+      internalRepairInfo: '',
+      externalRepairInfo: '',
+      popularity: 0,
+      isActive: true,
+      linkedKnowledgeBaseArticles: [],
+      createdAt: 2026-10-02T11:17:26.191Z,
+      updatedAt: 2026-10-02T11:17:26.191Z
+    }
+  ],
+  serviceNames: [ 'Displaytausch' ],
+  customerNotes: '',
+  photos: [],
+  totalCost: 49.9,
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  _id: new ObjectId('6abf92c6b0b3eddfd4ed9528'),
+  addOns: [],
+  addedAt: 2026-10-02T11:17:26.237Z
+}
+CheckoutRoutes: Preparing order from repair order: {
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 14',
+  deviceImage: '',
+  services: [
+    {
+      _id: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      name: 'Displaytausch',
+      articleNumber: '',
+      shortDescription: '',
+      description: '',
+      printShortDescription: '',
+      printDescription: '',
+      note: '',
+      searchKeywords: '',
+      seoName: '',
+      seoTitleTag: '',
+      seoMetaKeywords: '',
+      seoMetaDescription: '',
+      price: 49.9,
+      priceGrossCategory: 0,
+      priceGrossJtl: 0,
+      priceNet: 0,
+      priceNetCategory: 0,
+      priceNetJtl: 0,
+      purchasePrice: 0,
+      msrp: 0,
+      taxClass: '',
+      source: '',
+      estimatedTime: '60',
+      category: 'display',
+      service: '',
+      color: '',
+      deviceType: '',
+      deviceTypes: [Array],
+      manufacturer: '',
+      manufacturerPrecise: 'Apple',
+      model: '',
+      modelPrecise: 'iPhone 15',
+      internalRepairInfo: '',
+      externalRepairInfo: '',
+      popularity: 0,
+      isActive: true,
+      linkedKnowledgeBaseArticles: [],
+      createdAt: 2026-10-02T11:17:26.191Z,
+      updatedAt: 2026-10-02T11:17:26.191Z
+    }
+  ],
+  serviceNames: [ 'Displaytausch' ],
+  customerNotes: '',
+  photos: [],
+  totalCost: 49.9,
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  _id: new ObjectId('6abf92c6b0b3eddfd4ed9529'),
+  addOns: [],
+  addedAt: 2026-10-02T11:17:26.237Z
+}
+CheckoutRoutes: Order data prepared: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf92c6b0b3eddfd4ed953f')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+CheckoutRoutes: Order created successfully: new ObjectId('6abf92c6b0b3eddfd4ed953f')
+CheckoutRoutes: Order data prepared: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 14',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 14',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf92c6b0b3eddfd4ed954c')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+CheckoutRoutes: Order created successfully: new ObjectId('6abf92c6b0b3eddfd4ed954c')
+CheckoutRoutes: Creating booking to consolidate 2 orders
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [
+    new ObjectId('6abf92c6b0b3eddfd4ed953f'),
+    new ObjectId('6abf92c6b0b3eddfd4ed954c')
+  ],
+  discount: 0,
+  checkoutPricing: {
+    currency: 'EUR',
+    taxMode: 'default',
+    taxRatePercent: 19,
+    subtotal: 99.8,
+    promoDiscount: 0,
+    groupDiscountPercent: 0,
+    groupDiscountAmount: 0,
+    totalDiscount: 0,
+    tax: 15.93,
+    total: 99.8,
+    normalTotal: 99.8,
+    taxAmount: 15.93,
+    payableTotal: 99.8,
+    paymentDueDays: 14,
+    paymentTerms: '14 Tage netto ohne Abzug',
+    cashDiscountPercent: 0,
+    cashDiscountDays: 0,
+    creditLimit: 0
+  },
+  appliedPromoCode: '',
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  paymentMethod: 'card',
+  checkoutAttemptId: 'co_test_attempt_000001'
+}
+BookingService: Processing order: new ObjectId('6abf92c6b0b3eddfd4ed953f') Type: Smartphone
+BookingService: Processing order: new ObjectId('6abf92c6b0b3eddfd4ed954c') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0001
+Booking pre-save: Total orders: 2 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c6b0b3eddfd4ed9561') Number: BKG-2026-0001
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 2
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf92c6b0b3eddfd4ed953f
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-2026-001",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161096000001",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTU9DSy1MQUJFTCAwMDM0MDQzNDE2MTA5NjAwMDAwMQ==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161096000001
+CheckoutRoutes: Booking created successfully: new ObjectId('6abf92c6b0b3eddfd4ed9561')
+CartService: Clearing cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 0 discount: 0 tax: 0 total: 0 repair orders: 0
+CartService: Cart cleared successfully
+CheckoutRoutes: Cart cleared successfully
+CheckoutRoutes: Checkout completed successfully. Created booking: new ObjectId('6abf92c6b0b3eddfd4ed9561') orders: 2
+  PASS Checkout 200 mit bookingId :: 200 undefined
+  PASS Erfolgsmeldung deutsch :: Ihre Buchung mit 2 Reparaturaufträgen wurde angelegt.
+  PASS bookingNumber auf oberster Ebene :: BKG-2026-0001
+  PASS Antwort ohne Base64-Label, hasShippingLabel=true :: 6924 Bytes, hasShippingLabel=true
+  PASS Genau EIN DHL-Aufruf fuer 2 Geraete (ein Paket je Buchung) :: +1
+  PASS Booking.paymentMethod gespeichert (DHL-12) :: card
+  PASS checkoutAttemptId an der Buchung :: co_test_attempt_000001
+
+[C2] Einsendestatus fuer /order-success (Inhaberin)
+  PASS state ready :: 200 ready
+  PASS Buchungsnummer + 2 Auftraege :: {"bn":"BKG-2026-0001","orders":2}
+  PASS downloadUrl + Dateiname DHL-Einsendelabel_<BKG>.pdf :: /api/bookings/6abf92c6b0b3eddfd4ed9561/shipping-label DHL-Einsendelabel_BKG-2026-0001.pdf
+  PASS kein Base64, keine internen Felder fuer Kunden :: state,canCreate,message,trackingNumber,downloadUrl,filename,source,placeholder,shippingStatus,deviceReceived
+  PASS Zahlungsart + Waehrung aus den Daten :: {"_id":"6abf92c6b0b3eddfd4ed9561","bookingNumber":"BKG-2026-0001","createdAt":"2026-10-02T11:17:26.444Z","status":"pending","totalCost":99.8,"currency":"EUR","paymentStatus":"pending","billingStatus":"unpaid","paymentMethod":"card","deviceCount":2,"isGuest":false}
+  PASS Zweiter Abruf: gleiche Sendungsnummer, kein DHL-Aufruf :: 00340434161096000001
+BookingService: Getting booking: 6abf92c6b0b3eddfd4ed9561
+BookingService: Booking retrieved successfully
+  PASS PDF-Download mit einheitlichem Dateinamen :: 200 attachment; filename="DHL-Einsendelabel_BKG-2026-0001.pdf"
+  PASS Auftragssicht liefert denselben Einsendestatus :: 200 booking ready
+  PASS ORD-2026-002: Kundenverlauf zeigt "DHL-Einsendelabel erstellt" genau einmal (ohne Sendungsnummer) :: DHL-Einsendelabel erstellt | Auftrag erhalten
+  PASS ORD-2026-001: Kundenverlauf zeigt "DHL-Einsendelabel erstellt" genau einmal (ohne Sendungsnummer) :: DHL-Einsendelabel erstellt | Auftrag erhalten
+  PASS Fremder Kunde: Auftrags-Einsendestatus 403 :: 403
+
+[C3] Besitzpruefung der Buchungs-Unterrouten (fremder Kunde Bernd)
+BookingRoutes: Getting booking summary: 6abf92c6b0b3eddfd4ed9561
+  PASS Bernd GET /summary -> 403 :: 403
+BookingRoutes: Getting orders for booking: 6abf92c6b0b3eddfd4ed9561
+  PASS Bernd GET /orders -> 403 :: 403
+BookingRoutes: Previewing invoice for booking: 6abf92c6b0b3eddfd4ed9561
+  PASS Bernd GET /invoice/preview -> 403 :: 403
+  PASS Bernd GET /inbound-label -> 403 :: 403
+BookingService: Getting booking: 6abf92c6b0b3eddfd4ed9561
+BookingService: Booking retrieved successfully
+  PASS Bernd GET /shipping-label -> 403 :: 403
+BookingService: Getting booking: 6abf92c6b0b3eddfd4ed9561
+BookingService: Booking retrieved successfully
+  PASS Bernd GET /return-label -> 403 :: 403
+  PASS Bernd POST /inbound-label -> 403 :: 403
+BookingRoutes: Getting booking summary: 6abf92c6b0b3eddfd4ed95fe
+  PASS Unbekannte Buchungs-ID fuer Kunden ebenfalls 403 (keine Existenz-Auskunft) :: 403
+BookingRoutes: Getting booking summary: 6abf92c6b0b3eddfd4ed9561
+BookingService: Getting booking summary: 6abf92c6b0b3eddfd4ed9561
+BookingService: Summary generated successfully
+BookingRoutes: Booking summary retrieved successfully
+  PASS Inhaberin: /summary 200 :: 200
+BookingRoutes: Getting orders for booking: 6abf92c6b0b3eddfd4ed9561
+BookingService: Getting orders for booking: 6abf92c6b0b3eddfd4ed9561
+BookingService: Found 2 orders for booking
+BookingService: Transformed orders with current repair progress status
+BookingRoutes: Retrieved 2 orders for booking
+  PASS Inhaberin: /orders 200 :: 200 2
+BookingRoutes: Getting orders for booking: 6abf92c6b0b3eddfd4ed9561
+BookingService: Getting orders for booking: 6abf92c6b0b3eddfd4ed9561
+BookingService: Found 2 orders for booking
+BookingService: Transformed orders with current repair progress status
+BookingRoutes: Retrieved 2 orders for booking
+  PASS Staff: /orders 200 :: 200
+  PASS Staff: Einsendestatus mit Teamfeldern :: state,canCreate,message,trackingNumber,downloadUrl,filename,source,placeholder,shippingStatus,deviceReceived,lastError
+
+[C4] Wiederholung mit demselben checkoutAttemptId (Antwort verloren)
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Repeated checkout attempt, returning existing booking: new ObjectId('6abf92c6b0b3eddfd4ed9561')
+  PASS Gleiche Buchung zurueck :: 200 6abf92c6b0b3eddfd4ed9561
+  PASS Keine neue Buchung, kein neuer Auftrag, kein DHL-Aufruf :: bookings 1 orders 2
+
+[C5] Hausnummer fehlt / leerer Warenkorb
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Validating invoice address: {
+  "street": "Rechnungsallee 1",
+  "city": "München",
+  "zipCode": "80331",
+  "country": "DE",
+  "state": ""
+}
+CartService: Getting cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CartService: Found cart with 0 product items and 0 repair orders
+CheckoutRoutes: Cart is empty
+  PASS Leerer Warenkorb: deutsch + Code :: 400 Ihr Warenkorb ist leer. Falls Sie gerade bezahlt haben, prüfen Sie bitte Ihre Buchungen – Ihre Bestellung wurde möglicherweise bereits angelegt.
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 49.9 discount: 0 tax: 7.97 total: 49.9 repair orders: 1
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9520')
+CheckoutRoutes: Validating invoice address: {
+  "street": "Musterstraße",
+  "city": "Hamburg",
+  "zipCode": "20095",
+  "country": "DE",
+  "state": ""
+}
+CartService: Getting cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9520')
+CartService: Found cart with 0 product items and 1 repair orders
+  PASS Ohne Hausnummer -> 400 houseNumber :: 400 Bitte ergänzen Sie die Hausnummer in Ihrer Rechnungsadresse – sie wird für das DHL-Einsendelabel benötigt.
+  PASS Kein Auftrag angelegt :: 2
+
+[C6] Automatisches Label scheitert -> sichtbar; Inhaberin erstellt genau EIN Label
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [
+    new ObjectId('6abf92c7b0b3eddfd4ed965e'),
+    new ObjectId('6abf92c7b0b3eddfd4ed9661')
+  ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: true
+}
+BookingService: Processing order: new ObjectId('6abf92c7b0b3eddfd4ed965e') Type: Smartphone
+BookingService: Processing order: new ObjectId('6abf92c7b0b3eddfd4ed9661') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0002
+Booking pre-save: Total orders: 2 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c7b0b3eddfd4ed966c') Number: BKG-2026-0002
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 2
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf92c7b0b3eddfd4ed965e
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-DHLT-001",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating inbound shipment: Request failed with status code 400 { title: 'Bad Request', status: 400, detail: 'Invalid shipment' }
+BookingService: Failed to create live shipping label for order 6abf92c7b0b3eddfd4ed965e: DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen.
+DHLService: Creating shipment for order: 6abf92c7b0b3eddfd4ed9661
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-DHLT-002",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating inbound shipment: Request failed with status code 400 { title: 'Bad Request', status: 400, detail: 'Invalid shipment' }
+BookingService: Failed to create live shipping label for order 6abf92c7b0b3eddfd4ed9661: DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen.
+BookingService: Error creating inbound shipping label for booking (non-fatal): DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen.
+NotificationService: Creating notification for user: new ObjectId('6abf92c6b0b3eddfd4ed950b')
+NotificationService: Notification created successfully
+  PASS Buchung ohne Label, keine Sperre :: {"tn":"","lock":false}
+  PASS Verlauf: Shipping Label Failed :: Booking Created,Shipping Label Failed
+  PASS Admin-Hinweis mit Link zur Buchung :: 1
+  PASS Kundin: state error, canCreate, kein interner Grund :: {"s":"error","c":true}
+  PASS Team sieht den Grund :: Das DHL-Einsendelabel (Kunde an McRepair) konnte beim Checkout nicht automatisch erstellt werden: DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen.
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+BookingService: Inbound label on request failed: Das Einsendelabel dieser Buchung wird bereits erstellt, ist schon vorhanden oder sein Ergebnis wird noch abgeglichen. Bitte die Buchung neu laden.
+BookingRoutes: Error creating inbound label on request: Ihr DHL-Einsendelabel wird gerade erstellt. Bitte einen Moment warten.
+DHLService: Creating shipment for order: 6abf92c7b0b3eddfd4ed965e
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-DHLT-001",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161096000002",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTU9DSy1MQUJFTCAwMDM0MDQzNDE2MTA5NjAwMDAwMg==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161096000002
+  PASS Zwei parallele Klicks -> genau EIN DHL-Aufruf :: +1
+  PASS Ein 200, der andere 200/409 :: [200,409]
+  PASS Antwort enthaelt den neuen Einsendestatus :: ready
+  PASS Request-Body ignoriert, Empfaenger aus der Konfiguration :: McRepair.de GmbH
+  PASS Dritter Klick: vorhandenes Label, kein DHL-Aufruf :: 200 +0
+  PASS HIST-16: Verlauf nennt die ausloesende Kundin :: {"n":"Anna Kundin","id":"6abf92c6b0b3eddfd4ed9518"}
+
+[C7] Buchungssperre im Auftrags-Lesemodell (DHL-4)
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92c7b0b3eddfd4ed9706') ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf92c7b0b3eddfd4ed9706') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0003
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c7b0b3eddfd4ed970e') Number: BKG-2026-0003
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+BookingService: Shipping label creation disabled for booking.
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+  PASS Laufende Erstellung: inProgress, Aktion gesperrt :: {"allowed":false,"code":"LABEL_CREATION_IN_PROGRESS","reason":"Das Einsendelabel wird gerade erstellt. Bitte kurz warten und die Seite neu laden.","target":""}
+  PASS Einsendestatus creating :: creating
+BookingRoutes: Error creating inbound label on request: Ihr DHL-Einsendelabel wird gerade erstellt. Bitte einen Moment warten.
+  PASS Erstellen waehrend der Sperre -> 409 :: 409 LABEL_CREATION_IN_PROGRESS
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+  PASS Marker: Abgleich erforderlich mit Buchungs-Abgleich-URL :: /api/bookings/6abf92c7b0b3eddfd4ed970e/shipping/reconcile
+  PASS Kundensicht ohne Abgleich-URL/Sperrdetails :: direction,label,hasLabel,trackingNumber,status,statusDescription,source,downloadUrl,inProgress,reconciliationRequired,placeholder
+  PASS Einsendestatus review :: review
+RequireRole middleware: User admin@test.invalid has required role admin
+  PASS Nach Abgleich "nicht angelegt": none + canCreate :: {"s":"none","c":true}
+
+[C8] Buchungs-Retoure (DHL-3)
+RequireRole middleware: User staff@test.invalid has required role staff
+BookingRoutes: Creating return label for booking: 6abf92c6b0b3eddfd4ed9561
+DHLReturnsService: Creating return label for booking: 6abf92c6b0b3eddfd4ed9561
+DHLReturnsService: Booking found: BKG-2026-0001
+DHLReturnsService: Customer ID: {
+  _id: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  email: 'anna@test.invalid',
+  firstName: 'Anna',
+  lastName: 'Kundin',
+  phone: '',
+  avatar: ''
+}
+DHLReturnsService: Error creating return label: Für diese Buchung existiert bereits ein DHL-Einsendelabel (Sendungsnummer 00340434161096000001). Ein zusätzliches Retourenlabel wird nicht erstellt.
+BookingRoutes: Error creating return label: Für diese Buchung existiert bereits ein DHL-Einsendelabel (Sendungsnummer 00340434161096000001). Ein zusätzliches Retourenlabel wird nicht erstellt.
+  PASS Buchung mit Einsendelabel: 409, kein DHL-Aufruf :: 409 INBOUND_LABEL_EXISTS
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92c7b0b3eddfd4ed9775') ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf92c7b0b3eddfd4ed9775') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0004
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c7b0b3eddfd4ed977d') Number: BKG-2026-0004
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+BookingService: Shipping label creation disabled for booking.
+RequireRole middleware: User staff@test.invalid has required role staff
+BookingRoutes: Creating return label for booking: 6abf92c7b0b3eddfd4ed977d
+DHLReturnsService: Creating return label for booking: 6abf92c7b0b3eddfd4ed977d
+RequireRole middleware: User admin@test.invalid has required role admin
+BookingRoutes: Creating return label for booking: 6abf92c7b0b3eddfd4ed977d
+DHLReturnsService: Creating return label for booking: 6abf92c7b0b3eddfd4ed977d
+DHLReturnsService: Booking found: BKG-2026-0004
+DHLReturnsService: Customer ID: {
+  _id: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  email: 'anna@test.invalid',
+  firstName: 'Anna',
+  lastName: 'Kundin',
+  phone: '',
+  avatar: ''
+}
+DHLReturnsService: Booking found: BKG-2026-0004
+DHLReturnsService: Customer ID: {
+  _id: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  email: 'anna@test.invalid',
+  firstName: 'Anna',
+  lastName: 'Kundin',
+  phone: '',
+  avatar: ''
+}
+DHLReturnsService: Customer: anna@test.invalid
+DHLReturnsService: Customer has invoiceAddress: true
+DHLReturnsService: Customer invoice address: {
+  "street": "Rechnungsallee 1",
+  "city": "München",
+  "zipCode": "80331",
+  "country": "DE",
+  "state": ""
+}
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Customer: anna@test.invalid
+DHLReturnsService: Customer has invoiceAddress: true
+DHLReturnsService: Customer invoice address: {
+  "street": "Rechnungsallee 1",
+  "city": "München",
+  "zipCode": "80331",
+  "country": "DE",
+  "state": ""
+}
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Obtaining OAuth2 access token
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Error creating return label: Das Einsendelabel dieser Buchung wird bereits erstellt, ist schon vorhanden oder sein Ergebnis wird noch abgeglichen. Bitte die Buchung neu laden.
+BookingRoutes: Error creating return label: Das Einsendelabel dieser Buchung wird bereits erstellt, ist schon vorhanden oder sein Ergebnis wird noch abgeglichen. Bitte die Buchung neu laden.
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Token endpoint: https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token
+DHLReturnsService: OAuth2 token obtained successfully
+DHLReturnsService: Token type: Bearer
+DHLReturnsService: Expires in: 3600 seconds
+DHLReturnsService: Return request payload: {
+  "receiverId": "33333333330102",
+  "shipper": {
+    "name1": "Anna Kundin",
+    "addressStreet": "Rechnungsallee",
+    "addressHouse": "1",
+    "postalCode": "80331",
+    "city": "München",
+    "email": "anna@test.invalid"
+  }
+}
+DHLReturnsService: Calling DHL Returns API: https://api-sandbox.dhl.com/parcel/de/shipping/returns/v1/orders?labelType=BOTH
+DHLReturnsService: Return label created successfully
+DHLReturnsService: Return ID: RETDHL000001
+DHLReturnsService: PDF label generated (length: 24 chars)
+DHLReturnsService: Booking updated with return information
+BookingRoutes: Return label created successfully
+  PASS Zwei parallele Retoure-Klicks -> genau EIN DHL-Aufruf :: +1
+  PASS Ein 200 und ein 409 :: 200,409
+  PASS Retoure gespeichert, Sperre frei :: {"lock":false,"tn":"RETDHL000001"}
+RequireRole middleware: User staff@test.invalid has required role staff
+BookingRoutes: Create shipping label request received for booking: 6abf92c7b0b3eddfd4ed977d
+BookingRoutes: Shipment data: { shipmentData: { labelDirection: 'inbound' } }
+BookingService: Getting booking: 6abf92c7b0b3eddfd4ed977d
+BookingService: Booking retrieved successfully
+BookingRoutes: Error creating shipping label for booking: Error: Für diese Buchung existiert bereits ein DHL-Einsendelabel (Retoure, Sendungsnummer RETDHL000001). Ein zweites Label wird nicht erstellt.
+    at BookingService.createShippingLabelForBooking (/home/adar/Projects/FixitHub/server/services/bookingService.js:784:21)
+    at /home/adar/Projects/FixitHub/server/routes/bookingRoutes.js:1237:49
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  status: 409,
+  code: 'INBOUND_LABEL_EXISTS'
+}
+  PASS Danach kein zusaetzliches Parcel-DE-Label :: 409 INBOUND_LABEL_EXISTS
+BookingService: Getting booking: 6abf92c7b0b3eddfd4ed977d
+BookingService: Booking retrieved successfully
+  PASS Retoure-Download als DHL-Einsendelabel_ :: attachment; filename="DHL-Einsendelabel_BKG-2026-0004.pdf"
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92c7b0b3eddfd4ed97b7') ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf92c7b0b3eddfd4ed97b7') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0005
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c7b0b3eddfd4ed97bf') Number: BKG-2026-0005
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+BookingService: Shipping label creation disabled for booking.
+RequireRole middleware: User staff@test.invalid has required role staff
+BookingRoutes: Creating return label for booking: 6abf92c7b0b3eddfd4ed97bf
+DHLReturnsService: Creating return label for booking: 6abf92c7b0b3eddfd4ed97bf
+DHLReturnsService: Booking found: BKG-2026-0005
+DHLReturnsService: Customer ID: {
+  _id: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  email: 'anna@test.invalid',
+  firstName: 'Anna',
+  lastName: 'Kundin',
+  phone: '',
+  avatar: ''
+}
+DHLReturnsService: Customer: anna@test.invalid
+DHLReturnsService: Customer has invoiceAddress: true
+DHLReturnsService: Customer invoice address: {
+  "street": "Rechnungsallee 1",
+  "city": "München",
+  "zipCode": "80331",
+  "country": "DE",
+  "state": ""
+}
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Obtaining OAuth2 access token
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Token endpoint: https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token
+DHLReturnsService: OAuth2 token obtained successfully
+DHLReturnsService: Token type: Bearer
+DHLReturnsService: Expires in: 3600 seconds
+DHLReturnsService: Return request payload: {
+  "receiverId": "33333333330102",
+  "shipper": {
+    "name1": "Anna Kundin",
+    "addressStreet": "Rechnungsallee",
+    "addressHouse": "1",
+    "postalCode": "80331",
+    "city": "München",
+    "email": "anna@test.invalid"
+  }
+}
+DHLReturnsService: Calling DHL Returns API: https://api-sandbox.dhl.com/parcel/de/shipping/returns/v1/orders?labelType=BOTH
+DHLReturnsService: Error creating return label: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Einsendelabel angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+BookingRoutes: Error creating return label: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Einsendelabel angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+  PASS Zeitueberschreitung -> 409 DHL_RESULT_UNKNOWN :: 409 DHL_RESULT_UNKNOWN
+  PASS Sperre bleibt + Abgleich-Vermerk :: true
+RequireRole middleware: User staff@test.invalid has required role staff
+BookingRoutes: Creating return label for booking: 6abf92c7b0b3eddfd4ed97bf
+DHLReturnsService: Creating return label for booking: 6abf92c7b0b3eddfd4ed97bf
+DHLReturnsService: Booking found: BKG-2026-0005
+DHLReturnsService: Customer ID: {
+  _id: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  email: 'anna@test.invalid',
+  firstName: 'Anna',
+  lastName: 'Kundin',
+  phone: '',
+  avatar: ''
+}
+DHLReturnsService: Error creating return label: Das Einsendelabel dieser Buchung wird gerade erstellt oder sein Ergebnis wird noch abgeglichen. Bitte die Buchung neu laden.
+BookingRoutes: Error creating return label: Das Einsendelabel dieser Buchung wird gerade erstellt oder sein Ergebnis wird noch abgeglichen. Bitte die Buchung neu laden.
+  PASS Erneuter Klick -> 409 ohne DHL-Aufruf :: 409 +0
+RequireRole middleware: User admin@test.invalid has required role admin
+  PASS Admin-Abgleich "nicht angelegt" loest die Sperre :: 200
+
+[C9] Dummy-Modus (DHL-5)
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92c8b0b3eddfd4ed97f3') ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: true
+}
+BookingService: Processing order: new ObjectId('6abf92c8b0b3eddfd4ed97f3') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0006
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c8b0b3eddfd4ed97fb') Number: BKG-2026-0006
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+  PASS Testlabel erkennbar (placeholder, DHL-Testlabel_) :: {"p":true,"f":"DHL-Testlabel_BKG-2026-0006.pdf"}
+  PASS Kundensicht: kein "Dummy", sondern Testmodus :: Einsendelabel (Testmodus) – nicht für den Versand verwenden
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92c8b0b3eddfd4ed982c') ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf92c8b0b3eddfd4ed982c') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0007
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c8b0b3eddfd4ed9834') Number: BKG-2026-0007
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+BookingService: Shipping label creation disabled for booking.
+  PASS Parallel: genau EIN Testlabel :: 200/200 prepared=1
+
+[C10] Gast-Checkout: eine Bestaetigungsmail, Idempotenz, Hausnummer
+CheckoutRoutes: Processing guest checkout
+CheckoutRoutes: Found 1 repair orders and 0 shop products in guest cart
+CheckoutRoutes: Preparing order from guest repair order: {
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  services: [ '6abf92c6b0b3eddfd4ed9524' ],
+  totalCost: 49.9
+}
+CheckoutRoutes: Guest order data prepared: {
+  customerId: null,
+  guestInfo: {
+    email: 'gast@test.invalid',
+    firstName: 'Gerd',
+    lastName: 'Gast',
+    phone: '0301234',
+    isGuest: true,
+    billingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    },
+    shippingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    }
+  },
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Creating new order with data: {
+  customerId: null,
+  guestInfo: {
+    email: 'gast@test.invalid',
+    firstName: 'Gerd',
+    lastName: 'Gast',
+    phone: '0301234',
+    isGuest: true,
+    billingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    },
+    shippingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    }
+  },
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+Order: Generated guest tracking token for order: ORD-2026-010
+OrderService: Order created successfully with ID: new ObjectId('6abf92c8b0b3eddfd4ed9890')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+CheckoutRoutes: Guest order created successfully: new ObjectId('6abf92c8b0b3eddfd4ed9890')
+CheckoutRoutes: Creating booking for guest orders: 1
+BookingService: Creating new booking with data: {
+  customerId: null,
+  guestInfo: {
+    email: 'gast@test.invalid',
+    firstName: 'Gerd',
+    lastName: 'Gast',
+    phone: '0301234',
+    isGuest: true,
+    billingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    },
+    shippingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    }
+  },
+  orderIds: [ new ObjectId('6abf92c8b0b3eddfd4ed9890') ],
+  discount: 0,
+  checkoutPricing: { subtotal: 49.9, totalDiscount: 0, tax: 7.97, total: 49.9 },
+  appliedPromoCode: '',
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  paymentMethod: 'card',
+  checkoutAttemptId: 'co_guest_attempt_0001'
+}
+BookingService: Processing order: new ObjectId('6abf92c8b0b3eddfd4ed9890') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0008
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+Booking pre-save: Generated guest tracking token for guest booking
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c8b0b3eddfd4ed989f') Number: BKG-2026-0008
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf92c8b0b3eddfd4ed9890
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-2026-010",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Gerd Gast",
+        "addressStreet": "Gastweg",
+        "addressHouse": "3",
+        "postalCode": "10117",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "gast@test.invalid",
+        "phone": "0301234"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161096000003",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTU9DSy1MQUJFTCAwMDM0MDQzNDE2MTA5NjAwMDAwMw==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161096000003
+CheckoutRoutes: Guest booking created successfully: new ObjectId('6abf92c8b0b3eddfd4ed989f')
+CheckoutRoutes: Guest checkout completed successfully, orders: 1
+  PASS Gast-Checkout 200, deutsche Meldung :: 200 Ihre Buchung mit 1 Reparaturauftrag wurde angelegt.
+  PASS Antwort ohne Base64, mit Tracking-Token :: 3855
+  PASS Ein Einsendelabel fuer den Gast :: +1
+  PASS Genau EINE guest_booking_created-Mail (FIN-14/DHL-13) :: 1
+  PASS Absolute Links in der Mail :: https://test.invalid/track-order/booking?token=<entfernt>&email=gast%40test.invalid
+  PASS Gast: paymentMethod gespeichert :: card
+CheckoutRoutes: Processing guest checkout
+CheckoutRoutes: Repeated guest checkout attempt, returning existing booking: new ObjectId('6abf92c8b0b3eddfd4ed989f')
+  PASS Gast-Wiederholung: gleiche Buchung, kein zweites Label :: 200 6abf92c8b0b3eddfd4ed989f
+  PASS Auch nach Wiederholung nur eine Mail :: 1
+CheckoutRoutes: Processing guest checkout
+CheckoutRoutes: Found 1 repair orders and 0 shop products in guest cart
+CheckoutRoutes: Preparing order from guest repair order: {
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  services: [ '6abf92c6b0b3eddfd4ed9524' ],
+  totalCost: 49.9
+}
+CheckoutRoutes: Guest order data prepared: {
+  customerId: null,
+  guestInfo: {
+    email: 'fremd@test.invalid',
+    firstName: 'Gerd',
+    lastName: 'Gast',
+    phone: '0301234',
+    isGuest: true,
+    billingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    },
+    shippingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    }
+  },
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Creating new order with data: {
+  customerId: null,
+  guestInfo: {
+    email: 'fremd@test.invalid',
+    firstName: 'Gerd',
+    lastName: 'Gast',
+    phone: '0301234',
+    isGuest: true,
+    billingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    },
+    shippingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    }
+  },
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+Order: Generated guest tracking token for order: ORD-2026-011
+OrderService: Order created successfully with ID: new ObjectId('6abf92c8b0b3eddfd4ed98d3')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+CheckoutRoutes: Guest order created successfully: new ObjectId('6abf92c8b0b3eddfd4ed98d3')
+CheckoutRoutes: Creating booking for guest orders: 1
+BookingService: Creating new booking with data: {
+  customerId: null,
+  guestInfo: {
+    email: 'fremd@test.invalid',
+    firstName: 'Gerd',
+    lastName: 'Gast',
+    phone: '0301234',
+    isGuest: true,
+    billingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    },
+    shippingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    }
+  },
+  orderIds: [ new ObjectId('6abf92c8b0b3eddfd4ed98d3') ],
+  discount: 0,
+  checkoutPricing: { subtotal: 49.9, totalDiscount: 0, tax: 7.97, total: 49.9 },
+  appliedPromoCode: '',
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  paymentMethod: 'card',
+  checkoutAttemptId: 'co_guest_attempt_0001'
+}
+BookingService: Processing order: new ObjectId('6abf92c8b0b3eddfd4ed98d3') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0009
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+Booking pre-save: Generated guest tracking token for guest booking
+BookingService: Error creating booking: MongoServerError: E11000 duplicate key error collection: t_final7_test_dhl_postcheckout_inbound_label.bookings index: checkoutAttemptId_1 dup key: { checkoutAttemptId: "co_guest_attempt_0001" }
+    at InsertOneOperation.handleOk (/home/adar/Projects/FixitHub/server/node_modules/mongodb/lib/operations/insert.js:51:19)
+    at tryOperation (/home/adar/Projects/FixitHub/server/node_modules/mongodb/lib/operations/execute_operation.js:214:34)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async executeOperation (/home/adar/Projects/FixitHub/server/node_modules/mongodb/lib/operations/execute_operation.js:78:16)
+    at async Collection.insertOne (/home/adar/Projects/FixitHub/server/node_modules/mongodb/lib/collection.js:154:16) {
+  errorLabelSet: Set(0) {},
+  errorResponse: {
+    index: 0,
+    code: 11000,
+    errmsg: 'E11000 duplicate key error collection: t_final7_test_dhl_postcheckout_inbound_label.bookings index: checkoutAttemptId_1 dup key: { checkoutAttemptId: "co_guest_attempt_0001" }',
+    keyPattern: { checkoutAttemptId: 1 },
+    keyValue: { checkoutAttemptId: 'co_guest_attempt_0001' }
+  },
+  index: 0,
+  code: 11000,
+  keyPattern: { checkoutAttemptId: 1 },
+  keyValue: { checkoutAttemptId: 'co_guest_attempt_0001' }
+}
+CheckoutRoutes: Error creating guest booking: MongoServerError: E11000 duplicate key error collection: t_final7_test_dhl_postcheckout_inbound_label.bookings index: checkoutAttemptId_1 dup key: { checkoutAttemptId: "co_guest_attempt_0001" }
+    at InsertOneOperation.handleOk (/home/adar/Projects/FixitHub/server/node_modules/mongodb/lib/operations/insert.js:51:19)
+    at tryOperation (/home/adar/Projects/FixitHub/server/node_modules/mongodb/lib/operations/execute_operation.js:214:34)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async executeOperation (/home/adar/Projects/FixitHub/server/node_modules/mongodb/lib/operations/execute_operation.js:78:16)
+    at async Collection.insertOne (/home/adar/Projects/FixitHub/server/node_modules/mongodb/lib/collection.js:154:16) {
+  errorLabelSet: Set(0) {},
+  errorResponse: {
+    index: 0,
+    code: 11000,
+    errmsg: 'E11000 duplicate key error collection: t_final7_test_dhl_postcheckout_inbound_label.bookings index: checkoutAttemptId_1 dup key: { checkoutAttemptId: "co_guest_attempt_0001" }',
+    keyPattern: { checkoutAttemptId: 1 },
+    keyValue: { checkoutAttemptId: 'co_guest_attempt_0001' }
+  },
+  index: 0,
+  code: 11000,
+  keyPattern: { checkoutAttemptId: 1 },
+  keyValue: { checkoutAttemptId: 'co_guest_attempt_0001' }
+}
+BookingService: Creating new booking with data: {
+  customerId: null,
+  guestInfo: {
+    email: 'fremd@test.invalid',
+    firstName: 'Gerd',
+    lastName: 'Gast',
+    phone: '0301234',
+    isGuest: true,
+    billingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    },
+    shippingAddress: {
+      street: 'Gastweg 3',
+      city: 'Berlin',
+      zipCode: '10117',
+      country: 'DE'
+    }
+  },
+  orderIds: [ new ObjectId('6abf92c8b0b3eddfd4ed98d3') ],
+  discount: 0,
+  checkoutPricing: { subtotal: 49.9, totalDiscount: 0, tax: 7.97, total: 49.9 },
+  appliedPromoCode: '',
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  paymentMethod: 'card'
+}
+BookingService: Processing order: new ObjectId('6abf92c8b0b3eddfd4ed98d3') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0009
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+Booking pre-save: Generated guest tracking token for guest booking
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c9b0b3eddfd4ed98ed') Number: BKG-2026-0009
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf92c8b0b3eddfd4ed98d3
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-2026-011",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Gerd Gast",
+        "addressStreet": "Gastweg",
+        "addressHouse": "3",
+        "postalCode": "10117",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "fremd@test.invalid",
+        "phone": "0301234"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161096000004",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTU9DSy1MQUJFTCAwMDM0MDQzNDE2MTA5NjAwMDAwNA==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161096000004
+CheckoutRoutes: Guest checkout completed successfully, orders: 1
+  PASS Fremde E-Mail mit gleichem Schluessel bekommt die Gast-Buchung NICHT, sondern eine eigene :: 200 6abf92c9b0b3eddfd4ed98ed
+  PASS Keine Auftraege ohne Buchung (Buchung ohne Schluessel angelegt) :: {"orders":1}
+CheckoutRoutes: Processing guest checkout
+  PASS Gast ohne Hausnummer -> 400 :: 400 Bitte ergänzen Sie die Hausnummer in Ihrer Rechnungsadresse – sie wird für das DHL-Einsendelabel benötigt.
+
+[C11] HIST-16 Versandlabel/Buchungsstatus + Statusvalidierung
+RequireRole middleware: User staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf92c9b0b3eddfd4ed9911
+DHLService: Creating shipment for order: 6abf92c9b0b3eddfd4ed9911
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: outbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-DHLT-008",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid"
+      },
+      "consignee": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161096000005",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTU9DSy1MQUJFTCAwMDM0MDQzNDE2MTA5NjAwMDAwNQ==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161096000005
+DHLService: Outbound shipment stored on order: 00340434161096000005
+Outbound shipping label created successfully
+  PASS Versandlabel: Verlauf nennt Staff Test :: 200 Staff Test
+OrderService: Getting order by ID: 6abf92c9b0b3eddfd4ed9911
+  PASS Auslieferung als DHL-Versandlabel_<ORD>.pdf :: attachment; filename="DHL-Versandlabel_ORD-DHLT-008.pdf"
+RequireRole middleware: User staff@test.invalid has required role staff
+BookingRoutes: Updating booking status: 6abf92c6b0b3eddfd4ed9561
+BookingService: Updating booking status: 6abf92c6b0b3eddfd4ed9561 to: processing
+Booking pre-save: Total orders: 2 Booking status: processing
+BookingService: Booking status updated successfully
+BookingRoutes: Booking status updated successfully
+  PASS Buchungsstatus: Verlauf nennt Staff Test :: Staff Test
+RequireRole middleware: User staff@test.invalid has required role staff
+BookingRoutes: Updating booking status: 6abf92c6b0b3eddfd4ed9561
+BookingRoutes: Invalid status: kaputt
+  PASS Ungueltiger Status -> 400 mit deutscher Liste (vorher ReferenceError/500) :: 400 Unbekannter Status. Erlaubt sind: Ausstehend, Zahlung ausstehend, In Bearbeitung, Abgeschlossen, Storniert.
+
+[C12] Review-Nachbesserungen (K04 Wiederholung, parallele Wiederholung, PayPal, Verlauf, Abgleich)
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 49.9 discount: 0 tax: 7.97 total: 49.9 repair orders: 1
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Validating invoice address: {
+  "street": "Rechnungsallee 1",
+  "city": "München",
+  "zipCode": "80331",
+  "country": "DE",
+  "state": ""
+}
+CartService: Getting cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CartService: Found cart with 0 product items and 1 repair orders
+CheckoutRoutes: Found 1 repair orders and 0 shop products in cart
+CheckoutRoutes: Resolved shippingAddress for orders: {
+  street: 'Rechnungsallee 1',
+  city: 'München',
+  state: '',
+  zipCode: '80331',
+  country: 'DE',
+  deliveryType: 'address',
+  packstationNumber: '',
+  postNumber: ''
+}
+CheckoutRoutes: Preparing order from repair order: {
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceImage: '',
+  services: [
+    {
+      _id: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      name: 'Displaytausch',
+      articleNumber: '',
+      shortDescription: '',
+      description: '',
+      printShortDescription: '',
+      printDescription: '',
+      note: '',
+      searchKeywords: '',
+      seoName: '',
+      seoTitleTag: '',
+      seoMetaKeywords: '',
+      seoMetaDescription: '',
+      price: 49.9,
+      priceGrossCategory: 0,
+      priceGrossJtl: 0,
+      priceNet: 0,
+      priceNetCategory: 0,
+      priceNetJtl: 0,
+      purchasePrice: 0,
+      msrp: 0,
+      taxClass: '',
+      source: '',
+      estimatedTime: '60',
+      category: 'display',
+      service: '',
+      color: '',
+      deviceType: '',
+      deviceTypes: [Array],
+      manufacturer: '',
+      manufacturerPrecise: 'Apple',
+      model: '',
+      modelPrecise: 'iPhone 15',
+      internalRepairInfo: '',
+      externalRepairInfo: '',
+      popularity: 0,
+      isActive: true,
+      linkedKnowledgeBaseArticles: [],
+      createdAt: 2026-10-02T11:17:26.191Z,
+      updatedAt: 2026-10-02T11:17:26.191Z
+    }
+  ],
+  serviceNames: [ 'Displaytausch' ],
+  customerNotes: '',
+  photos: [],
+  totalCost: 49.9,
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  _id: new ObjectId('6abf92c9b0b3eddfd4ed9953'),
+  addOns: [],
+  addedAt: 2026-10-02T11:17:29.307Z
+}
+CheckoutRoutes: Order data prepared: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf92c9b0b3eddfd4ed9966')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+CheckoutRoutes: Order created successfully: new ObjectId('6abf92c9b0b3eddfd4ed9966')
+CheckoutRoutes: Creating booking to consolidate 1 orders
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92c9b0b3eddfd4ed9966') ],
+  discount: 0,
+  checkoutPricing: {
+    currency: 'EUR',
+    taxMode: 'default',
+    taxRatePercent: 19,
+    subtotal: 49.9,
+    promoDiscount: 0,
+    groupDiscountPercent: 0,
+    groupDiscountAmount: 0,
+    totalDiscount: 0,
+    tax: 7.97,
+    total: 49.9,
+    normalTotal: 49.9,
+    taxAmount: 7.97,
+    payableTotal: 49.9,
+    paymentDueDays: 14,
+    paymentTerms: '14 Tage netto ohne Abzug',
+    cashDiscountPercent: 0,
+    cashDiscountDays: 0,
+    creditLimit: 0
+  },
+  appliedPromoCode: '',
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  paymentMethod: 'card',
+  checkoutAttemptId: 'co_review_attempt_r1_0001'
+}
+BookingService: Processing order: new ObjectId('6abf92c9b0b3eddfd4ed9966') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0010
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c9b0b3eddfd4ed9976') Number: BKG-2026-0010
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf92c9b0b3eddfd4ed9966
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-2026-013",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161096000006",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTU9DSy1MQUJFTCAwMDM0MDQzNDE2MTA5NjAwMDAwNg==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161096000006
+CheckoutRoutes: Booking created successfully: new ObjectId('6abf92c9b0b3eddfd4ed9976')
+CartService: Clearing cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 0 discount: 0 tax: 0 total: 0 repair orders: 0
+CartService: Cart cleared successfully
+CheckoutRoutes: Cart cleared successfully
+CheckoutRoutes: Checkout completed successfully. Created booking: new ObjectId('6abf92c9b0b3eddfd4ed9976') orders: 1
+  PASS Checkout-Antwort: Buchung als Positivliste (kein Verlauf) :: _id,bookingNumber,status,billingStatus,paymentStatus,paymentMethod,totalCost,subtotal,tax,discount,orderIds,items,shippingStatus,trackingNumber,createdAt,updatedAt,hasShippingLabel
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Repeated checkout attempt, returning existing booking: new ObjectId('6abf92c9b0b3eddfd4ed9976')
+  PASS Wiederholung: gleiche Buchung :: 200 6abf92c9b0b3eddfd4ed9976
+  PASS Wiederholung ohne interne Notizen/Teamfelder (K04) :: _id,deviceBrand,deviceModel,deviceType,status,totalCost,orderNumber
+  PASS Wiederholung: Auftragsnummer + hasShippingLabel weiterhin vorhanden :: {"on":"ORD-2026-013","l":true}
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 49.9 discount: 0 tax: 7.97 total: 49.9 repair orders: 1
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Validating invoice address: {
+  "street": "Rechnungsallee 1",
+  "city": "München",
+  "zipCode": "80331",
+  "country": "DE",
+  "state": ""
+}
+CartService: Getting cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CartService: Found cart with 0 product items and 1 repair orders
+CheckoutRoutes: Found 1 repair orders and 0 shop products in cart
+CheckoutRoutes: Resolved shippingAddress for orders: {
+  street: 'Rechnungsallee 1',
+  city: 'München',
+  state: '',
+  zipCode: '80331',
+  country: 'DE',
+  deliveryType: 'address',
+  packstationNumber: '',
+  postNumber: ''
+}
+CheckoutRoutes: Preparing order from repair order: {
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceImage: '',
+  services: [
+    {
+      _id: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      name: 'Displaytausch',
+      articleNumber: '',
+      shortDescription: '',
+      description: '',
+      printShortDescription: '',
+      printDescription: '',
+      note: '',
+      searchKeywords: '',
+      seoName: '',
+      seoTitleTag: '',
+      seoMetaKeywords: '',
+      seoMetaDescription: '',
+      price: 49.9,
+      priceGrossCategory: 0,
+      priceGrossJtl: 0,
+      priceNet: 0,
+      priceNetCategory: 0,
+      priceNetJtl: 0,
+      purchasePrice: 0,
+      msrp: 0,
+      taxClass: '',
+      source: '',
+      estimatedTime: '60',
+      category: 'display',
+      service: '',
+      color: '',
+      deviceType: '',
+      deviceTypes: [Array],
+      manufacturer: '',
+      manufacturerPrecise: 'Apple',
+      model: '',
+      modelPrecise: 'iPhone 15',
+      internalRepairInfo: '',
+      externalRepairInfo: '',
+      popularity: 0,
+      isActive: true,
+      linkedKnowledgeBaseArticles: [],
+      createdAt: 2026-10-02T11:17:26.191Z,
+      updatedAt: 2026-10-02T11:17:26.191Z
+    }
+  ],
+  serviceNames: [ 'Displaytausch' ],
+  customerNotes: '',
+  photos: [],
+  totalCost: 49.9,
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  _id: new ObjectId('6abf92c9b0b3eddfd4ed99ba'),
+  addOns: [],
+  addedAt: 2026-10-02T11:17:29.543Z
+}
+CheckoutRoutes: Order data prepared: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf92c9b0b3eddfd4ed99d7')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+CheckoutRoutes: Order created successfully: new ObjectId('6abf92c9b0b3eddfd4ed99d7')
+CheckoutRoutes: Creating booking to consolidate 1 orders
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92c9b0b3eddfd4ed99d7') ],
+  discount: 0,
+  checkoutPricing: {
+    currency: 'EUR',
+    taxMode: 'default',
+    taxRatePercent: 19,
+    subtotal: 49.9,
+    promoDiscount: 0,
+    groupDiscountPercent: 0,
+    groupDiscountAmount: 0,
+    totalDiscount: 0,
+    tax: 7.97,
+    total: 49.9,
+    normalTotal: 49.9,
+    taxAmount: 7.97,
+    payableTotal: 49.9,
+    paymentDueDays: 14,
+    paymentTerms: '14 Tage netto ohne Abzug',
+    cashDiscountPercent: 0,
+    cashDiscountDays: 0,
+    creditLimit: 0
+  },
+  appliedPromoCode: '',
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  paymentMethod: 'card',
+  checkoutAttemptId: 'co_review_parallel_0_0001'
+}
+BookingService: Processing order: new ObjectId('6abf92c9b0b3eddfd4ed99d7') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0011
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c9b0b3eddfd4ed99e7') Number: BKG-2026-0011
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf92c9b0b3eddfd4ed99d7
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-2026-014",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161096000007",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTU9DSy1MQUJFTCAwMDM0MDQzNDE2MTA5NjAwMDAwNw==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161096000007
+CheckoutRoutes: Booking created successfully: new ObjectId('6abf92c9b0b3eddfd4ed99e7')
+CartService: Clearing cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 0 discount: 0 tax: 0 total: 0 repair orders: 0
+CartService: Cart cleared successfully
+CheckoutRoutes: Cart cleared successfully
+CheckoutRoutes: Checkout completed successfully. Created booking: new ObjectId('6abf92c9b0b3eddfd4ed99e7') orders: 1
+CheckoutRoutes: Parallel repeated checkout attempt, returning booking of the other request: new ObjectId('6abf92c9b0b3eddfd4ed99e7')
+  PASS Parallel (0 ms): beide 200 mit derselben Buchung :: 200/200 6abf92c9b0b3eddfd4ed99e7/6abf92c9b0b3eddfd4ed99e7 
+  PASS Parallel (0 ms): genau 1 Auftrag, 1 Buchung, 0 Auftraege ohne Buchung :: {"orders":1,"orphanCount":0}
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 49.9 discount: 0 tax: 7.97 total: 49.9 repair orders: 1
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Validating invoice address: {
+  "street": "Rechnungsallee 1",
+  "city": "München",
+  "zipCode": "80331",
+  "country": "DE",
+  "state": ""
+}
+CartService: Getting cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CartService: Found cart with 0 product items and 1 repair orders
+CheckoutRoutes: Found 1 repair orders and 0 shop products in cart
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Resolved shippingAddress for orders: {
+  street: 'Rechnungsallee 1',
+  city: 'München',
+  state: '',
+  zipCode: '80331',
+  country: 'DE',
+  deliveryType: 'address',
+  packstationNumber: '',
+  postNumber: ''
+}
+CheckoutRoutes: Preparing order from repair order: {
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceImage: '',
+  services: [
+    {
+      _id: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      name: 'Displaytausch',
+      articleNumber: '',
+      shortDescription: '',
+      description: '',
+      printShortDescription: '',
+      printDescription: '',
+      note: '',
+      searchKeywords: '',
+      seoName: '',
+      seoTitleTag: '',
+      seoMetaKeywords: '',
+      seoMetaDescription: '',
+      price: 49.9,
+      priceGrossCategory: 0,
+      priceGrossJtl: 0,
+      priceNet: 0,
+      priceNetCategory: 0,
+      priceNetJtl: 0,
+      purchasePrice: 0,
+      msrp: 0,
+      taxClass: '',
+      source: '',
+      estimatedTime: '60',
+      category: 'display',
+      service: '',
+      color: '',
+      deviceType: '',
+      deviceTypes: [Array],
+      manufacturer: '',
+      manufacturerPrecise: 'Apple',
+      model: '',
+      modelPrecise: 'iPhone 15',
+      internalRepairInfo: '',
+      externalRepairInfo: '',
+      popularity: 0,
+      isActive: true,
+      linkedKnowledgeBaseArticles: [],
+      createdAt: 2026-10-02T11:17:26.191Z,
+      updatedAt: 2026-10-02T11:17:26.191Z
+    }
+  ],
+  serviceNames: [ 'Displaytausch' ],
+  customerNotes: '',
+  photos: [],
+  totalCost: 49.9,
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  _id: new ObjectId('6abf92c9b0b3eddfd4ed9a26'),
+  addOns: [],
+  addedAt: 2026-10-02T11:17:29.905Z
+}
+CheckoutRoutes: Order data prepared: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf92c9b0b3eddfd4ed9a42')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+CheckoutRoutes: Order created successfully: new ObjectId('6abf92c9b0b3eddfd4ed9a42')
+CheckoutRoutes: Creating booking to consolidate 1 orders
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92c9b0b3eddfd4ed9a42') ],
+  discount: 0,
+  checkoutPricing: {
+    currency: 'EUR',
+    taxMode: 'default',
+    taxRatePercent: 19,
+    subtotal: 49.9,
+    promoDiscount: 0,
+    groupDiscountPercent: 0,
+    groupDiscountAmount: 0,
+    totalDiscount: 0,
+    tax: 7.97,
+    total: 49.9,
+    normalTotal: 49.9,
+    taxAmount: 7.97,
+    payableTotal: 49.9,
+    paymentDueDays: 14,
+    paymentTerms: '14 Tage netto ohne Abzug',
+    cashDiscountPercent: 0,
+    cashDiscountDays: 0,
+    creditLimit: 0
+  },
+  appliedPromoCode: '',
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  paymentMethod: 'card',
+  checkoutAttemptId: 'co_review_parallel_15_0001'
+}
+BookingService: Processing order: new ObjectId('6abf92c9b0b3eddfd4ed9a42') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0012
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92c9b0b3eddfd4ed9a53') Number: BKG-2026-0012
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf92c9b0b3eddfd4ed9a42
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-2026-015",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161096000008",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTU9DSy1MQUJFTCAwMDM0MDQzNDE2MTA5NjAwMDAwOA==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161096000008
+CheckoutRoutes: Booking created successfully: new ObjectId('6abf92c9b0b3eddfd4ed9a53')
+CartService: Clearing cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 0 discount: 0 tax: 0 total: 0 repair orders: 0
+CartService: Cart cleared successfully
+CheckoutRoutes: Cart cleared successfully
+CheckoutRoutes: Checkout completed successfully. Created booking: new ObjectId('6abf92c9b0b3eddfd4ed9a53') orders: 1
+CheckoutRoutes: Parallel repeated checkout attempt, returning booking of the other request: new ObjectId('6abf92c9b0b3eddfd4ed9a53')
+  PASS Parallel (15 ms): beide 200 mit derselben Buchung :: 200/200 6abf92c9b0b3eddfd4ed9a53/6abf92c9b0b3eddfd4ed9a53 
+  PASS Parallel (15 ms): genau 1 Auftrag, 1 Buchung, 0 Auftraege ohne Buchung :: {"orders":1,"orphanCount":0}
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 49.9 discount: 0 tax: 7.97 total: 49.9 repair orders: 1
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Validating invoice address: {
+  "street": "Rechnungsallee 1",
+  "city": "München",
+  "zipCode": "80331",
+  "country": "DE",
+  "state": ""
+}
+CartService: Getting cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CartService: Found cart with 0 product items and 1 repair orders
+CheckoutRoutes: Found 1 repair orders and 0 shop products in cart
+CheckoutRoutes: Resolved shippingAddress for orders: {
+  street: 'Rechnungsallee 1',
+  city: 'München',
+  state: '',
+  zipCode: '80331',
+  country: 'DE',
+  deliveryType: 'address',
+  packstationNumber: '',
+  postNumber: ''
+}
+CheckoutRoutes: Preparing order from repair order: {
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceImage: '',
+  services: [
+    {
+      _id: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      name: 'Displaytausch',
+      articleNumber: '',
+      shortDescription: '',
+      description: '',
+      printShortDescription: '',
+      printDescription: '',
+      note: '',
+      searchKeywords: '',
+      seoName: '',
+      seoTitleTag: '',
+      seoMetaKeywords: '',
+      seoMetaDescription: '',
+      price: 49.9,
+      priceGrossCategory: 0,
+      priceGrossJtl: 0,
+      priceNet: 0,
+      priceNetCategory: 0,
+      priceNetJtl: 0,
+      purchasePrice: 0,
+      msrp: 0,
+      taxClass: '',
+      source: '',
+      estimatedTime: '60',
+      category: 'display',
+      service: '',
+      color: '',
+      deviceType: '',
+      deviceTypes: [Array],
+      manufacturer: '',
+      manufacturerPrecise: 'Apple',
+      model: '',
+      modelPrecise: 'iPhone 15',
+      internalRepairInfo: '',
+      externalRepairInfo: '',
+      popularity: 0,
+      isActive: true,
+      linkedKnowledgeBaseArticles: [],
+      createdAt: 2026-10-02T11:17:26.191Z,
+      updatedAt: 2026-10-02T11:17:26.191Z
+    }
+  ],
+  serviceNames: [ 'Displaytausch' ],
+  customerNotes: '',
+  photos: [],
+  totalCost: 49.9,
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  _id: new ObjectId('6abf92cab0b3eddfd4ed9a92'),
+  addOns: [],
+  addedAt: 2026-10-02T11:17:30.274Z
+}
+CheckoutRoutes: Order data prepared: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Rechnungsallee 1',
+    city: 'München',
+    state: '',
+    zipCode: '80331',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf92cab0b3eddfd4ed9aa8')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+CheckoutRoutes: Order created successfully: new ObjectId('6abf92cab0b3eddfd4ed9aa8')
+CheckoutRoutes: Creating booking to consolidate 1 orders
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92cab0b3eddfd4ed9aa8') ],
+  discount: 0,
+  checkoutPricing: {
+    currency: 'EUR',
+    taxMode: 'default',
+    taxRatePercent: 19,
+    subtotal: 49.9,
+    promoDiscount: 0,
+    groupDiscountPercent: 0,
+    groupDiscountAmount: 0,
+    totalDiscount: 0,
+    tax: 7.97,
+    total: 49.9,
+    normalTotal: 49.9,
+    taxAmount: 7.97,
+    payableTotal: 49.9,
+    paymentDueDays: 14,
+    paymentTerms: '14 Tage netto ohne Abzug',
+    cashDiscountPercent: 0,
+    cashDiscountDays: 0,
+    creditLimit: 0
+  },
+  appliedPromoCode: '',
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  paymentMethod: 'card',
+  checkoutAttemptId: 'co_review_parallel_40_0001'
+}
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+BookingService: Processing order: new ObjectId('6abf92cab0b3eddfd4ed9aa8') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0013
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92cab0b3eddfd4ed9abb') Number: BKG-2026-0013
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+DHLService: Retrieving DHL configuration
+CheckoutRoutes: Parallel repeated checkout attempt, returning booking of the other request: new ObjectId('6abf92cab0b3eddfd4ed9abb')
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf92cab0b3eddfd4ed9aa8
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-2026-016",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161096000009",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTU9DSy1MQUJFTCAwMDM0MDQzNDE2MTA5NjAwMDAwOQ==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161096000009
+CheckoutRoutes: Booking created successfully: new ObjectId('6abf92cab0b3eddfd4ed9abb')
+CartService: Clearing cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 0 discount: 0 tax: 0 total: 0 repair orders: 0
+CartService: Cart cleared successfully
+CheckoutRoutes: Cart cleared successfully
+CheckoutRoutes: Checkout completed successfully. Created booking: new ObjectId('6abf92cab0b3eddfd4ed9abb') orders: 1
+  PASS Parallel (40 ms): beide 200 mit derselben Buchung :: 200/200 6abf92cab0b3eddfd4ed9abb/6abf92cab0b3eddfd4ed9abb 
+  PASS Parallel (40 ms): genau 1 Auftrag, 1 Buchung, 0 Auftraege ohne Buchung :: {"orders":1,"orphanCount":0}
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 49.9 discount: 0 tax: 7.97 total: 49.9 repair orders: 1
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9520')
+CheckoutRoutes: Validating invoice address: {
+  "street": "Musterstraße",
+  "city": "Hamburg",
+  "zipCode": "20095",
+  "country": "DE",
+  "state": ""
+}
+CartService: Getting cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9520')
+CartService: Found cart with 0 product items and 1 repair orders
+  PASS Carla mit Schluessel: 400 Hausnummer :: 400
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9520')
+CheckoutRoutes: Validating invoice address: {
+  "street": "Musterstraße 7",
+  "city": "Hamburg",
+  "zipCode": "20095",
+  "country": "DE",
+  "state": ""
+}
+CartService: Getting cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9520')
+CartService: Found cart with 0 product items and 1 repair orders
+CheckoutRoutes: Found 1 repair orders and 0 shop products in cart
+CheckoutRoutes: Resolved shippingAddress for orders: {
+  street: 'Musterstraße 7',
+  city: 'Hamburg',
+  state: '',
+  zipCode: '20095',
+  country: 'DE',
+  deliveryType: 'address',
+  packstationNumber: '',
+  postNumber: ''
+}
+CheckoutRoutes: Preparing order from repair order: {
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceImage: '',
+  services: [
+    {
+      _id: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      name: 'Displaytausch',
+      articleNumber: '',
+      shortDescription: '',
+      description: '',
+      printShortDescription: '',
+      printDescription: '',
+      note: '',
+      searchKeywords: '',
+      seoName: '',
+      seoTitleTag: '',
+      seoMetaKeywords: '',
+      seoMetaDescription: '',
+      price: 49.9,
+      priceGrossCategory: 0,
+      priceGrossJtl: 0,
+      priceNet: 0,
+      priceNetCategory: 0,
+      priceNetJtl: 0,
+      purchasePrice: 0,
+      msrp: 0,
+      taxClass: '',
+      source: '',
+      estimatedTime: '60',
+      category: 'display',
+      service: '',
+      color: '',
+      deviceType: '',
+      deviceTypes: [Array],
+      manufacturer: '',
+      manufacturerPrecise: 'Apple',
+      model: '',
+      modelPrecise: 'iPhone 15',
+      internalRepairInfo: '',
+      externalRepairInfo: '',
+      popularity: 0,
+      isActive: true,
+      linkedKnowledgeBaseArticles: [],
+      createdAt: 2026-10-02T11:17:26.191Z,
+      updatedAt: 2026-10-02T11:17:26.191Z
+    }
+  ],
+  serviceNames: [ 'Displaytausch' ],
+  customerNotes: '',
+  photos: [],
+  totalCost: 49.9,
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  _id: new ObjectId('6abf92cab0b3eddfd4ed9af4'),
+  addOns: [],
+  addedAt: 2026-10-02T11:17:30.471Z
+}
+CheckoutRoutes: Order data prepared: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9520'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Musterstraße 7',
+    city: 'Hamburg',
+    state: '',
+    zipCode: '20095',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9520'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  services: [
+    {
+      serviceId: new ObjectId('6abf92c6b0b3eddfd4ed9524'),
+      price: 49.9,
+      estimatedTime: 60,
+      notes: ''
+    }
+  ],
+  addOns: [],
+  customerNotes: '',
+  photos: [],
+  status: 'pending',
+  priority: 'normal',
+  progress: 0,
+  paymentStatus: 'pending',
+  estimatedCompletion: null,
+  shippingAddress: {
+    street: 'Musterstraße 7',
+    city: 'Hamburg',
+    state: '',
+    zipCode: '20095',
+    country: 'DE',
+    deliveryType: 'address',
+    packstationNumber: '',
+    postNumber: ''
+  },
+  unlockPattern: [],
+  unlockCode: '',
+  noLock: false,
+  errorDescription: '',
+  waterDamage: '',
+  previousRepairAttempts: '',
+  previousRepairDetails: '',
+  itemCondition: '',
+  imei: '',
+  serialNumber: '',
+  totalCost: 49.9,
+  discount: 0,
+  appliedPromoCode: ''
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf92cab0b3eddfd4ed9b12')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+CheckoutRoutes: Order created successfully: new ObjectId('6abf92cab0b3eddfd4ed9b12')
+CheckoutRoutes: Creating booking to consolidate 1 orders
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9520'),
+  orderIds: [ new ObjectId('6abf92cab0b3eddfd4ed9b12') ],
+  discount: 0,
+  checkoutPricing: {
+    currency: 'EUR',
+    taxMode: 'default',
+    taxRatePercent: 19,
+    subtotal: 49.9,
+    promoDiscount: 0,
+    groupDiscountPercent: 0,
+    groupDiscountAmount: 0,
+    totalDiscount: 0,
+    tax: 7.97,
+    total: 49.9,
+    normalTotal: 49.9,
+    taxAmount: 7.97,
+    payableTotal: 49.9,
+    paymentDueDays: 14,
+    paymentTerms: '14 Tage netto ohne Abzug',
+    cashDiscountPercent: 0,
+    cashDiscountDays: 0,
+    creditLimit: 0
+  },
+  appliedPromoCode: '',
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  paymentMethod: 'card',
+  checkoutAttemptId: 'co_review_carla_retry_01'
+}
+BookingService: Processing order: new ObjectId('6abf92cab0b3eddfd4ed9b12') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0014
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92cab0b3eddfd4ed9b22') Number: BKG-2026-0014
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf92cab0b3eddfd4ed9b12
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-2026-017",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Carla Ohnenummer",
+        "addressStreet": "Musterstraße",
+        "addressHouse": "7",
+        "postalCode": "20095",
+        "city": "Hamburg",
+        "country": "DEU",
+        "email": "carla@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Response data: {
+  "status": {
+    "title": "OK",
+    "statusCode": 200
+  },
+  "items": [
+    {
+      "shipmentNo": "00340434161096000010",
+      "sstatus": {
+        "statusCode": 200
+      },
+      "label": {
+        "b64": "JVBERi0xLjQgTU9DSy1MQUJFTCAwMDM0MDQzNDE2MTA5NjAwMDAxMA==",
+        "fileFormat": "PDF"
+      }
+    }
+  ]
+}
+DHLService: Shipment created successfully: 00340434161096000010
+CheckoutRoutes: Booking created successfully: new ObjectId('6abf92cab0b3eddfd4ed9b22')
+CartService: Clearing cart for user: new ObjectId('6abf92c6b0b3eddfd4ed9520')
+Cart pre-save: Calculating totals
+Cart pre-save: Calculated totals - subtotal: 0 discount: 0 tax: 0 total: 0 repair orders: 0
+CartService: Cart cleared successfully
+CheckoutRoutes: Cart cleared successfully
+CheckoutRoutes: Checkout completed successfully. Created booking: new ObjectId('6abf92cab0b3eddfd4ed9b22') orders: 1
+  PASS Nach Korrektur: derselbe Schluessel legt sofort an (Anspruch war freigegeben) :: 200 149 ms 
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Repeated checkout attempt, returning existing booking: new ObjectId('6abf92c9b0b3eddfd4ed9976')
+  PASS PayPal-Wiederholung: zweite Erfassung an der vorhandenen Buchung :: 200 6abf92c9b0b3eddfd4ed9976
+CheckoutRoutes: Completing checkout for user: new ObjectId('6abf92c6b0b3eddfd4ed9518')
+CheckoutRoutes: Repeated checkout attempt, returning existing booking: new ObjectId('6abf92c9b0b3eddfd4ed9976')
+CheckoutRoutes: Payment already linked to another booking, not relinked: 6abf92cab0b3eddfd4ed9b70
+  PASS Fremd zugeordnete Zahlung wird nicht umgehaengt :: 6abf92c7b0b3eddfd4ed966c
+BookingRoutes: Getting booking: 6abf92c7b0b3eddfd4ed966c
+BookingService: Getting booking: 6abf92c7b0b3eddfd4ed966c
+BookingService: Booking retrieved successfully
+DHLService: Getting tracking info for: 00340434161096000002
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Error getting tracking info: Unerwarteter externer GET im Test blockiert: https://api-eu.dhl.com/track/shipments
+BookingRoutes: Failed to fetch live shipping tracking for booking detail: Unerwarteter externer GET im Test blockiert: https://api-eu.dhl.com/track/shipments
+BookingRoutes: Booking retrieved successfully
+  PASS Kundin: Verlauf ohne internen Labelfehler und ohne Akteursfelder :: Booking Created:Buchung erstellt | Shipping Label Created:DHL-Einsendelabel erstellt
+  PASS Kundin: Buchung erstellt + Einsendelabel erstellt bleiben sichtbar :: Ihre Buchung ist bei uns eingegangen. | Ihr DHL-Einsendelabel wurde erstellt.
+BookingRoutes: Getting booking: 6abf92c7b0b3eddfd4ed966c
+BookingService: Getting booking: 6abf92c7b0b3eddfd4ed966c
+BookingService: Booking retrieved successfully
+DHLService: Getting tracking info for: 00340434161096000002
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Error getting tracking info: Unerwarteter externer GET im Test blockiert: https://api-eu.dhl.com/track/shipments
+BookingRoutes: Failed to fetch live shipping tracking for booking detail: Unerwarteter externer GET im Test blockiert: https://api-eu.dhl.com/track/shipments
+BookingRoutes: Booking retrieved successfully
+  PASS Team: Verlauf weiterhin mit Grund :: 3
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92cab0b3eddfd4ed9b99') ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: true
+}
+BookingService: Processing order: new ObjectId('6abf92cab0b3eddfd4ed9b99') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0015
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92cab0b3eddfd4ed9ba1') Number: BKG-2026-0015
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf92cab0b3eddfd4ed9b99
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-DHLT-009",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating inbound shipment: Request failed with status code 400 { title: 'Bad Request', status: 400, detail: 'Invalid shipment' }
+BookingService: Failed to create live shipping label for order 6abf92cab0b3eddfd4ed9b99: DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen.
+BookingService: Error creating inbound shipping label for booking (non-fatal): DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen.
+NotificationService: Creating notification for user: new ObjectId('6abf92c6b0b3eddfd4ed950b')
+NotificationService: Notification created successfully
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Creating shipment for order: 6abf92cab0b3eddfd4ed9b99
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+DHLService: Shipment direction: inbound
+DHLService: Sending shipment request to DHL Parcel DE Shipping API
+DHLService: Endpoint: https://api-sandbox.dhl.com/parcel/de/shipping/v2/orders
+DHLService: Shipment payload: {
+  "profile": "STANDARD_GRUPPENPROFIL",
+  "shipments": [
+    {
+      "product": "V01PAK",
+      "billingNumber": "33333333330102",
+      "refNo": "ORD-DHLT-009",
+      "shipDate": "2026-10-02",
+      "shipper": {
+        "name1": "Anna Kundin",
+        "addressStreet": "Rechnungsallee",
+        "addressHouse": "1",
+        "postalCode": "80331",
+        "city": "München",
+        "country": "DEU",
+        "email": "anna@test.invalid"
+      },
+      "consignee": {
+        "name1": "McRepair.de GmbH",
+        "addressStreet": "Werkstattstraße",
+        "addressHouse": "5",
+        "postalCode": "10115",
+        "city": "Berlin",
+        "country": "DEU",
+        "email": "werkstatt@test.invalid",
+        "phone": "+49301234567"
+      },
+      "details": {
+        "weight": {
+          "uom": "kg",
+          "value": 1
+        }
+      }
+    }
+  ]
+}
+DHLService: Error creating inbound shipment: Request failed with status code 400 { title: 'Bad Request', status: 400, detail: 'Invalid shipment' }
+BookingService: Failed to create live shipping label for order 6abf92cab0b3eddfd4ed9b99: DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen.
+BookingService: Inbound label on request failed: DHL hat die Versanddaten abgelehnt. Bitte Empfänger- und Absenderadresse sowie die Paketdaten prüfen.
+NotificationService: Creating notification for user: new ObjectId('6abf92c6b0b3eddfd4ed950b')
+NotificationService: Duplicate notification suppressed: inbound-label-failed:6abf92cab0b3eddfd4ed9ba1:2026-10-02
+BookingRoutes: Error creating inbound label on request: Das Einsendelabel kann gerade nicht erstellt werden. Unser Team wurde informiert und meldet sich bei Ihnen.
+  PASS Wiederholter Fehlversuch: weiterhin genau EIN Admin-Hinweis je Buchung/Tag :: 503 notes=1
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92cab0b3eddfd4ed9bdf') ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf92cab0b3eddfd4ed9bdf') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0016
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92cab0b3eddfd4ed9be7') Number: BKG-2026-0016
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+BookingService: Shipping label creation disabled for booking.
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+BookingService: Failed to create live shipping label for order 6abf92cab0b3eddfd4ed9bdf: Empfängeradresse unvollständig: Hausnummer.
+BookingService: Inbound label on request failed: Empfängeradresse unvollständig: Hausnummer.
+NotificationService: Creating notification for user: new ObjectId('6abf92c6b0b3eddfd4ed950b')
+NotificationService: Notification created successfully
+BookingRoutes: Error creating inbound label on request: Das Einsendelabel kann gerade nicht erstellt werden. Unser Team wurde informiert und meldet sich bei Ihnen.
+  PASS Shop-Hausnummer fehlt: neutrale 503 statt "Rechnungsadresse pruefen", kein DHL-Aufruf :: 503 INBOUND_LABEL_UNAVAILABLE Das Einsendelabel kann gerade nicht erstellt werden. Unser Team wurde informiert und meldet sich bei Ihnen.
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  orderIds: [ new ObjectId('6abf92cbb0b3eddfd4ed9c0f') ],
+  status: 'pending',
+  paymentStatus: 'pending',
+  billingStatus: 'unpaid',
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf92cbb0b3eddfd4ed9c0f') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0017
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf92cbb0b3eddfd4ed9c17') Number: BKG-2026-0017
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+BookingService: Shipping label creation disabled for booking.
+RequireRole middleware: User staff@test.invalid has required role staff
+BookingRoutes: Creating return label for booking: 6abf92cbb0b3eddfd4ed9c17
+DHLReturnsService: Creating return label for booking: 6abf92cbb0b3eddfd4ed9c17
+DHLReturnsService: Booking found: BKG-2026-0017
+DHLReturnsService: Customer ID: {
+  _id: new ObjectId('6abf92c6b0b3eddfd4ed9518'),
+  email: 'anna@test.invalid',
+  firstName: 'Anna',
+  lastName: 'Kundin',
+  phone: '',
+  avatar: ''
+}
+DHLReturnsService: Customer: anna@test.invalid
+DHLReturnsService: Customer has invoiceAddress: true
+DHLReturnsService: Customer invoice address: {
+  "street": "Rechnungsallee 1",
+  "city": "München",
+  "zipCode": "80331",
+  "country": "DE",
+  "state": ""
+}
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Obtaining OAuth2 access token
+DHLReturnsService: Fetching DHL Returns configuration
+DHLReturnsService: Configuration loaded successfully
+DHLReturnsService: Environment: sandbox
+DHLReturnsService: ReceiverID: 33333333330102
+DHLReturnsService: Token endpoint: https://api-sandbox.dhl.com/parcel/de/account/auth/ropc/v1/token
+DHLReturnsService: OAuth2 token obtained successfully
+DHLReturnsService: Token type: Bearer
+DHLReturnsService: Expires in: 3600 seconds
+DHLReturnsService: Return request payload: {
+  "receiverId": "33333333330102",
+  "shipper": {
+    "name1": "Anna Kundin",
+    "addressStreet": "Rechnungsallee",
+    "addressHouse": "1",
+    "postalCode": "80331",
+    "city": "München",
+    "email": "anna@test.invalid"
+  }
+}
+DHLReturnsService: Calling DHL Returns API: https://api-sandbox.dhl.com/parcel/de/shipping/returns/v1/orders?labelType=BOTH
+DHLReturnsService: Error creating return label: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Einsendelabel angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+BookingRoutes: Error creating return label: DHL hat nicht rechtzeitig bzw. nicht eindeutig geantwortet. Ob das Einsendelabel angelegt wurde, ist unklar. Bitte NICHT erneut erstellen, sondern zuerst im DHL-Geschäftskundenportal prüfen und den Abgleich abschließen.
+RequireRole middleware: User admin@test.invalid has required role admin
+  PASS Retoure-Abgleich "angelegt": returnTrackingNumber gesetzt, Parcel-Platz leer :: {"s":200,"rt":"RETDHL777777","tn":""}
+  PASS timelineActor delegiert an labelActorFields (Kunde/Staff/System) :: {"customerActor":{"staffId":"6abf92c6b0b3eddfd4ed9518","staffName":"Anna Kundin","source":"Kunde","type":"shipping"},"staffActor":{"staffId":"6abf92c6b0b3eddfd4ed9514","staffName":"Staff Test","source":"DHL","type":"shipping"},"systemActor":{"staffId":"system","staffName":"DHL Returns Integration","source":"DHL","type":"shipping"}}
+
+Ergebnis: 102 bestanden, 0 fehlgeschlagen

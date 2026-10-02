@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -113,7 +114,7 @@ export function CartProductDetailsDialog({
               </div>
             </DialogHeader>
 
-            <div className="max-h-[calc(92dvh-136px)] overflow-y-auto bg-[linear-gradient(180deg,#f7f9fd_0%,#ffffff_42%)]">
+            <DialogBody className="bg-[linear-gradient(180deg,#f7f9fd_0%,#ffffff_42%)]">
               <div className="grid gap-5 p-3 sm:p-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
                 <div className="space-y-4">
                   <section className="overflow-hidden rounded-[24px] border border-[#d9dfeb] bg-white shadow-[0_14px_36px_rgba(26,42,94,0.08)]">
@@ -313,7 +314,7 @@ export function CartProductDetailsDialog({
                   )}
                 </div>
               </div>
-            </div>
+            </DialogBody>
           </>
         )}
       </DialogContent>

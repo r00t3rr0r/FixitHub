@@ -1,0 +1,874 @@
+(node:1102755) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1102755) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1102755) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[A] Unzulaessige Zustaende: keine Rechnung, keine Zustandsaenderung
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937e78a9bd9acd33f33d')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is open
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS Status 'open' (Angebot pending): 409 deutsch, keine Rechnung, nichts geaendert :: 409 Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu. :: Status open/pending, Rechnungen +0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937e78a9bd9acd33f3b0')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is in-progress
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS Status 'in-progress' (Angebot pending): 409 deutsch, keine Rechnung, nichts geaendert :: 409 Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu. :: Status in-progress/pending, Rechnungen +0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937e78a9bd9acd33f3d5')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is pending_approval
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS Status 'pending_approval' (Angebot pending): 409 deutsch, keine Rechnung, nichts geaendert :: 409 Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu. :: Status pending_approval/pending, Rechnungen +0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937e78a9bd9acd33f3fa')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is approved
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS Status 'approved' (Angebot pending): 409 deutsch, keine Rechnung, nichts geaendert :: 409 Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu. :: Status approved/pending, Rechnungen +0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937e78a9bd9acd33f41f')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is acknowledged
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS Status 'acknowledged' (Angebot pending): 409 deutsch, keine Rechnung, nichts geaendert :: 409 Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu. :: Status acknowledged/pending, Rechnungen +0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937e78a9bd9acd33f444')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is rejected
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS Status 'rejected' (Angebot none): 409 deutsch, keine Rechnung, nichts geaendert :: 409 Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu. :: Status rejected/none, Rechnungen +0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937e78a9bd9acd33f469')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is resolved
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS Status 'resolved' (Angebot pending): 409 deutsch, keine Rechnung, nichts geaendert :: 409 Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu. :: Status resolved/pending, Rechnungen +0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937e78a9bd9acd33f48e')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is closed
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS Status 'closed' (Angebot pending): 409 deutsch, keine Rechnung, nichts geaendert :: 409 Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu. :: Status closed/pending, Rechnungen +0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937e78a9bd9acd33f4b3')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is new_repair
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS Status 'new_repair' (Angebot accepted): 409 deutsch, keine Rechnung, nichts geaendert :: 409 Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu. :: Status new_repair/accepted, Rechnungen +0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937e78a9bd9acd33f4d8')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is awaiting_payment
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS Status 'awaiting_payment' (Angebot accepted): 409 deutsch, keine Rechnung, nichts geaendert :: 409 Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu. :: Status awaiting_payment/accepted, Rechnungen +0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937e78a9bd9acd33f4fd')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is pending-customer
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+  PASS Status 'pending-customer' (Angebot pending): 409 deutsch, keine Rechnung, nichts geaendert :: 409 Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu. :: Status pending-customer/pending, Rechnungen +0
+  PASS unbekannte Reklamation: 404 deutsch :: 404 Die Reklamation wurde nicht gefunden.
+
+[B] Nicht der Eigentuemer / nicht angemeldet
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937f78a9bd9acd33f525')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+  PASS anderer Kunde: 403 deutsch :: 403 Zugriff verweigert.
+  PASS ohne Anmeldung: 401 :: 401
+  PASS danach: weiterhin denied/pending, keine Rechnung :: denied/pending
+ComplaintRoutes: Error creating invoice for rejected offer: Simulierter Ausfall
+  PASS Vorbedingung: Ablehnung gespeichert, Rechnung ausgefallen :: 200
+  PASS fremder Kunde im Nachhol-Pfad: 403, keine Rechnung, keine Beanspruchung :: 403
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937e78a9bd9acd33f2f5'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937f78a9bd9acd33f574')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+  PASS Kundin auf Reklamation eines anderen Kunden: 403, keine Rechnung :: 403
+
+[C] Betrag: Kunde kann ihn nicht setzen, Personal darf uebersteuern
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937f78a9bd9acd33f594')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf937f78a9bd9acd33f5a0'),
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0014',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Kunde sendet serviceFee 0,01 -> Standardpauschale 39,00 :: 200 39
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937f78a9bd9acd33f600')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf937f78a9bd9acd33f60c'),
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0015',
+      quantity: 1,
+      unitPrice: 25,
+      total: 25,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Kunde sendet 0 -> hinterlegte Pauschale 25,00 :: 200 25
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf937f78a9bd9acd33f66c')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf937f78a9bd9acd33f678'),
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0016',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Kunde sendet 9999 -> 39,00 :: 200 39
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938078a9bd9acd33f6d8')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf938078a9bd9acd33f6e4'),
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0017',
+      quantity: 1,
+      unitPrice: 15.5,
+      total: 15.5,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Personal uebersteuert ausdruecklich: 15,50 :: 200 15.5
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938078a9bd9acd33f744')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error rejecting offer: Error: Die Servicepauschale muss eine Zahl größer oder gleich 0 sein.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at parseStaffServiceFee (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:163:11)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1060:22
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 400,
+  code: 'INVALID_SERVICE_FEE'
+}
+  PASS Personal mit -5: 400 deutsch, weiterhin denied, keine Rechnung :: 400 Die Servicepauschale muss eine Zahl größer oder gleich 0 sein. denied
+  PASS Reklamationsauftrag traegt genau die Pauschale als einzige Position :: 39 Servicepauschale (abgelehnte Reklamation)=39
+  PASS Verlauf: genau EIN Eintrag "Reklamationsauftrag neu bepreist" 100,00 -> 39,00 :: 1 100->39 Reklamationsauftrag neu bepreist: 100,00 € → 39,00 €
+
+[D] Wiederholung nach erfolgter Ablehnung: dieselbe Rechnung
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938078a9bd9acd33f766')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf938078a9bd9acd33f772'),
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0019',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS zweiter Aufruf (Kunde und Personal mit anderem Betrag): 200 alreadyProcessed, dieselbe Rechnung 39,00 :: 200/200/200 INV-2026-0005=39
+  PASS genau EIN Protokolleintrag offer_rejected :: 1
+
+[E] Ausfall der Rechnungserstellung und Nachholen
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938078a9bd9acd33f802')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error creating invoice for rejected offer: Simulierter Ausfall
+ComplaintRoutes: Error re-creating invoice for rejected offer: Simulierter Ausfall
+  PASS Ausfall: 200 mit deutscher Warnung, Ablehnung gespeichert, keine Rechnung :: 200 ["Die Servicepauschale wurde am Reklamationsauftrag gespeichert, die Rechnung konnte jedoch nicht erstellt werden. Ein erneuter Aufruf der Ablehnung holt sie nach; alternativ die Rechnung in der Finanzverwaltung manuell erstellen."]
+  PASS Nachholversuch waehrend des Ausfalls: keine Rechnung :: 200 ["Die Rechnung über die Servicepauschale konnte weiterhin nicht erstellt werden. Bitte später erneut versuchen oder die Rechnung in der Finanzverwaltung manuell erstellen."]
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: '6abf938078a9bd9acd33f80e',
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0020',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS nach dem Ausfall: genau EINE Rechnung 39,00 (Kundenbetrag ignoriert), danach dieselbe :: 200 INV-2026-0006=39
+  PASS Protokoll: je EIN offer_rejected / fee_invoice_created, keine offene Beanspruchung :: offer_rejected,fee_invoice_retry_failed,fee_invoice_created
+
+[F] N parallele Ablehnungen (Kunde, fremder Kunde, Personal)
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938078a9bd9acd33f8c3')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Reject offer not allowed while complaint status is awaiting_payment
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Reject offer not allowed while complaint status is awaiting_payment
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+ComplaintRoutes: Reject offer not allowed while complaint status is awaiting_payment
+ComplaintRoutes: Error rejecting offer: Error: Diese Aktion ist im aktuellen Bearbeitungsstand der Reklamation nicht möglich. Bitte laden Sie die Seite neu.
+    at ensureTransition (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:393:19)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1055:5
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_STATUS_CONFLICT'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf938078a9bd9acd33f8cf'),
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0021',
+      quantity: 1,
+      unitPrice: 30,
+      total: 30,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Runde 1: genau EINE Rechnung :: INV-2026-0007=30
+  PASS Runde 1: fremder Kunde immer 403 :: 403,403,403
+  PASS Runde 1: Kunde 200/409, genau eine Entscheidung mit Rechnung :: 200,409,409,409,409,409,403,403,403
+  PASS Runde 1: EIN offer_rejected, Pauschale einmal, Rechnung == protokollierte Pauschale (nie Kundenbetrag) :: Pauschale 30, Auftrag 30, Positionen 1
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938178a9bd9acd33f990')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf938178a9bd9acd33f99c'),
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0022',
+      quantity: 1,
+      unitPrice: 30,
+      total: 30,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Runde 2: genau EINE Rechnung :: INV-2026-0008=30
+  PASS Runde 2: fremder Kunde immer 403 :: 403,403,403
+  PASS Runde 2: Kunde 200/409, genau eine Entscheidung mit Rechnung :: 200,409,409,409,409,409,403,403,403
+  PASS Runde 2: EIN offer_rejected, Pauschale einmal, Rechnung == protokollierte Pauschale (nie Kundenbetrag) :: Pauschale 30, Auftrag 30, Positionen 1
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938178a9bd9acd33fa7c')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf938178a9bd9acd33fa88'),
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0023',
+      quantity: 1,
+      unitPrice: 30,
+      total: 30,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Runde 3: genau EINE Rechnung :: INV-2026-0009=30
+  PASS Runde 3: fremder Kunde immer 403 :: 403,403,403
+  PASS Runde 3: Kunde 200/409, genau eine Entscheidung mit Rechnung :: 200,409,409,409,409,409,403,403,403,409
+  PASS Runde 3: EIN offer_rejected, Pauschale einmal, Rechnung == protokollierte Pauschale (nie Kundenbetrag) :: Pauschale 30, Auftrag 30, Positionen 1
+
+[G] N parallele Nachholversuche nach einem Ausfall (langsame Rechnungserstellung)
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938178a9bd9acd33fb7a')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error creating invoice for rejected offer: Simulierter Ausfall
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: '6abf938278a9bd9acd33fb86',
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0024',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Runde 1: genau EINE nachgeholte Rechnung 39,00, createInvoice genau einmal :: 1 Rechnung(en), 1 Aufruf(e)
+  PASS Runde 1: Berechtigte 200, fremder Kunde 403 :: 200,200,200,200,200,200,200,200,403,403
+  PASS Runde 1: EIN fee_invoice_created, keine offene Beanspruchung :: offer_rejected,fee_invoice_created
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938278a9bd9acd33fc8f')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error creating invoice for rejected offer: Simulierter Ausfall
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: '6abf938278a9bd9acd33fc9b',
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0025',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Runde 2: genau EINE nachgeholte Rechnung 39,00, createInvoice genau einmal :: 1 Rechnung(en), 1 Aufruf(e)
+  PASS Runde 2: Berechtigte 200, fremder Kunde 403 :: 200,200,200,200,200,200,200,200,403,403
+  PASS Runde 2: EIN fee_invoice_created, keine offene Beanspruchung :: offer_rejected,fee_invoice_created
+
+[H] Parallel Annahme und Ablehnung: genau eine Entscheidung
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938278a9bd9acd33fda4')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error accepting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:870:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error accepting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:870:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf938278a9bd9acd33fdb0'),
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0026',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Runde 1: eine Entscheidung (rejected), Pauschalenrechnung nur bei Ablehnung :: 409,200,409,409 :: awaiting_payment/rejected, Pauschalenrechnungen 1
+  PASS Runde 1: hoechstens ein Entscheidungseintrag, nur 200/409 :: offer_rejected
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938378a9bd9acd33fe50')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error accepting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:870:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error accepting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:870:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf938378a9bd9acd33fe5c'),
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0027',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Runde 2: eine Entscheidung (rejected), Pauschalenrechnung nur bei Ablehnung :: 409,200,409,409 :: awaiting_payment/rejected, Pauschalenrechnungen 1
+  PASS Runde 2: hoechstens ein Entscheidungseintrag, nur 200/409 :: offer_rejected
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf937d78a9bd9acd33f294'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf937e78a9bd9acd33f32a' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf938378a9bd9acd33fefd')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error accepting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:870:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf938378a9bd9acd33ff09'),
+  customerId: '6abf937d78a9bd9acd33f294',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0028',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+ComplaintRoutes: Error accepting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:870:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Runde 3: eine Entscheidung (rejected), Pauschalenrechnung nur bei Ablehnung :: 409,200,409,409 :: awaiting_payment/rejected, Pauschalenrechnungen 1
+  PASS Runde 3: hoechstens ein Entscheidungseintrag, nur 200/409 :: offer_rejected
+
+==== 55 bestanden, 0 fehlgeschlagen ====

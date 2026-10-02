@@ -1,0 +1,26 @@
+
+[A] canSkip=false -> 409, DB unveraendert
+  PASS Schritt ohne „Überspringen erlaubt“ -> 409 WORKFLOW_STEP_NOT_SKIPPABLE deutsch :: 409 WORKFLOW_STEP_NOT_SKIPPABLE Dieser Schritt darf nicht übersprungen werden („Überspringen erlaubt“ ist in der Workflow-Vorlage nicht aktiviert).
+  PASS DB: Schritte und Workflow unveraendert :: in-progress,pending,pending
+  PASS kein Verlaufseintrag „uebersprungen“, Fortschritt unveraendert :: 0 0
+  PASS auch Admin -> 409 (Vorlage gilt fuer alle) :: 409 WORKFLOW_STEP_NOT_SKIPPABLE
+  PASS Vorlagenschritt ohne Angabe (Standard aus) -> 409 :: 409 WORKFLOW_STEP_NOT_SKIPPABLE
+
+[B] canSkip=true -> 200, naechster Schritt, Verlauf
+  PASS Schritt mit „Überspringen erlaubt“ -> 200 :: 200 
+  PASS DB: Schritt uebersprungen, naechster Schritt laeuft :: completed,skipped,in-progress
+  PASS genau ein Verlaufseintrag mit Grund :: 1
+  PASS erneut ueberspringen -> 409 WORKFLOW_STEP_ALREADY_DONE :: 409 WORKFLOW_STEP_ALREADY_DONE
+
+[C] ohne Vorlagenschritt -> 409
+  PASS Vorlage geloescht -> 409 :: 409 WORKFLOW_STEP_NOT_SKIPPABLE
+  PASS Schritt nicht in der Vorlage -> 409 :: 409 WORKFLOW_STEP_NOT_SKIPPABLE
+  PASS DB unveraendert :: in-progress
+
+[D] Oberflaechen-Quelle (GET …/workflows) = Serverregel
+  PASS canSkip im Lese-Endpunkt: false/true/false wie durchgesetzt :: 200 false,true,false
+
+[E] Rollen
+  PASS Kunde -> 403, DB unveraendert :: 403 in-progress
+
+Ergebnis: 14 bestanden, 0 fehlgeschlagen

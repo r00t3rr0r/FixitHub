@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { getKnownRepairCost } from '@/api/deviceInspection';
+import { approveRepairStart } from '@/api/repairWorkflow';
+import api from '@/api/api';
 import { CorrectionModal } from './CorrectionModal';
 
 const VERIFICATION_STATUS_LABELS: Record<string, string> = {
@@ -47,16 +49,16 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
       try {
         setLoadingData(true);
 
-        const orderRes = await fetch(`/api/orders/${orderId}`);
-        if (orderRes.ok) {
-          const orderData = await orderRes.json();
-          setOrder(orderData.order);
+        // Personal-Lesepfade ueber den gemeinsamen API-Client; ein fehlender Teil blockiert den anderen nicht.
+        const [orderRes, inspectionRes] = await Promise.allSettled([
+          api.get(`/api/admin/orders/${orderId}`),
+          api.get(`/api/device-inspections/${orderId}`),
+        ]);
+        if (orderRes.status === 'fulfilled') {
+          setOrder(orderRes.value?.data?.order || null);
         }
-
-        const inspectionRes = await fetch(`/api/device-inspections/${orderId}`);
-        if (inspectionRes.ok) {
-          const inspectionData = await inspectionRes.json();
-          setInspection(inspectionData.inspection);
+        if (inspectionRes.status === 'fulfilled') {
+          setInspection(inspectionRes.value?.data?.inspection || null);
         }
       } catch (err: any) {
         console.error('Error loading data:', err);
@@ -68,31 +70,17 @@ export function DataOverviewScreen({ orderId, workflow, onWorkflowUpdated }: Dat
     loadData();
   }, [orderId]);
 
+  // Ueber den gemeinsamen API-Client (CSRF-Header, deutsche Servermeldungen) statt rohem fetch (NOTIF-6).
   const handleApprove = async () => {
     try {
       setApproving(true);
-      const response = await fetch(`/api/repair-workflows/${orderId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          internalNotes: '',
-          orderChanges: null,
-          notifyCustomer: false,
-        }),
-      });
-
-      if (!response.ok) {
-        // Die deutsche Servermeldung (z. B. 409 "bereits in Bearbeitung") anzeigen.
-        const errorBody = await response.json().catch(() => null);
-        throw new Error(errorBody?.message || 'Der Reparatur-Workflow konnte nicht gestartet werden.');
-      }
-
-      const data = await response.json();
-      onWorkflowUpdated(data.workflow);
-      toast({ title: 'Erfolg', description: 'Reparatur-Workflow gestartet' });
+      const result = await approveRepairStart(orderId, '', null, false);
+      onWorkflowUpdated(result.workflow);
+      toast({ title: 'Gespeichert', description: result.message || 'Die Reparatur wurde gestartet.' });
+      (result.warnings || []).forEach((warning) => toast({ title: 'Hinweis', description: warning, variant: 'destructive' }));
     } catch (err: any) {
       console.error('Error approving repair:', err);
-      toast({ title: 'Fehler', description: err.message });
+      toast({ title: 'Nicht gespeichert', description: err.message, variant: 'destructive' });
     } finally {
       setApproving(false);
     }

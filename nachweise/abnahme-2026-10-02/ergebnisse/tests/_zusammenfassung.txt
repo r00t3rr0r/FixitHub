@@ -1,0 +1,58 @@
+test-adminlists-bookings-projection.js           exit=0      2s net:0      Ergebnis: 33 PASS, 0 FAIL
+test-adminlists-orders-filters.js                exit=0      2s net:0      Ergebnis: 20 PASS, 0 FAIL
+test-booking-billing-consistency.js              exit=0      5s net:0      ==== 30 bestanden, 0 fehlgeschlagen ====
+test-bookings-customer-list.js                   exit=0      2s net:0      Ergebnis: 38 PASS, 0 FAIL
+test-cmoney-client-helpers.js                    exit=0      1s net:0      Ergebnis: 20 PASS, 0 FAIL
+test-comms-central.js                            exit=0      4s net:0      Ergebnis: 125 bestanden, 0 fehlgeschlagen
+test-complaint-numbering.js                      exit=0      3s net:0      ==== 7 bestanden, 0 fehlgeschlagen ====
+test-device-change-service-match.js              exit=0      2s net:0      ==== 40 bestanden, 0 fehlgeschlagen ====
+test-dhl-postcheckout-inbound-label.js           exit=0      7s net:0      Ergebnis: 102 bestanden, 0 fehlgeschlagen
+test-discount-double-application.js              exit=0      2s net:0      ==== 14 bestanden, 0 fehlgeschlagen ====
+test-documents-residual.js                       exit=0      7s net:0      ==== 49 bestanden, 0 fehlgeschlagen ====
+test-dunning-run.js                              exit=0      4s net:0      ==== 48 bestanden, 0 fehlgeschlagen ====
+test-fin-controlling-http.js                     exit=0      5s net:0      Ergebnis: 51 PASS, 0 FAIL
+test-fin-payment-request-concurrency.js          exit=0     31s net:0      Ergebnis: 123 PASS, 0 FAIL
+test-fin-payments-invoices-http.js               exit=0     12s net:0      Ergebnis: 111 PASS, 0 FAIL
+test-fin-tax-zero-vs-missing.js                  exit=0      2s net:0      ==== 26 bestanden, 0 fehlgeschlagen ====
+test-frontend-order-wiring.js                    exit=0      3s net:0      ==== 25 bestanden, 0 fehlgeschlagen ====
+test-history-contract.js                         exit=0      4s net:0      ==== 87 bestanden, 0 fehlgeschlagen ====
+test-hist-srva-fixwave.js                        exit=0      3s net:0      ==== 66 bestanden, 0 fehlgeschlagen ====
+test-i18n-staff-checklist-keys.js                exit=0      0s net:0      Ergebnis: 7 bestanden, 0 fehlgeschlagen
+test-inspection-report-values.js                 exit=0      2s net:0      ==== 38 bestanden, 0 fehlgeschlagen ====
+test-inspection-workflow-residual.js             exit=0      3s net:0      ==== 25 bestanden, 0 fehlgeschlagen ====
+test-invoice-documents.js                        exit=0      5s net:0      ==== 69 bestanden, 0 fehlgeschlagen ====
+test-invoice-integrity.js                        exit=0      7s net:0      ==== 54 bestanden, 0 fehlgeschlagen ====
+test-invoice-storno.js                           exit=0      8s net:0      ==== 68 bestanden, 0 fehlgeschlagen ====
+test-notify-notifications-http.js                exit=0      8s net:0      Ergebnis: 107 bestanden, 0 fehlgeschlagen
+test-ord-cancel-ready-dashboard.js               exit=0      3s net:0      Ergebnis: 34 bestanden, 0 fehlgeschlagen
+test-ord-cancel-reopen.js                        exit=0      2s net:0      ==== 18 bestanden, 0 fehlgeschlagen ====
+test-orderdetail-admin-reported-device.js        exit=0      2s net:0      ==== 13 bestanden, 0 fehlgeschlagen ====
+test-order-pricing-http.js                       exit=0      3s net:0      ==== 40 bestanden, 0 fehlgeschlagen ====
+test-order-residual.js                           exit=0      7s net:0      ==== 130 bestanden, 0 fehlgeschlagen ====
+test-order-security.js                           exit=0      4s net:0      ==== 39 bestanden, 0 fehlgeschlagen ====
+test-order-value-concurrency-legacy.js           exit=0      3s net:0      ==== 71 bestanden, 0 fehlgeschlagen ====
+test-order-value-service-edit.js                 exit=0      3s net:0      ==== 87 bestanden, 0 fehlgeschlagen ====
+test-ord-wave3-completion.js                     exit=0      4s net:0      Ergebnis: 38 bestanden, 0 fehlgeschlagen
+test-parts-suppliers-settings-http.js            exit=0      6s net:0      Ergebnis: 121 PASS, 0 FAIL
+test-payment-flows.js                            exit=0      9s net:0      ==== 72 bestanden, 0 fehlgeschlagen ====
+test-percent-rounding-consistency.js             exit=0      2s net:0      ==== 31 bestanden, 0 fehlgeschlagen ====
+test-refund-webhook-hardening.js                 exit=0      6s net:0      ==== 63 bestanden, 0 fehlgeschlagen ====
+test-repair-request-flow.js                      exit=0      5s net:0      ==== 107 bestanden, 0 fehlgeschlagen ====
+test-repair-workflow-feedback.js                 exit=0      3s net:0      61 bestanden, 0 fehlgeschlagen
+test-sec-booking-discount-allocation.js          exit=0      8s net:0      ==== 193 bestanden, 0 fehlgeschlagen ====
+test-sec-complaint-fee-invoice.js                exit=0      7s net:0      ==== 55 bestanden, 0 fehlgeschlagen ====
+test-sec-customer-isolation.js                   exit=0      4s net:0      ==== 153 bestanden, 0 fehlgeschlagen ====
+test-sec-device-model-update.js                  exit=0      2s net:0      ==== 7 bestanden, 0 fehlgeschlagen ====
+test-sec-guest-token.js                          exit=0      5s net:0      Ergebnis: 69 bestanden, 0 fehlgeschlagen
+test-sec-profile-self-update.js                  exit=0      2s net:0      Ergebnis: 18 PASS, 0 FAIL
+test-sec-seed-routes.js                          exit=0      1s net:0      ==== 7 bestanden, 0 fehlgeschlagen ====
+test-seed-admin-password.js                      exit=0      3s net:0      ==== 26 bestanden, 0 fehlgeschlagen ====
+test-seed-sample-data-production.js              exit=0      2s net:0      Ergebnis: 6 bestanden, 0 fehlgeschlagen
+test-settings-section-isolation.js               exit=0      2s net:0      ==== 12 bestanden, 0 fehlgeschlagen ====
+test-shipping-claim-fencing.js                   exit=0      6s net:0      Ergebnis: 56 bestanden, 0 fehlgeschlagen
+test-shipping-label-recovery.js                  exit=0      3s net:0      Ergebnis: 44 bestanden, 0 fehlgeschlagen
+test-shipping-outbound-direction.js              exit=0      3s net:0      ==== 69 bestanden, 0 fehlgeschlagen ====
+test-workflow-order-sync.js                      exit=0      5s net:0      Ergebnis: 97 bestanden, 0 fehlgeschlagen
+test-workflow-skip-canskip.js                    exit=0      1s net:0      Ergebnis: 14 bestanden, 0 fehlgeschlagen
+test-workflow-template-notify.js                 exit=0      3s net:0      Ergebnis: 20 bestanden, 0 fehlgeschlagen
+DONE

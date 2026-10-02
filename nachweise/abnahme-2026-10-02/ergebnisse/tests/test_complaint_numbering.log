@@ -1,0 +1,314 @@
+(node:1097715) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1097715) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1097715) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+OrderService: Getting order by ID: 6abf92c0f5adffa9e89e0ac0
+OrderService: Getting order by ID: 6abf92c0f5adffa9e89e0ade
+OrderService: Getting order by ID: 6abf92c0f5adffa9e89e0af3
+OrderService: Getting order by ID: 6abf92c0f5adffa9e89e0b08
+OrderService: Getting order by ID: 6abf92c0f5adffa9e89e0b1b
+OrderService: Getting order by ID: 6abf92c0f5adffa9e89e0b28
+ComplaintService: Creating new complaint with data: {
+  bookingId: null,
+  orderId: new ObjectId('6abf92c0f5adffa9e89e0ade'),
+  customerId: new ObjectId('6abf92c0f5adffa9e89e0ac6'),
+  subject: 'Reklamation für Auftrag ORD-CN-1',
+  description: 'Nach der Reparatur flackert das Display.',
+  category: 'service',
+  priority: 'medium',
+  status: 'pending_approval',
+  workflowType: 'order-complaint',
+  complaintReason: 'Display flackert',
+  complaintLogs: [
+    {
+      actorId: new ObjectId('6abf92c0f5adffa9e89e0ac6'),
+      actorName: 'Kunde 1',
+      actorRole: 'customer',
+      action: 'complaint_created',
+      fromStatus: '',
+      toStatus: 'pending_approval',
+      notes: 'Display flackert',
+      metadata: [Object]
+    }
+  ]
+}
+ComplaintService: Creating new complaint with data: {
+  bookingId: null,
+  orderId: new ObjectId('6abf92c0f5adffa9e89e0ac0'),
+  customerId: new ObjectId('6abf92c0f5adffa9e89e0aae'),
+  subject: 'Reklamation für Auftrag ORD-CN-0',
+  description: 'Nach der Reparatur flackert das Display.',
+  category: 'service',
+  priority: 'medium',
+  status: 'pending_approval',
+  workflowType: 'order-complaint',
+  complaintReason: 'Display flackert',
+  complaintLogs: [
+    {
+      actorId: new ObjectId('6abf92c0f5adffa9e89e0aae'),
+      actorName: 'Kunde 0',
+      actorRole: 'customer',
+      action: 'complaint_created',
+      fromStatus: '',
+      toStatus: 'pending_approval',
+      notes: 'Display flackert',
+      metadata: [Object]
+    }
+  ]
+}
+ComplaintService: Creating new complaint with data: {
+  bookingId: null,
+  orderId: new ObjectId('6abf92c0f5adffa9e89e0af3'),
+  customerId: new ObjectId('6abf92c0f5adffa9e89e0aea'),
+  subject: 'Reklamation für Auftrag ORD-CN-2',
+  description: 'Nach der Reparatur flackert das Display.',
+  category: 'service',
+  priority: 'medium',
+  status: 'pending_approval',
+  workflowType: 'order-complaint',
+  complaintReason: 'Display flackert',
+  complaintLogs: [
+    {
+      actorId: new ObjectId('6abf92c0f5adffa9e89e0aea'),
+      actorName: 'Kunde 2',
+      actorRole: 'customer',
+      action: 'complaint_created',
+      fromStatus: '',
+      toStatus: 'pending_approval',
+      notes: 'Display flackert',
+      metadata: [Object]
+    }
+  ]
+}
+ComplaintService: Creating new complaint with data: {
+  bookingId: null,
+  orderId: new ObjectId('6abf92c0f5adffa9e89e0b08'),
+  customerId: new ObjectId('6abf92c0f5adffa9e89e0af8'),
+  subject: 'Reklamation für Auftrag ORD-CN-3',
+  description: 'Nach der Reparatur flackert das Display.',
+  category: 'service',
+  priority: 'medium',
+  status: 'pending_approval',
+  workflowType: 'order-complaint',
+  complaintReason: 'Display flackert',
+  complaintLogs: [
+    {
+      actorId: new ObjectId('6abf92c0f5adffa9e89e0af8'),
+      actorName: 'Kunde 3',
+      actorRole: 'customer',
+      action: 'complaint_created',
+      fromStatus: '',
+      toStatus: 'pending_approval',
+      notes: 'Display flackert',
+      metadata: [Object]
+    }
+  ]
+}
+ComplaintService: Creating new complaint with data: {
+  bookingId: null,
+  orderId: new ObjectId('6abf92c0f5adffa9e89e0b1b'),
+  customerId: new ObjectId('6abf92c0f5adffa9e89e0b0e'),
+  subject: 'Reklamation für Auftrag ORD-CN-4',
+  description: 'Nach der Reparatur flackert das Display.',
+  category: 'service',
+  priority: 'medium',
+  status: 'pending_approval',
+  workflowType: 'order-complaint',
+  complaintReason: 'Display flackert',
+  complaintLogs: [
+    {
+      actorId: new ObjectId('6abf92c0f5adffa9e89e0b0e'),
+      actorName: 'Kunde 4',
+      actorRole: 'customer',
+      action: 'complaint_created',
+      fromStatus: '',
+      toStatus: 'pending_approval',
+      notes: 'Display flackert',
+      metadata: [Object]
+    }
+  ]
+}
+ComplaintService: Complaint created successfully with ID: new ObjectId('6abf92c1f5adffa9e89e0b95')
+ComplaintService: Complaint created successfully with ID: new ObjectId('6abf92c1f5adffa9e89e0ba7')
+ComplaintService: Complaint created successfully with ID: new ObjectId('6abf92c1f5adffa9e89e0bb2')
+ComplaintService: Creating new complaint with data: {
+  bookingId: null,
+  orderId: new ObjectId('6abf92c0f5adffa9e89e0b28'),
+  customerId: new ObjectId('6abf92c0f5adffa9e89e0b20'),
+  subject: 'Reklamation für Auftrag ORD-CN-5',
+  description: 'Nach der Reparatur flackert das Display.',
+  category: 'service',
+  priority: 'medium',
+  status: 'pending_approval',
+  workflowType: 'order-complaint',
+  complaintReason: 'Display flackert',
+  complaintLogs: [
+    {
+      actorId: new ObjectId('6abf92c0f5adffa9e89e0b20'),
+      actorName: 'Kunde 5',
+      actorRole: 'customer',
+      action: 'complaint_created',
+      fromStatus: '',
+      toStatus: 'pending_approval',
+      notes: 'Display flackert',
+      metadata: [Object]
+    }
+  ]
+}
+ComplaintService: Complaint created successfully with ID: new ObjectId('6abf92c1f5adffa9e89e0baf')
+ComplaintService: Complaint created successfully with ID: new ObjectId('6abf92c1f5adffa9e89e0b9f')
+SystemConfigService: Getting system configuration
+SystemConfigService: Getting system configuration
+SystemConfigService: Getting system configuration
+SystemConfigService: Getting system configuration
+SystemConfigService: No configuration found, creating default
+SystemConfigService: No configuration found, creating default
+SystemConfigService: No configuration found, creating default
+SystemConfigService: No configuration found, creating default
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Configuration retrieved successfully
+ComplaintService: Complaint created successfully with ID: new ObjectId('6abf92c1f5adffa9e89e24fd')
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Getting system configuration
+SystemConfigService: Getting system configuration
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+[32m[11:17:22] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Reklamation eingegangen","to":"cn1@test.invalid","variableKeys":["companyName","customerName","complaintNumber","complaintCategory","complaintSubject","orderNumber","priority","submittedAt","complaintUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+[32m[11:17:22] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Reklamation eingegangen","to":"cn3@test.invalid","variableKeys":["companyName","customerName","complaintNumber","complaintCategory","complaintSubject","orderNumber","priority","submittedAt","complaintUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+[32m[11:17:22] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Reklamation eingegangen","to":"cn4@test.invalid","variableKeys":["companyName","customerName","complaintNumber","complaintCategory","complaintSubject","orderNumber","priority","submittedAt","complaintUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Reklamation eingegangen" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Reklamation eingegangen" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Reklamation eingegangen" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:17:22] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Reklamation eingegangen","to":"cn0@test.invalid","variableKeys":["companyName","customerName","complaintNumber","complaintCategory","complaintSubject","orderNumber","priority","submittedAt","complaintUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Reklamation eingegangen" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:17:22] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Reklamation eingegangen","to":"cn5@test.invalid","variableKeys":["companyName","customerName","complaintNumber","complaintCategory","complaintSubject","orderNumber","priority","submittedAt","complaintUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Reklamation eingegangen" for channel "email"
+SystemConfigService: Getting system configuration
+[32m[11:17:22] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Reklamation eingegangen","to":"cn2@test.invalid","variableKeys":["companyName","customerName","complaintNumber","complaintCategory","complaintSubject","orderNumber","priority","submittedAt","complaintUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Reklamation eingegangen" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:17:22] [EmailRetry] INFO: sendTemplateEmail(Reklamation eingegangen) succeeded[0m {"attempt":1,"duration":"211ms","messageId":"<muqvcaft.tay86jay5l@mcrepair.de>","to":"cn1@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:17:22] [EmailDelivery] INFO: Email delivered[0m {"to":"cn1@test.invalid","subject":"Ihre Reklamation CMP-2026-0008 wurde erfolgreich a","messageId":"<muqvcaft.tay86jay5l@mcrepair.de>","duration":"211ms","attempts":1} [Context: {"deliveryTracker":true}]
+[32m[11:17:22] [EmailRetry] INFO: sendTemplateEmail(Reklamation eingegangen) succeeded[0m {"attempt":1,"duration":"198ms","messageId":"<muqvcagi.1a8w98b4y8@mcrepair.de>","to":"cn3@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:17:22] [EmailDelivery] INFO: Email delivered[0m {"to":"cn3@test.invalid","subject":"Ihre Reklamation CMP-2026-0009 wurde erfolgreich a","messageId":"<muqvcagi.1a8w98b4y8@mcrepair.de>","duration":"198ms","attempts":1} [Context: {"deliveryTracker":true}]
+[32m[11:17:22] [EmailRetry] INFO: sendTemplateEmail(Reklamation eingegangen) succeeded[0m {"attempt":1,"duration":"186ms","messageId":"<muqvcahc.j8okz7e7be@mcrepair.de>","to":"cn4@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:17:22] [EmailDelivery] INFO: Email delivered[0m {"to":"cn4@test.invalid","subject":"Ihre Reklamation CMP-2026-0012 wurde erfolgreich a","messageId":"<muqvcahc.j8okz7e7be@mcrepair.de>","duration":"186ms","attempts":1} [Context: {"deliveryTracker":true}]
+[32m[11:17:22] [EmailRetry] INFO: sendTemplateEmail(Reklamation eingegangen) succeeded[0m {"attempt":1,"duration":"149ms","messageId":"<muqvcaim.u2mo6cncfr@mcrepair.de>","to":"cn0@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:17:22] [EmailDelivery] INFO: Email delivered[0m {"to":"cn0@test.invalid","subject":"Ihre Reklamation CMP-2026-0010 wurde erfolgreich a","messageId":"<muqvcaim.u2mo6cncfr@mcrepair.de>","duration":"149ms","attempts":1} [Context: {"deliveryTracker":true}]
+[32m[11:17:22] [EmailRetry] INFO: sendTemplateEmail(Reklamation eingegangen) succeeded[0m {"attempt":1,"duration":"103ms","messageId":"<muqvcak6.lusl8fq9j2@mcrepair.de>","to":"cn5@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:17:22] [EmailDelivery] INFO: Email delivered[0m {"to":"cn5@test.invalid","subject":"Ihre Reklamation CMP-2026-0013 wurde erfolgreich a","messageId":"<muqvcak6.lusl8fq9j2@mcrepair.de>","duration":"103ms","attempts":1} [Context: {"deliveryTracker":true}]
+[32m[11:17:22] [EmailRetry] INFO: sendTemplateEmail(Reklamation eingegangen) succeeded[0m {"attempt":1,"duration":"67ms","messageId":"<muqvcale.wuabigd42l@mcrepair.de>","to":"cn2@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:17:22] [EmailDelivery] INFO: Email delivered[0m {"to":"cn2@test.invalid","subject":"Ihre Reklamation CMP-2026-0011 wurde erfolgreich a","messageId":"<muqvcale.wuabigd42l@mcrepair.de>","duration":"67ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS 6 parallele Reklamationen ueber die echte Route angelegt :: 201,201,201,201,201,201
+  PASS alle Nummern eindeutig :: CMP-2026-0008 CMP-2026-0009 CMP-2026-0010 CMP-2026-0011 CMP-2026-0012 CMP-2026-0013
+  PASS Format CMP-JJJJ-NNNN (keine "R<ID>"-Nummer) :: CMP-2026-0008
+  PASS Zaehler beginnt oberhalb des Altbestands (0007) :: CMP-2026-0008
+  PASS Betreff mit "für" statt "fuer" :: Reklamation für Auftrag ORD-CN-1
+OrderService: Getting order by ID: 6abf92c2f5adffa9e89e72a4
+ComplaintService: Creating new complaint with data: {
+  bookingId: null,
+  orderId: new ObjectId('6abf92c2f5adffa9e89e72a4'),
+  customerId: new ObjectId('6abf92c2f5adffa9e89e72a0'),
+  subject: 'Reklamation für Auftrag ORD-CN-X',
+  description: 'Nach der Reparatur flackert das Display.',
+  category: 'service',
+  priority: 'medium',
+  status: 'pending_approval',
+  workflowType: 'order-complaint',
+  complaintReason: 'Display flackert',
+  complaintLogs: [
+    {
+      actorId: new ObjectId('6abf92c2f5adffa9e89e72a0'),
+      actorName: 'Nach Loeschung',
+      actorRole: 'customer',
+      action: 'complaint_created',
+      fromStatus: '',
+      toStatus: 'pending_approval',
+      notes: 'Display flackert',
+      metadata: [Object]
+    }
+  ]
+}
+ComplaintService: Complaint created successfully with ID: new ObjectId('6abf92c2f5adffa9e89e72b3')
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:17:22] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Reklamation eingegangen","to":"cn-x@test.invalid","variableKeys":["companyName","customerName","complaintNumber","complaintCategory","complaintSubject","orderNumber","priority","submittedAt","complaintUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Reklamation eingegangen" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:17:22] [EmailRetry] INFO: sendTemplateEmail(Reklamation eingegangen) succeeded[0m {"attempt":1,"duration":"6ms","messageId":"<muqvcase.0gt8jru8nx@mcrepair.de>","to":"cn-x@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:17:22] [EmailDelivery] INFO: Email delivered[0m {"to":"cn-x@test.invalid","subject":"Ihre Reklamation CMP-2026-0014 wurde erfolgreich a","messageId":"<muqvcase.0gt8jru8nx@mcrepair.de>","duration":"6ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS nach Loeschung neue, eindeutige Nummer :: 201 CMP-2026-0014
+  PASS Altbestand "R<ID>" wird nicht still umgeschrieben :: R6abf92c0f5adffa9e89e0aa5
+
+==== 7 bestanden, 0 fehlgeschlagen ====

@@ -1,0 +1,12 @@
+  PASS Teilzahlung 50,00 € per Ueberweisung gebucht (Admin-API wie im Zahlungsdialog) :: 201 
+   [shot] 01_k14_zahlungen_liste.png
+  PASS Suche nach Verwendungszweck findet die Zahlung, Verwendungszweck steht in der Zeile :: E2E-UEB-614819
+   horizontale Innen-Scrollbereiche Zahlungstabelle: []
+  PASS Zahlung zeigt die Buchungsnummer BKG-2026-0001 
+  PASS ohne Rechnung als Vorauszahlung / nicht zugeordnet erkennbar (nicht als Ueberzahlung) 
+  PASS Link oeffnet die Buchung/den Auftrag :: http://127.0.0.1:5199/admin/bookings
+   [shot] 02_k14_link_ziel.png
+  PASS Kunde: "Bezahlt (ganze Buchung)" enthaelt die neue Zahlung :: 50
+  PASS Kunde: Bezahlt + Offen (bzw. Bezahlt − Überzahlt) = Buchungssumme 170,81 € :: 50 + 120.81
+   [shot] 03_k14_kunde_zahlungsstand.png
+==== k14: 7 bestanden, 0 fehlgeschlagen ====

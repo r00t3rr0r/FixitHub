@@ -3,6 +3,55 @@ const Inventory = require('../models/Inventory');
 const NeedList = require('../models/NeedList');
 const Order = require('../models/Order');
 const NotificationService = require('./notificationService');
+const mongoose = require('mongoose');
+const ListFilterGroups = require('../utils/listFilterGroups');
+
+// ---- gemeinsame Regeln fuer Ersatzteilbestellungen (01.10.2026) ----
+const MANUAL_STATUSES = ['draft', 'pending', 'confirmed', 'shipped'];
+const CREATE_STATUSES = ['draft', 'pending', 'confirmed'];
+const RECEIVABLE_STATUSES = ['confirmed', 'shipped', 'partial'];
+const PAYMENT_STATUSES = ['unpaid', 'partial', 'paid'];
+const PAYMENT_METHODS = ['credit_card', 'bank_transfer', 'check', 'cash', 'account'];
+const STATUS_LABELS = {
+  draft: 'Entwurf',
+  pending: 'Offen',
+  confirmed: 'Bestellt',
+  shipped: 'Versendet',
+  partial: 'Teilweise erhalten',
+  received: 'Erhalten',
+  cancelled: 'Storniert'
+};
+const PAYMENT_LABELS = { unpaid: 'Unbezahlt', partial: 'Teilweise bezahlt', paid: 'Bezahlt' };
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function httpError(status, message) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
+function isValidObjectId(value) {
+  return Boolean(value) && mongoose.Types.ObjectId.isValid(String(value)) && /^[a-f0-9]{24}$/i.test(String(value));
+}
+
+function assertObjectId(value, message) {
+  if (!isValidObjectId(value)) throw httpError(400, message);
+}
+
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseOptionalDate(value, message) {
+  if (value === undefined || value === null || value === '') return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw httpError(400, message);
+  return date;
+}
+
+function formatDateDe(date) {
+  return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' }).format(date);
+}
 
 class EPartOrderService {
   static getSafeVersionForAllocation(part, requestedQuantity = 1) {
@@ -101,7 +150,7 @@ class EPartOrderService {
 
         linkedOrder.timeline.push({
           status: 'EPart Assigned',
-          description: `${part.itemName} x${assignableQuantity} automatically assigned from received need list \"${needList.name}\"`,
+          description: `${part.itemName} × ${assignableQuantity} automatisch aus der eingegangenen Bedarfsliste „${needList.name}“ zugewiesen`,
           completedAt: new Date(),
           staffId: userId || 'system',
           staffName: 'System',
@@ -127,8 +176,8 @@ class EPartOrderService {
             try {
               await NotificationService.createNotification({
                 userId: staffId,
-                title: 'Ersatzteil fuer Reparatur verfuegbar',
-                message: `Fuer Auftrag ${linkedOrder.orderNumber || linkedOrder._id} wurde ein angefordertes Ersatzteil empfangen und der Reparatur zugewiesen.`,
+                title: 'Ersatzteil für Reparatur verfügbar',
+                message: `Für Auftrag ${linkedOrder.orderNumber || linkedOrder._id} wurde ein angefordertes Ersatzteil empfangen und der Reparatur zugewiesen.`,
                 type: 'assignment',
                 orderId: linkedOrder._id,
                 actionUrl: `/admin/orders/${linkedOrder._id}`,
@@ -142,7 +191,7 @@ class EPartOrderService {
         if (autoAssignedLines > 0) {
           linkedOrder.timeline.push({
             status: 'Staff Notified',
-            description: `Assigned staff notified that ${autoAssignedLines} replacement part position(s) are now available for repair`,
+            description: `Zugewiesenes Personal benachrichtigt: ${autoAssignedLines} Ersatzteilposition(en) für die Reparatur verfügbar`,
             completedAt: new Date(),
             staffId: userId || 'system',
             staffName: 'System',
@@ -247,10 +296,11 @@ class EPartOrderService {
     }
 
     if (filters.search) {
+      const pattern = escapeRegex(String(filters.search).trim());
       query.$or = [
-        { name: { $regex: filters.search, $options: 'i' } },
-        { email: { $regex: filters.search, $options: 'i' } },
-        { contactPerson: { $regex: filters.search, $options: 'i' } }
+        { name: { $regex: pattern, $options: 'i' } },
+        { email: { $regex: pattern, $options: 'i' } },
+        { contactPerson: { $regex: pattern, $options: 'i' } }
       ];
     }
 
@@ -262,36 +312,146 @@ class EPartOrderService {
    * Get supplier by ID
    */
   static async getSupplierById(supplierId) {
+    assertObjectId(supplierId, 'Ungültige Lieferanten-ID.');
     const supplier = await Supplier.findById(supplierId);
     if (!supplier) {
-      throw new Error('Supplier not found');
+      throw httpError(404, 'Lieferant nicht gefunden.');
     }
     return supplier;
+  }
+
+  /**
+   * Whitelist + Normalisierung der Lieferanten-Eingaben. Unbekannte Felder
+   * (_id, createdAt, updatedAt, __v ...) werden verworfen.
+   */
+  static normalizeSupplierInput(input = {}, { partial = false } = {}) {
+    const data = input && typeof input === 'object' ? input : {};
+    const result = {};
+    const has = (key) => Object.prototype.hasOwnProperty.call(data, key);
+    const text = (value) => (value === undefined || value === null ? '' : String(value).trim());
+
+    if (!partial || has('name')) {
+      result.name = text(data.name);
+      if (!result.name) throw httpError(400, 'Bitte einen Namen für den Lieferanten eingeben.');
+      if (result.name.length > 200) throw httpError(400, 'Der Name darf höchstens 200 Zeichen lang sein.');
+    }
+    if (!partial || has('email')) {
+      result.email = text(data.email).toLowerCase();
+      if (!EMAIL_PATTERN.test(result.email)) {
+        throw httpError(400, 'Bitte eine gültige E-Mail-Adresse eingeben (z. B. bestellung@lieferant.de).');
+      }
+    }
+    ['contactPerson', 'phone', 'website', 'ustId', 'paymentTerms', 'notes'].forEach((key) => {
+      if (has(key)) result[key] = text(data[key]);
+    });
+    if (has('address')) {
+      const address = data.address && typeof data.address === 'object' ? data.address : {};
+      result.address = {};
+      ['street', 'city', 'state', 'zipCode', 'country'].forEach((key) => {
+        result.address[key] = text(address[key]);
+      });
+    }
+    if (has('paymentInformation')) {
+      const info = data.paymentInformation && typeof data.paymentInformation === 'object' ? data.paymentInformation : {};
+      result.paymentInformation = {};
+      ['iban', 'bic', 'bankName', 'accountHolder'].forEach((key) => {
+        result.paymentInformation[key] = text(info[key]);
+      });
+      result.paymentInformation.iban = result.paymentInformation.iban.replace(/\s+/g, '').toUpperCase();
+      result.paymentInformation.bic = result.paymentInformation.bic.replace(/\s+/g, '').toUpperCase();
+    }
+    if (has('leadTime')) {
+      const raw = data.leadTime;
+      if (raw === '' || raw === null || raw === undefined) {
+        result.leadTime = 7;
+      } else {
+        const leadTime = Number(raw);
+        if (!Number.isInteger(leadTime) || leadTime < 0 || leadTime > 365) {
+          throw httpError(400, 'Lieferzeit muss eine ganze Zahl zwischen 0 und 365 Tagen sein.');
+        }
+        result.leadTime = leadTime;
+      }
+    }
+    if (has('rating')) {
+      const raw = data.rating;
+      if (raw === '' || raw === null || raw === undefined) {
+        result.rating = undefined;
+      } else {
+        const rating = Number(raw);
+        if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+          throw httpError(400, 'Bewertung muss zwischen 1 und 5 liegen.');
+        }
+        result.rating = rating;
+      }
+    }
+    if (has('isActive')) {
+      result.isActive = data.isActive === true || data.isActive === 'true';
+    }
+    return result;
+  }
+
+  /**
+   * Dublettenpruefung: gleicher Name (ohne Gross-/Kleinschreibung) UND gleiche
+   * E-Mail unter den AKTIVEN Lieferanten -> 409.
+   */
+  static async assertNoDuplicateSupplier({ name, email, excludeId = null }) {
+    if (!name || !email) return;
+    const query = {
+      isActive: true,
+      email: String(email).toLowerCase(),
+      name: { $regex: `^${escapeRegex(name)}$`, $options: 'i' }
+    };
+    if (excludeId) query._id = { $ne: excludeId };
+    const duplicate = await Supplier.findOne(query).select('_id name');
+    if (duplicate) {
+      throw httpError(409, 'Ein Lieferant mit diesem Namen und dieser E-Mail existiert bereits.');
+    }
   }
 
   /**
    * Create new supplier
    */
   static async createSupplier(supplierData) {
-    const supplier = new Supplier(supplierData);
+    const data = this.normalizeSupplierInput(supplierData, { partial: false });
+    if (data.isActive === undefined) data.isActive = true;
+    if (data.isActive) {
+      await this.assertNoDuplicateSupplier({ name: data.name, email: data.email });
+    }
+    const supplier = new Supplier(data);
     await supplier.save();
     return supplier;
   }
 
   /**
-   * Update supplier
+   * Update supplier (also used to deactivate / reactivate)
    */
   static async updateSupplier(supplierId, updateData) {
-    const supplier = await Supplier.findByIdAndUpdate(
-      supplierId,
-      updateData,
-      { new: true, runValidators: true }
-    );
-
-    if (!supplier) {
-      throw new Error('Supplier not found');
+    assertObjectId(supplierId, 'Ungültige Lieferanten-ID.');
+    const existing = await Supplier.findById(supplierId);
+    if (!existing) {
+      throw httpError(404, 'Lieferant nicht gefunden.');
     }
 
+    const data = this.normalizeSupplierInput(updateData, { partial: true });
+    const nextName = data.name !== undefined ? data.name : existing.name;
+    const nextEmail = data.email !== undefined ? data.email : existing.email;
+    const nextActive = data.isActive !== undefined ? data.isActive : existing.isActive;
+    if (nextActive) {
+      await this.assertNoDuplicateSupplier({ name: nextName, email: nextEmail, excludeId: existing._id });
+    }
+
+    const $set = {};
+    const $unset = {};
+    Object.entries(data).forEach(([key, value]) => {
+      if (value === undefined) $unset[key] = 1;
+      else $set[key] = value;
+    });
+    const update = {};
+    if (Object.keys($set).length) update.$set = $set;
+    if (Object.keys($unset).length) update.$unset = $unset;
+    if (!Object.keys(update).length) return existing;
+
+    const supplier = await Supplier.findByIdAndUpdate(supplierId, update, { new: true, runValidators: true });
     return supplier;
   }
 
@@ -299,6 +459,7 @@ class EPartOrderService {
    * Delete (deactivate) supplier
    */
   static async deleteSupplier(supplierId) {
+    assertObjectId(supplierId, 'Ungültige Lieferanten-ID.');
     const supplier = await Supplier.findByIdAndUpdate(
       supplierId,
       { isActive: false },
@@ -306,44 +467,55 @@ class EPartOrderService {
     );
 
     if (!supplier) {
-      throw new Error('Supplier not found');
+      throw httpError(404, 'Lieferant nicht gefunden.');
     }
 
-    return { message: 'Supplier deactivated successfully' };
+    return { message: 'Lieferant deaktiviert.', supplier };
   }
 
   // ============ ORDER OPERATIONS ============
+
+  static async loadOrderOrFail(orderId) {
+    assertObjectId(orderId, 'Ungültige Bestell-ID.');
+    const order = await EPartOrder.findById(orderId);
+    if (!order) {
+      throw httpError(404, 'Bestellung nicht gefunden.');
+    }
+    return order;
+  }
 
   /**
    * Get all epart orders with filtering and pagination
    */
   static async getEPartOrders(filters = {}) {
     const query = {};
-    const page = parseInt(filters.page) || 1;
-    const limit = parseInt(filters.limit) || 20;
+    const page = Math.max(1, parseInt(filters.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 20));
     const skip = (page - 1) * limit;
 
-    // Status filter
-    if (filters.status) {
-      query.status = filters.status;
-    }
+    // Status filter (einzelner Status oder Gruppe aktiv/ausstehend/verzoegert - dieselbe Regel
+    // wie der Dashboard-Zaehler, server/utils/listFilterGroups.js)
+    ListFilterGroups.applyEPartStatusFilter(query, filters.status);
 
     // Supplier filter
     if (filters.supplierId) {
+      assertObjectId(filters.supplierId, 'Ungültige Lieferanten-ID.');
       query.supplierId = filters.supplierId;
     }
 
     // Payment status filter
     if (filters.paymentStatus) {
-      query.paymentStatus = filters.paymentStatus;
+      query.paymentStatus = String(filters.paymentStatus);
     }
 
-    // Search filter (order number or notes)
+    // Search filter (order number, notes or tracking number) - Eingabe wird escaped,
+    // damit z. B. "(" keinen Regex-Fehler (500) ausloest.
     if (filters.search) {
+      const pattern = escapeRegex(String(filters.search).trim());
       query.$or = [
-        { orderNumber: { $regex: filters.search, $options: 'i' } },
-        { notes: { $regex: filters.search, $options: 'i' } },
-        { trackingNumber: { $regex: filters.search, $options: 'i' } }
+        { orderNumber: { $regex: pattern, $options: 'i' } },
+        { notes: { $regex: pattern, $options: 'i' } },
+        { trackingNumber: { $regex: pattern, $options: 'i' } }
       ];
     }
 
@@ -360,10 +532,10 @@ class EPartOrderService {
 
     const total = await EPartOrder.countDocuments(query);
     const orders = await EPartOrder.find(query)
-      .populate('supplierId', 'name email contactPerson')
+      .populate('supplierId', 'name email contactPerson isActive')
       .populate('createdBy', 'firstName lastName email')
       .populate('receivedBy', 'firstName lastName email')
-      .sort({ orderDate: -1 })
+      .sort({ orderDate: -1, _id: -1 })
       .skip(skip)
       .limit(limit);
 
@@ -372,7 +544,7 @@ class EPartOrderService {
       pagination: {
         total,
         page,
-        pages: Math.ceil(total / limit),
+        pages: Math.max(1, Math.ceil(total / limit)),
         limit
       }
     };
@@ -382,6 +554,7 @@ class EPartOrderService {
    * Get order by ID
    */
   static async getEPartOrderById(orderId) {
+    assertObjectId(orderId, 'Ungültige Bestell-ID.');
     const order = await EPartOrder.findById(orderId)
       .populate('supplierId')
       .populate('createdBy', 'firstName lastName email')
@@ -389,7 +562,7 @@ class EPartOrderService {
       .populate('items.partId');
 
     if (!order) {
-      throw new Error('Order not found');
+      throw httpError(404, 'Bestellung nicht gefunden.');
     }
 
     return order;
@@ -398,53 +571,101 @@ class EPartOrderService {
   /**
    * Create new epart order
    */
-  static async createEPartOrder(orderData, userId) {
-    const preparedItems = [];
+  static async createEPartOrder(orderData = {}, userId) {
+    const data = orderData && typeof orderData === 'object' ? orderData : {};
 
-    for (const item of orderData.items) {
-      // Get part details from inventory
-      const part = await Inventory.findById(item.partId);
+    if (!data.supplierId || !isValidObjectId(data.supplierId)) {
+      throw httpError(400, 'Bitte einen Lieferanten auswählen.');
+    }
+    const supplier = await Supplier.findById(data.supplierId).select('_id name isActive');
+    if (!supplier) {
+      throw httpError(400, 'Der ausgewählte Lieferant wurde nicht gefunden.');
+    }
+    if (supplier.isActive === false) {
+      throw httpError(400, `Der Lieferant „${supplier.name}“ ist inaktiv. Bitte zuerst wieder aktivieren.`);
+    }
+
+    const items = Array.isArray(data.items) ? data.items : [];
+    if (items.length === 0) {
+      throw httpError(400, 'Bitte mindestens eine Position hinzufügen.');
+    }
+
+    const preparedItems = [];
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index] || {};
+      const position = `Position ${index + 1}`;
+      if (!item.partId || !isValidObjectId(item.partId)) {
+        throw httpError(400, `${position}: Bitte ein Ersatzteil auswählen.`);
+      }
+      const quantity = Number(item.quantity);
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        throw httpError(400, `${position}: Menge muss eine ganze Zahl von mindestens 1 sein.`);
+      }
+      const unitPrice = item.unitPrice === undefined || item.unitPrice === '' ? 0 : Number(item.unitPrice);
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw httpError(400, `${position}: Einzelpreis muss 0 oder größer sein.`);
+      }
+      const additionalCost = item.additionalCost === undefined || item.additionalCost === '' ? 0 : Number(item.additionalCost);
+      if (!Number.isFinite(additionalCost) || additionalCost < 0) {
+        throw httpError(400, `${position}: Zusatzkosten müssen 0 oder größer sein.`);
+      }
+
+      // Get part details from inventory (Inventory hat itemName, nicht name).
+      const part = await Inventory.findById(item.partId).select('itemName sku');
       if (!part) {
-        throw new Error(`Part not found: ${item.partId}`);
+        throw httpError(400, `${position}: Das Ersatzteil wurde nicht gefunden.`);
       }
 
       preparedItems.push({
-        partId: item.partId,
-        partName: part.name,
-        sku: part.sku,
-        quantity: item.quantity,
-        unitPrice: Math.max(0, Number(item.unitPrice) || 0),
-        additionalCost: Math.max(0, Number(item.additionalCost) || 0),
+        partId: part._id,
+        partName: part.itemName || part.name || part.sku || String(part._id),
+        sku: part.sku || String(part._id),
+        quantity,
+        unitPrice,
+        additionalCost,
         priceType: item.priceType === 'gross' ? 'gross' : 'net',
         receivedQuantity: 0,
         status: 'pending'
       });
     }
 
-    const allocation = this.allocateShippingProportionally(
-      preparedItems,
-      orderData.shippingCost || 0
-    );
+    const shippingInput = data.shippingCost === undefined || data.shippingCost === '' ? 0 : Number(data.shippingCost);
+    if (!Number.isFinite(shippingInput) || shippingInput < 0) {
+      throw httpError(400, 'Versandkosten müssen 0 oder größer sein.');
+    }
+    const tax = data.tax === undefined || data.tax === '' ? 0 : Number(data.tax);
+    if (!Number.isFinite(tax) || tax < 0) {
+      throw httpError(400, 'MwSt.-Betrag muss 0 oder größer sein.');
+    }
+    const status = data.status || 'draft';
+    if (!CREATE_STATUSES.includes(status)) {
+      throw httpError(400, 'Neue Bestellungen können nur als Entwurf, Offen oder Bestellt angelegt werden.');
+    }
+    const paymentMethod = data.paymentMethod || 'account';
+    if (!PAYMENT_METHODS.includes(paymentMethod)) {
+      throw httpError(400, 'Ungültige Zahlungsart.');
+    }
+    const expectedDeliveryDate = parseOptionalDate(data.expectedDeliveryDate, 'Voraussichtliche Lieferung ist kein gültiges Datum.');
 
-    const tax = Math.max(0, Number(orderData.tax) || 0);
+    const allocation = this.allocateShippingProportionally(preparedItems, shippingInput);
     const totalCost = this.roundTo(allocation.subtotal + tax + allocation.shippingCost, 4);
 
     const order = new EPartOrder({
-      supplierId: orderData.supplierId,
+      supplierId: supplier._id,
       items: allocation.items,
-      status: orderData.status || 'draft',
-      orderDate: orderData.orderDate || new Date(),
-      expectedDeliveryDate: orderData.expectedDeliveryDate,
+      status,
+      orderDate: parseOptionalDate(data.orderDate, 'Bestelldatum ist kein gültiges Datum.') || new Date(),
+      expectedDeliveryDate: expectedDeliveryDate || undefined,
       subtotal: allocation.subtotal,
       tax: tax,
       shippingCost: allocation.shippingCost,
       totalCost: totalCost,
-      paymentMethod: orderData.paymentMethod || 'account',
-      notes: orderData.notes,
+      paymentMethod,
+      notes: typeof data.notes === 'string' ? data.notes.trim() : undefined,
       createdBy: userId,
       timeline: [{
         status: 'created',
-        description: 'Order created',
+        description: 'Bestellung angelegt',
         completedAt: new Date(),
         userId: userId
       }]
@@ -455,60 +676,113 @@ class EPartOrderService {
   }
 
   /**
-   * Update epart order
+   * Update epart order (Lieferung & Zahlung). "Teilweise erhalten"/"Erhalten" entstehen
+   * ausschliesslich ueber receiveOrderItems, "Storniert" ueber cancelEPartOrder.
+   * Leere Strings loeschen Sendungsnummer / Lieferdatum.
    */
-  static async updateEPartOrder(orderId, updateData, userId) {
-    const order = await EPartOrder.findById(orderId);
-    if (!order) {
-      throw new Error('Order not found');
+  static async updateEPartOrder(orderId, updateData = {}, userId) {
+    const data = updateData && typeof updateData === 'object' ? updateData : {};
+    const order = await this.loadOrderOrFail(orderId);
+    const now = new Date();
+    const pushTimeline = (status, description, notes) => {
+      order.timeline.push({ status, description, completedAt: now, userId, notes });
+    };
+
+    if (data.status !== undefined && data.status !== null && data.status !== '' && data.status !== order.status) {
+      const nextStatus = String(data.status);
+      if (nextStatus === 'partial' || nextStatus === 'received') {
+        throw httpError(400, '„Teilweise erhalten“ und „Erhalten“ werden nur über „Wareneingang buchen“ gesetzt.');
+      }
+      if (nextStatus === 'cancelled') {
+        throw httpError(400, 'Bitte „Bestellung stornieren“ verwenden.');
+      }
+      if (!MANUAL_STATUSES.includes(nextStatus)) {
+        throw httpError(400, 'Ungültiger Bestellstatus.');
+      }
+      if (!MANUAL_STATUSES.includes(order.status)) {
+        throw httpError(400, `Der Status einer Bestellung im Zustand „${STATUS_LABELS[order.status] || order.status}“ kann nicht mehr manuell geändert werden.`);
+      }
+      const previous = order.status;
+      // Statuswechsel nur, wenn der gelesene Status noch aktuell ist (z. B. kein paralleler Wareneingang).
+      order.$where = { status: previous };
+      order.status = nextStatus;
+      pushTimeline(
+        nextStatus,
+        `Bestellstatus geändert: ${STATUS_LABELS[previous] || previous} → ${STATUS_LABELS[nextStatus] || nextStatus}`,
+        typeof data.statusNotes === 'string' ? data.statusNotes : undefined
+      );
     }
 
-    // Update fields
-    if (updateData.status) {
-      order.status = updateData.status;
-      order.timeline.push({
-        status: updateData.status,
-        description: `Order status changed to ${updateData.status}`,
-        completedAt: new Date(),
-        userId: userId,
-        notes: updateData.statusNotes
-      });
-
-      // If status is received, mark actualDeliveryDate
-      if (updateData.status === 'received') {
-        order.actualDeliveryDate = new Date();
-        order.receivedBy = userId;
+    if (data.trackingNumber !== undefined) {
+      const nextTracking = data.trackingNumber === null ? '' : String(data.trackingNumber).trim();
+      if (nextTracking.length > 64) {
+        throw httpError(400, 'Die Sendungsnummer darf höchstens 64 Zeichen lang sein.');
+      }
+      const previousTracking = order.trackingNumber || '';
+      if (nextTracking !== previousTracking) {
+        order.trackingNumber = nextTracking || undefined;
+        if (!nextTracking) {
+          pushTimeline('tracking_updated', `Sendungsnummer entfernt (vorher: ${previousTracking})`);
+        } else if (!previousTracking) {
+          pushTimeline('tracking_updated', `Sendungsnummer erfasst: ${nextTracking}`);
+        } else {
+          pushTimeline('tracking_updated', `Sendungsnummer geändert: ${previousTracking} → ${nextTracking}`);
+        }
       }
     }
 
-    if (updateData.trackingNumber) {
-      order.trackingNumber = updateData.trackingNumber;
+    if (data.paymentStatus !== undefined && data.paymentStatus !== null && data.paymentStatus !== '') {
+      const nextPayment = String(data.paymentStatus);
+      if (!PAYMENT_STATUSES.includes(nextPayment)) {
+        throw httpError(400, 'Ungültiger Zahlungsstatus.');
+      }
+      if (nextPayment !== order.paymentStatus) {
+        const previousPayment = order.paymentStatus;
+        order.paymentStatus = nextPayment;
+        pushTimeline(
+          'payment_updated',
+          `Zahlungsstatus geändert: ${PAYMENT_LABELS[previousPayment] || previousPayment} → ${PAYMENT_LABELS[nextPayment]}`
+        );
+      }
     }
 
-    if (updateData.paymentStatus) {
-      order.paymentStatus = updateData.paymentStatus;
-      order.timeline.push({
-        status: 'payment_updated',
-        description: `Payment status changed to ${updateData.paymentStatus}`,
-        completedAt: new Date(),
-        userId: userId
-      });
+    if (data.expectedDeliveryDate !== undefined) {
+      const nextDate = parseOptionalDate(data.expectedDeliveryDate, 'Voraussichtliche Lieferung ist kein gültiges Datum.');
+      const previousTime = order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).getTime() : null;
+      const nextTime = nextDate ? nextDate.getTime() : null;
+      if (previousTime !== nextTime) {
+        order.expectedDeliveryDate = nextDate || undefined;
+        pushTimeline(
+          'delivery_date_updated',
+          nextDate
+            ? `Voraussichtliche Lieferung: ${formatDateDe(nextDate)}`
+            : 'Voraussichtliche Lieferung entfernt'
+        );
+      }
     }
 
-    if (updateData.expectedDeliveryDate) {
-      order.expectedDeliveryDate = updateData.expectedDeliveryDate;
+    if (data.notes !== undefined) {
+      const nextNotes = data.notes === null ? '' : String(data.notes);
+      if (nextNotes !== (order.notes || '')) {
+        order.notes = nextNotes;
+        pushTimeline('notes_updated', 'Notiz geändert');
+      }
     }
 
-    if (updateData.notes !== undefined) {
-      order.notes = updateData.notes;
-    }
-
-    if (updateData.tax !== undefined) {
-      order.tax = updateData.tax;
+    if (data.tax !== undefined) {
+      const tax = Number(data.tax);
+      if (!Number.isFinite(tax) || tax < 0) {
+        throw httpError(400, 'MwSt.-Betrag muss 0 oder größer sein.');
+      }
+      order.tax = tax;
       order.totalCost = this.roundTo(order.subtotal + order.tax + order.shippingCost, 4);
     }
 
-    if (updateData.shippingCost !== undefined) {
+    if (data.shippingCost !== undefined) {
+      const shippingInput = Number(data.shippingCost);
+      if (!Number.isFinite(shippingInput) || shippingInput < 0) {
+        throw httpError(400, 'Versandkosten müssen 0 oder größer sein.');
+      }
       const allocation = this.allocateShippingProportionally(
         order.items.map((item) => ({
           ...item.toObject(),
@@ -516,7 +790,7 @@ class EPartOrderService {
           unitPrice: item.unitPrice,
           additionalCost: item.additionalCost || 0,
         })),
-        updateData.shippingCost
+        shippingInput
       );
 
       order.items.forEach((item, index) => {
@@ -532,105 +806,281 @@ class EPartOrderService {
       order.totalCost = this.roundTo(order.subtotal + order.tax + order.shippingCost, 4);
     }
 
-    await order.save();
-
-    if (updateData.status === 'received') {
-      await this.autoAssignConvertedNeedListOrderItems(order, userId);
-    }
+    await this.saveGuarded(order);
 
     return await this.getEPartOrderById(orderId);
   }
 
   /**
-   * Receive order items (full or partial)
+   * save() mit optionalem $where-Guard; gleichzeitige Aenderungen -> deutsches 409.
+   */
+  static async saveGuarded(order) {
+    try {
+      await order.save();
+    } catch (error) {
+      if (error && (error.name === 'DocumentNotFoundError' || error.name === 'VersionError')) {
+        throw httpError(409, 'Die Bestellung wurde inzwischen geändert. Bitte neu laden und erneut versuchen.');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Wareneingang buchen (voll oder teilweise).
+   * - nur fuer Bestellt / Versendet / Teilweise erhalten
+   * - je Position ganze Zahl 0 < Menge <= offene Menge (keine Mehrbuchung)
+   * - Positionen mit Menge 0 werden ignoriert; leere Buchung -> 400
+   * - zuerst atomares, bedingtes Update der Bestellung (erwartete receivedQuantity),
+   *   erst danach Lagerbestand erhoehen -> Doppelklick/Retry bucht nicht doppelt (409).
    */
   static async receiveOrderItems(orderId, itemsToReceive, userId) {
-    const order = await EPartOrder.findById(orderId);
-    if (!order) {
-      throw new Error('Order not found');
+    const order = await this.loadOrderOrFail(orderId);
+
+    if (!RECEIVABLE_STATUSES.includes(order.status)) {
+      throw httpError(400, 'Wareneingang ist nur für Bestellungen mit Status „Bestellt“, „Versendet“ oder „Teilweise erhalten“ möglich.');
     }
 
-    if (order.status === 'cancelled') {
-      throw new Error('Cannot receive items for a cancelled order');
-    }
-
-    let allItemsReceived = true;
-
-    for (const receivedItem of itemsToReceive) {
-      const orderItem = order.items.id(receivedItem.itemId);
+    const requested = Array.isArray(itemsToReceive) ? itemsToReceive : [];
+    const lines = [];
+    const seenItems = new Set();
+    for (const receivedItem of requested) {
+      const quantity = Number(receivedItem && receivedItem.quantity);
+      if (receivedItem && (receivedItem.quantity === 0 || receivedItem.quantity === '0')) {
+        continue;
+      }
+      const itemId = receivedItem && receivedItem.itemId ? String(receivedItem.itemId) : '';
+      const orderItem = isValidObjectId(itemId) ? order.items.id(itemId) : null;
       if (!orderItem) {
-        throw new Error(`Item not found: ${receivedItem.itemId}`);
+        throw httpError(400, 'Position nicht in dieser Bestellung gefunden.');
       }
-
-      // Update received quantity
-      orderItem.receivedQuantity += receivedItem.quantity;
-
-      // Update item status
-      if (orderItem.receivedQuantity >= orderItem.quantity) {
-        orderItem.status = 'received';
-      } else if (orderItem.receivedQuantity > 0) {
-        orderItem.status = 'partial';
-        allItemsReceived = false;
-      } else {
-        allItemsReceived = false;
+      if (seenItems.has(itemId)) {
+        throw httpError(400, `„${orderItem.partName}“ ist mehrfach angegeben.`);
       }
+      seenItems.add(itemId);
+      if (!Number.isInteger(quantity) || quantity < 0) {
+        throw httpError(400, `Menge für „${orderItem.partName}“ muss eine ganze Zahl sein.`);
+      }
+      if (quantity === 0) continue;
+      const alreadyReceived = Math.max(0, Number(orderItem.receivedQuantity) || 0);
+      const remaining = Math.max(0, Number(orderItem.quantity) - alreadyReceived);
+      if (quantity > remaining) {
+        throw httpError(400, `Für „${orderItem.partName}“ sind nur noch ${remaining} Stück offen.`);
+      }
+      lines.push({ itemId: orderItem._id, partId: orderItem.partId, partName: orderItem.partName, quantity, expected: alreadyReceived, ordered: Number(orderItem.quantity) });
+    }
 
-      // Add received quantity to the most appropriate inventory version.
-      const inventoryPart = await Inventory.findById(orderItem.partId);
-      if (inventoryPart) {
-        const targetVersion = this.getSafeVersionForAllocation(inventoryPart, receivedItem.quantity)
-          || inventoryPart.versions[0];
+    if (lines.length === 0) {
+      throw httpError(400, 'Bitte für mindestens eine Position eine Menge größer 0 eingeben.');
+    }
 
-        if (targetVersion) {
-          targetVersion.quantity = Math.max(0, Number(targetVersion.quantity) || 0) + receivedItem.quantity;
-          await inventoryPart.save();
+    // Lagerziel (Teil + Version) VOR dem Claim bestimmen, damit nichts halb gebucht wird.
+    // Positionen ohne vorhandenes Lagerteil werden wie bisher ohne Bestandsbuchung erfasst.
+    for (const line of lines) {
+      line.inventoryId = null;
+      line.versionId = null;
+      if (!isValidObjectId(line.partId)) continue;
+      const inventoryPart = await Inventory.findById(line.partId).select('versions').lean();
+      if (!inventoryPart) continue;
+      const targetVersion = this.getSafeVersionForAllocation(inventoryPart, line.quantity)
+        || (Array.isArray(inventoryPart.versions) ? inventoryPart.versions[0] : null);
+      if (targetVersion && targetVersion._id) {
+        line.inventoryId = inventoryPart._id;
+        line.versionId = targetVersion._id;
+      }
+    }
+
+    // Atomarer Claim: nur wenn alle betroffenen Positionen noch den gelesenen Stand haben.
+    // Der Verlaufseintrag wird im selben Update geschrieben (kein spaeteres save(), das scheitern kann).
+    const now = new Date();
+    const timelineEntryId = new mongoose.Types.ObjectId();
+    const filter = {
+      _id: order._id,
+      status: { $in: RECEIVABLE_STATUSES },
+      $and: lines.map((line) => ({
+        items: {
+          $elemMatch: {
+            _id: line.itemId,
+            // Altdaten ohne Feld receivedQuantity zaehlen als 0.
+            receivedQuantity: line.expected === 0 ? { $in: [0, null] } : line.expected
+          }
         }
+      }))
+    };
+    const $inc = {};
+    const arrayFilters = [];
+    lines.forEach((line, index) => {
+      $inc[`items.$[r${index}].receivedQuantity`] = line.quantity;
+      arrayFilters.push({ [`r${index}._id`]: line.itemId });
+    });
+    const claimed = await EPartOrder.findOneAndUpdate(
+      filter,
+      {
+        $inc,
+        $push: {
+          timeline: {
+            _id: timelineEntryId,
+            status: 'items_received',
+            description: `Wareneingang gebucht: ${lines.map((line) => `${line.quantity} × ${line.partName} (offen danach: ${line.ordered - line.expected - line.quantity})`).join(', ')}`,
+            completedAt: now,
+            userId: userId
+          }
+        }
+      },
+      { new: true, arrayFilters }
+    );
+    if (!claimed) {
+      throw httpError(409, 'Die Bestellung wurde inzwischen geändert (z. B. Wareneingang bereits gebucht). Bitte neu laden und erneut prüfen.');
+    }
+
+    // Lagerbestand erst nach erfolgreichem Claim erhoehen: atomares $inc ohne Validierung des
+    // gesamten Lagerdokuments (Altdaten mit fehlenden Pflichtfeldern blockieren die Buchung nicht).
+    const bookedStock = [];
+    let stockFailure = null;
+    for (const line of lines) {
+      if (!line.inventoryId || !line.versionId) continue;
+      try {
+        const updatedPart = await Inventory.findOneAndUpdate(
+          { _id: line.inventoryId, 'versions._id': line.versionId },
+          { $inc: { 'versions.$.quantity': line.quantity } },
+          { new: true }
+        ).select('versions').lean();
+        if (!updatedPart) {
+          stockFailure = line;
+          break;
+        }
+        bookedStock.push(line);
+        const version = (updatedPart.versions || []).find((entry) => String(entry._id) === String(line.versionId));
+        if (version) {
+          const minStock = Number(version.minStockLevel);
+          await Inventory.updateOne(
+            { _id: line.inventoryId, 'versions._id': line.versionId },
+            { $set: { 'versions.$.lowStockAlert': Number(version.quantity) <= (Number.isFinite(minStock) ? minStock : 0) } }
+          );
+        }
+      } catch (error) {
+        console.error('EPart Wareneingang: Lagerbuchung fehlgeschlagen', error && error.message);
+        stockFailure = line;
+        break;
       }
+    }
 
-      // Add timeline entry
-      order.timeline.push({
-        status: 'items_received',
-        description: `Received ${receivedItem.quantity} units of ${orderItem.partName}`,
-        completedAt: new Date(),
-        userId: userId
+    if (stockFailure) {
+      // Kompensation: bereits gebuchte Bestaende und den Claim dieser Anfrage zuruecknehmen.
+      for (const line of bookedStock) {
+        await Inventory.updateOne(
+          { _id: line.inventoryId, 'versions._id': line.versionId },
+          { $inc: { 'versions.$.quantity': -line.quantity } }
+        ).catch((error) => console.error('EPart Wareneingang: Rueckbuchung Lager fehlgeschlagen', error && error.message));
+      }
+      const undoInc = {};
+      lines.forEach((line, index) => {
+        undoInc[`items.$[r${index}].receivedQuantity`] = -line.quantity;
       });
+      await EPartOrder.updateOne(
+        { _id: order._id },
+        { $inc: undoInc, $pull: { timeline: { _id: timelineEntryId } } },
+        { arrayFilters }
+      );
+      await this.finalizeReceiptStatus(order._id, userId);
+      throw httpError(409, `Der Lagerbestand für „${stockFailure.partName}“ konnte nicht erhöht werden. Der Wareneingang wurde nicht gebucht. Bitte neu laden und erneut versuchen.`);
     }
 
-    // Update order status based on items
-    if (allItemsReceived) {
-      order.status = 'received';
-      order.actualDeliveryDate = new Date();
-      order.receivedBy = userId;
-    } else {
-      order.status = 'partial';
-    }
-
-    await order.save();
-
-    if (allItemsReceived) {
-      await this.autoAssignConvertedNeedListOrderItems(order, userId);
-    }
+    await this.finalizeReceiptStatus(order._id, userId);
 
     return await this.getEPartOrderById(orderId);
+  }
+
+  /**
+   * Positions- und Bestellstatus aus dem aktuellen DB-Stand ableiten und bedingt schreiben.
+   * Wiederholt bei gleichzeitigen Wareneingaengen (Guard auf alle receivedQuantity-Werte und den
+   * gelesenen Status), damit die zuletzt abschliessende Anfrage immer alle Buchungen sieht.
+   * Die Bedarfslisten-Zuweisung laeuft genau einmal: beim Uebergang nach "Erhalten".
+   */
+  static async finalizeReceiptStatus(orderId, userId, maxAttempts = 6) {
+    const FINALIZABLE = [...RECEIVABLE_STATUSES, 'received'];
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const current = await EPartOrder.findById(orderId).lean();
+      if (!current || !FINALIZABLE.includes(current.status)) return;
+
+      const items = Array.isArray(current.items) ? current.items : [];
+      let allItemsReceived = true;
+      let anyReceived = false;
+      const nextItemStatuses = items.map((item) => {
+        if (item.status === 'cancelled') return 'cancelled';
+        const received = Math.max(0, Number(item.receivedQuantity) || 0);
+        if (received > 0) anyReceived = true;
+        if (received >= Number(item.quantity)) return 'received';
+        allItemsReceived = false;
+        return received > 0 ? 'partial' : 'pending';
+      });
+      let nextStatus = current.status;
+      if (allItemsReceived && items.length > 0) {
+        nextStatus = 'received';
+      } else if (anyReceived) {
+        nextStatus = 'partial';
+      } else if (current.status === 'partial' || current.status === 'received') {
+        // nur nach einer Kompensation moeglich: ohne gebuchte Menge zurueck auf "Bestellt"
+        nextStatus = 'confirmed';
+      }
+
+      const itemsUnchanged = items.every((item, index) => (item.status || 'pending') === nextItemStatuses[index]);
+      if (itemsUnchanged && nextStatus === current.status) return;
+
+      const $set = { status: nextStatus };
+      const arrayFilters = [];
+      items.forEach((item, index) => {
+        if ((item.status || 'pending') !== nextItemStatuses[index]) {
+          $set[`items.$[s${index}].status`] = nextItemStatuses[index];
+          arrayFilters.push({ [`s${index}._id`]: item._id });
+        }
+      });
+      const becameReceived = nextStatus === 'received' && current.status !== 'received';
+      if (becameReceived) {
+        $set.actualDeliveryDate = new Date();
+        if (userId) $set.receivedBy = userId;
+      }
+
+      const guard = {
+        _id: current._id,
+        status: current.status,
+        items: { $size: items.length }
+      };
+      if (items.length > 0) {
+        guard.$and = items.map((item) => ({
+          items: { $elemMatch: { _id: item._id, receivedQuantity: item.receivedQuantity == null ? null : item.receivedQuantity } }
+        }));
+      }
+      const result = await EPartOrder.updateOne(guard, { $set }, arrayFilters.length ? { arrayFilters } : {});
+      if (result && result.modifiedCount > 0) {
+        if (becameReceived) {
+          const fresh = await EPartOrder.findById(orderId);
+          if (fresh) await this.autoAssignConvertedNeedListOrderItems(fresh, userId);
+        }
+        return;
+      }
+      // Gleichzeitige Aenderung -> neu lesen und erneut ableiten.
+    }
+    console.warn(`EPart Wareneingang: Status von ${orderId} konnte nach ${maxAttempts} Versuchen nicht abgeleitet werden (gleichzeitige Buchungen).`);
   }
 
   /**
    * Cancel epart order
    */
   static async cancelEPartOrder(orderId, reason, userId) {
-    const order = await EPartOrder.findById(orderId);
-    if (!order) {
-      throw new Error('Order not found');
-    }
+    const order = await this.loadOrderOrFail(orderId);
 
     if (order.status === 'received') {
-      throw new Error('Cannot cancel a received order');
+      throw httpError(400, 'Eine vollständig erhaltene Bestellung kann nicht storniert werden.');
+    }
+    if (order.status === 'cancelled') {
+      throw httpError(400, 'Die Bestellung ist bereits storniert.');
     }
 
+    order.$where = { status: order.status };
     order.status = 'cancelled';
     order.timeline.push({
       status: 'cancelled',
-      description: 'Order cancelled',
+      description: 'Bestellung storniert',
       completedAt: new Date(),
       userId: userId,
       notes: reason
@@ -643,7 +1093,7 @@ class EPartOrderService {
       }
     });
 
-    await order.save();
+    await this.saveGuarded(order);
     return await this.getEPartOrderById(orderId);
   }
 
@@ -651,10 +1101,7 @@ class EPartOrderService {
    * Upload invoice file for order
    */
   static async uploadInvoice(orderId, fileInfo, userId) {
-    const order = await EPartOrder.findById(orderId);
-    if (!order) {
-      throw new Error('Order not found');
-    }
+    const order = await this.loadOrderOrFail(orderId);
 
     order.invoiceFile = {
       filename: fileInfo.filename,
@@ -667,7 +1114,7 @@ class EPartOrderService {
 
     order.timeline.push({
       status: 'invoice_uploaded',
-      description: `Invoice file "${fileInfo.originalName}" uploaded`,
+      description: `Rechnung „${fileInfo.originalName}“ hochgeladen`,
       completedAt: new Date(),
       userId: userId
     });
@@ -680,23 +1127,20 @@ class EPartOrderService {
    * Request return or exchange for broken parts
    */
   static async requestReturnExchange(orderId, returnData, userId) {
-    const order = await EPartOrder.findById(orderId);
-    if (!order) {
-      throw new Error('Order not found');
-    }
+    const order = await this.loadOrderOrFail(orderId);
 
     if (order.status === 'cancelled') {
-      throw new Error('Cannot request return/exchange for a cancelled order');
+      throw httpError(400, 'Für eine stornierte Bestellung kann keine Rücksendung/kein Umtausch angefordert werden.');
     }
 
     // Validate affected items exist in the order
     for (const affectedItem of returnData.affectedItems) {
       const orderItem = order.items.id(affectedItem.itemId);
       if (!orderItem) {
-        throw new Error(`Item not found in order: ${affectedItem.itemId}`);
+        throw httpError(400, 'Position nicht in dieser Bestellung gefunden.');
       }
       if (affectedItem.quantity > orderItem.receivedQuantity) {
-        throw new Error(`Cannot return/exchange more than received quantity for item ${orderItem.partName}`);
+        throw httpError(400, `Für „${orderItem.partName}“ kann höchstens die erhaltene Menge zurückgesendet/umgetauscht werden.`);
       }
     }
 
@@ -712,7 +1156,7 @@ class EPartOrderService {
 
     order.timeline.push({
       status: 'return_exchange_requested',
-      description: `${returnData.type === 'return' ? 'Return' : 'Exchange'} requested: ${returnData.reason}`,
+      description: `${returnData.type === 'return' ? 'Rücksendung' : 'Umtausch'} angefordert: ${returnData.reason}`,
       completedAt: new Date(),
       userId: userId,
       notes: returnData.description
@@ -726,13 +1170,10 @@ class EPartOrderService {
    * Update return/exchange status
    */
   static async updateReturnExchange(orderId, status, notes, userId) {
-    const order = await EPartOrder.findById(orderId);
-    if (!order) {
-      throw new Error('Order not found');
-    }
+    const order = await this.loadOrderOrFail(orderId);
 
     if (!order.returnExchange || order.returnExchange.status === 'none') {
-      throw new Error('No return/exchange request found for this order');
+      throw httpError(400, 'Für diese Bestellung gibt es keine Rücksende-/Umtauschanfrage.');
     }
 
     order.returnExchange.status = status;
@@ -761,7 +1202,7 @@ class EPartOrderService {
 
     order.timeline.push({
       status: `return_exchange_${status}`,
-      description: `Return/Exchange ${status}`,
+      description: `Rücksendung/Umtausch: ${({ requested: 'angefordert', approved: 'genehmigt', in_transit: 'unterwegs', completed: 'abgeschlossen', rejected: 'abgelehnt', none: 'keine' })[status] || status}`,
       completedAt: new Date(),
       userId: userId,
       notes: notes
@@ -791,9 +1232,9 @@ class EPartOrderService {
     // Total orders
     const totalOrders = await EPartOrder.countDocuments(query);
 
-    // Total spent
+    // Bestellwert gesamt (brutto) OHNE stornierte Bestellungen
     const totalSpentResult = await EPartOrder.aggregate([
-      { $match: query },
+      { $match: { ...query, status: { $ne: 'cancelled' } } },
       { $group: { _id: null, total: { $sum: '$totalCost' } } }
     ]);
     const totalSpent = totalSpentResult.length > 0 ? totalSpentResult[0].total : 0;
@@ -808,9 +1249,9 @@ class EPartOrderService {
       ordersByStatus[item._id] = item.count;
     });
 
-    // Top suppliers
+    // Top suppliers (ohne Stornos)
     const topSuppliersResult = await EPartOrder.aggregate([
-      { $match: query },
+      { $match: { ...query, status: { $ne: 'cancelled' } } },
       {
         $group: {
           _id: '$supplierId',
@@ -842,10 +1283,16 @@ class EPartOrderService {
     return {
       totalOrders,
       totalSpent,
+      totalSpentExcludesCancelled: true,
       ordersByStatus,
       topSuppliers: topSuppliersResult
     };
   }
 }
+
+EPartOrderService.STATUS_LABELS = STATUS_LABELS;
+EPartOrderService.PAYMENT_LABELS = PAYMENT_LABELS;
+EPartOrderService.MANUAL_STATUSES = MANUAL_STATUSES;
+EPartOrderService.RECEIVABLE_STATUSES = RECEIVABLE_STATUSES;
 
 module.exports = EPartOrderService;

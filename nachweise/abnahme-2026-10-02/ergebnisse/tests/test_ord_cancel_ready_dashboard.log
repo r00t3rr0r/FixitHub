@@ -1,0 +1,48 @@
+
+[A] Storno: Grund Pflicht, Rollen
+  PASS Staff ohne Grund -> 400 mit deutscher Servermeldung, Auftrag unveraendert :: 400 Bitte einen Grund für die Stornierung angeben.
+  PASS Kunde / fremder Kunde -> 403, Auftrag unveraendert :: 403 403
+  PASS Staff mit Grund (note wie OrderCancelDialog) -> 200 storniert :: 200
+
+[B] Reparatur-Workflow auf storniertem Auftrag -> 409
+  PASS anlegen -> 409 REPAIR_ORDER_CLOSED, kein Workflow gespeichert :: 409 Der Auftrag ist storniert – die Reparatur kann nicht angelegt werden.
+  PASS freigeben -> 409, Workflow wartet weiter, Auftrag bleibt storniert :: 409 pending-confirmation
+  PASS fortsetzen / abschliessen / Zwischenfall -> 409 deutsch :: 409 409 409 Der Auftrag ist storniert – die Reparatur kann nicht abgeschlossen werden.
+  PASS DB: Workflow bleibt pausiert, Auftrag storniert, keine weitere Kundennachricht :: paused 0->1->1
+  PASS Kunde -> 403 auf Reparatur-Workflow-Routen :: 403
+
+[C] Template-Workflow auf storniertem Auftrag -> 409
+  PASS Storno haelt den Template-Workflow an :: 200  cancelled on-hold
+  PASS Schritt abschliessen / ueberspringen / zuweisen / fortsetzen -> 409 WORKFLOW_ORDER_CLOSED deutsch :: completeStep=409:WORKFLOW_ORDER_CLOSED skipStep=409:WORKFLOW_ORDER_CLOSED assignStep=409:WORKFLOW_ORDER_CLOSED resume=409:WORKFLOW_ORDER_CLOSED
+  PASS DB: Auftrag storniert, kein Schritt erledigt, keine "Reparatur abgeschlossen"-Nachricht :: cancelled in-progress,pending
+  PASS Workflow zuweisen -> 409, kein zweiter Workflow :: 409 WORKFLOW_ORDER_CLOSED
+  PASS Workflow starten -> 409 (vorher 400 trotz 409-Fehler), Auftrag bleibt storniert :: 409 Der Auftrag ist storniert – der Workflow kann nicht gestartet werden.
+  PASS Gegenprobe: offener Auftrag -> Schritt abschliessen 200 :: 200
+
+[D] Bereit-Text nach Rueckgabeweg (Versand / Abholung)
+  PASS Versandauftrag: "Rückversand wird vorbereitet", kein "Abholung" :: Die Reparatur Ihres Geräts (Apple iPhone 15) zu Auftrag ORD-ORD-007 ist abgeschlossen. Wir bereiten den Rückversand an Sie vor und informieren Sie, sobald das Paket an DHL übergeben ist.
+  PASS keine Zahlungs-/Zustellaussage bei nur fertiger Reparatur :: Die Reparatur Ihres Geräts (Apple iPhone 15) zu Auftrag ORD-ORD-007 ist abgeschlossen. Wir bereiten den Rückversand an Sie vor und informieren Sie, sobald das Paket an DHL übergeben ist.
+  PASS Abholauftrag: Abholtext, kein Versandtext :: Die Reparatur Ihres Geräts (Apple iPhone 15) zu Auftrag ORD-ORD-008 ist abgeschlossen. Ihr Gerät liegt zur Abholung bei uns bereit.
+  PASS Template-Workflow fertig (Versandauftrag): Rueckversand-Text :: 200 Die Reparatur Ihres Auftrags ORD-ORD-009 ist abgeschlossen. Wir bereiten den Rückversand an Sie vor und informieren Sie, sobald das Paket an DHL übergeben ist.
+  PASS DHLService-Statuslabel neutral "Reparatur abgeschlossen" :: Reparatur abgeschlossen
+  PASS GET /api/orders/:id (Kunde): Versandstand Einsendung vorhanden bzw. leer :: 200 00340434161094000011 | 200
+  PASS fremder Kunde -> 403 :: 403
+  PASS Regel: Einsendelabel -> shipping, nichts -> pickup, ohne Versandstand -> unknown :: ok
+  PASS mit Versandlabel an Kunden: Versandstatus statt "wird vorbereitet" :: Unterwegs zu Ihnen
+
+[E] Dashboard-Zaehler == Gesamtzahl der gefilterten Liste
+  PASS Prioritaetsauftraege: 12 == Liste priority=high-urgent (alte Zaehlung: max. 10 zugewiesene) :: 12 vs 12
+  PASS Nachweis: die alte Quelle (10 zugewiesene Auftraege) haette weniger gezaehlt :: 3
+  PASS Offene Buchungen: 7 == Liste status=pending (alte Zaehlung: aus 5 neuesten) :: 7 vs 7
+  PASS Ausstehende Reparaturanfragen: 3 == Liste status=pending :: 3 vs 3
+  PASS Warten auf Kundenrueckmeldung: 2 == Liste rueckmeldung=offen :: 2 vs 2
+  PASS Auftragsliste mit diesen IDs liefert dieselbe Gesamtzahl :: 2
+  PASS Dashboard-Zusammenfassung: Staff/Kunde -> 403 :: 403 403
+
+[F] DHL-Modus aus der Systemkonfiguration (nicht aus Tabellenzeilen)
+  PASS Konfiguration live + Dummy-Zeile auf der Seite -> labelMode live (kein Banner) :: live dummyRow=true
+  PASS Konfiguration dummy, keine Dummy-Zeile -> labelMode dummy (Banner) :: dummy
+  PASS Kunde erhaelt keinen labelMode :: 200 undefined
+  PASS Banner und Label-Erstellung lesen dieselbe Funktion (getBookingShippingLabelMode) :: dummy
+
+Ergebnis: 34 bestanden, 0 fehlgeschlagen

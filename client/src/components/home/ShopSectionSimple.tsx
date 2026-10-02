@@ -13,9 +13,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
+import { formatEUR } from "@/lib/utils";
 
 export function ShopSection() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -48,14 +49,8 @@ export function ShopSection() {
     }
   };
 
-  const formatPrice = (price: number) => {
-    const locale = i18n.language?.startsWith('de') ? 'de-DE' : 'en-GB';
-
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(price);
-  };
+  // Geldbetraege immer de-DE ("49,90 €"), unabhaengig von der Oberflaechensprache.
+  const formatPrice = (price: number) => formatEUR(price);
 
   const handleAddToCart = async (productId: string, event: React.MouseEvent) => {
     event.preventDefault();

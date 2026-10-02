@@ -1,0 +1,329 @@
+(node:1102504) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1102504) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1102504) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[A] Zugriff auf den Reparatur-Workflow
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+  PASS Staff legt Workflow an :: 200 pending-confirmation
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+  PASS Staff gibt frei und startet :: 200 in-progress
+RequireRole middleware: User t17-kunde@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde darf den Workflow NICHT lesen (interne Notizen) :: 403 notes=-
+RequireRole middleware: User t17-kunde@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde darf NICHT pausieren :: 403
+RequireRole middleware: User t17-kunde@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde darf NICHT abschliessen :: 403
+  PASS Kundenaufrufe haben den Zustand nicht veraendert :: in-progress
+RequireRole middleware: User t17-staff2@test.invalid has required role staff
+  PASS Anderer Staff sieht den VOLLEN Workflow lesend (Notizen, Zwischenfaelle, Pausen) :: 200 notes=Interne Notiz: Kunde wirkt ungeduldig
+RequireRole middleware: User t17-admin@test.invalid has required role admin
+  PASS Admin sieht den Workflow :: 200
+
+[B] Nur ausdrueckliche Aktionen aendern den Zustand
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+  PASS Wiederholtes Oeffnen/Lesen pausiert nicht und aendert nichts :: in-progress pauses=0
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+Error approving repair start: RepairWorkflowError: Der Reparatur-Workflow kann nicht freigegeben werden, er ist in Bearbeitung.
+    at invalidTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:175:47)
+    at RepairWorkflowService.approveRepairStart (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:500:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:148:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_INVALID_TRANSITION'
+}
+Error approving repair start: RepairWorkflowError: Der Reparatur-Workflow kann nicht freigegeben werden, er ist in Bearbeitung.
+    at invalidTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:175:47)
+    at RepairWorkflowService.approveRepairStart (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:500:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:148:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_INVALID_TRANSITION'
+}
+  PASS Erneutes Freigeben eines laufenden Workflows wird abgelehnt (409, deutsch) :: 409 Der Reparatur-Workflow kann nicht freigegeben werden, er ist in Bearbeitung.
+  PASS Startzeit und Notizen bleiben erhalten :: Fri Oct 02 2026 13:20:18 GMT+0200 (Central European Summer Time) / Interne Notiz: Kunde wirkt ungeduldig
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf9372f7c76ed70c822b39') to paused
+OrderService: Order status updated successfully
+  PASS Ausdrueckliches Pausieren wirkt :: paused
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+Error pausing repair: RepairWorkflowError: Der Reparatur-Workflow ist bereits pausiert.
+    at RepairWorkflowService.pauseRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:607:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:187:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_ALREADY_PAUSED'
+}
+Error pausing repair: RepairWorkflowError: Der Reparatur-Workflow ist bereits pausiert.
+    at RepairWorkflowService.pauseRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:607:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:187:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_ALREADY_PAUSED'
+}
+  PASS Doppeltes Pausieren: 409 mit deutscher Meldung :: 409 Der Reparatur-Workflow ist bereits pausiert.
+RequireRole middleware: User t17-staff2@test.invalid has required role staff
+  PASS Pausierter Workflow ist direkt lesbar (kein Fortsetzen noetig) :: paused
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf9372f7c76ed70c822b39') to in-progress
+OrderService: Order status updated successfully
+  PASS Fortsetzen wirkt :: in-progress
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf9372f7c76ed70c822b39') to ready-for-pickup
+OrderService: Order status updated successfully
+  PASS Abschliessen wirkt :: completed
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+Error pausing repair: RepairWorkflowError: Der Reparatur-Workflow kann nicht pausiert werden, er ist abgeschlossen.
+    at invalidTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:175:47)
+    at RepairWorkflowService.pauseRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:614:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:187:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_INVALID_TRANSITION'
+}
+Error pausing repair: RepairWorkflowError: Der Reparatur-Workflow kann nicht pausiert werden, er ist abgeschlossen.
+    at invalidTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:175:47)
+    at RepairWorkflowService.pauseRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:614:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:187:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_INVALID_TRANSITION'
+}
+  PASS Abgeschlossener Workflow laesst sich nicht pausieren :: 409 completed
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+Error pausing repair: RepairWorkflowError: Reparatur-Workflow nicht gefunden.
+    at notFound (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:173:24)
+    at RepairWorkflowService.pauseRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:603:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:187:22 {
+  statusCode: 404,
+  code: 'REPAIR_WORKFLOW_NOT_FOUND'
+}
+Error pausing repair: RepairWorkflowError: Reparatur-Workflow nicht gefunden.
+    at notFound (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:173:24)
+    at RepairWorkflowService.pauseRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:603:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:187:22 {
+  statusCode: 404,
+  code: 'REPAIR_WORKFLOW_NOT_FOUND'
+}
+  PASS Unbekannter Workflow: 404 mit deutscher Meldung :: 404 Reparatur-Workflow nicht gefunden.
+
+[C] Warten auf Kundenrueckmeldung
+RequireRole middleware: User t17-kunde@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde darf die Liste nicht abfragen :: 403
+InspectionCommunicationService: Sending feedback request to order 6abf9373f7c76ed70c822c2a
+InspectionCommunicationService: Feedback request sent successfully
+InspectionCommunicationService: Creating quick action update_unlock_info for order 6abf9373f7c76ed70c822c3f
+InspectionCommunicationService: Quick action created successfully
+InspectionCommunicationService: Creating quick action part_replacement for order 6abf9373f7c76ed70c822c50
+InspectionCommunicationService: Quick action created successfully
+InspectionCommunicationService: Sending repair offer message to order 6abf9373f7c76ed70c822c61
+InspectionCommunicationService: Repair offer message sent successfully
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf9373f7c76ed70c822c70') to paused
+OrderService: Order status updated successfully
+  PASS Rueckfrage (nicht zugestellt) gemeldet :: 200
+  PASS Nicht zugestellte Mail wird NICHT als versendet gespeichert :: undefined
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf9373f7c76ed70c822c99') to paused
+OrderService: Order status updated successfully
+  PASS Zugestellte Rueckfrage speichert emailSentAt :: Fri Oct 02 2026 13:20:19 GMT+0200 (Central European Summer Time)
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf9373f7c76ed70c822cc2') to paused
+OrderService: Order status updated successfully
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+  PASS Staff darf die Liste abfragen :: 200
+  PASS Normale Nachrichten zaehlen NICHT als Warten :: 5
+  PASS Offene Feedback-Anfrage -> wartet :: true
+  PASS Angeforderte Entsperrinformation -> wartet :: true
+  PASS Interne Schnellaktion -> wartet NICHT :: false
+  PASS Offenes Reparaturangebot -> wartet :: true
+  PASS Nicht zugestellte Workflow-Rueckfrage -> wartet NICHT :: false
+  PASS Zugestellte Workflow-Rueckfrage -> wartet :: true
+  PASS Gruende tragen deutsche Bezeichnungen :: ["Offene Rückfrage an den Kunden"]
+InspectionCommunicationService: Recording feedback response from Kunde T17
+InspectionCommunicationService: Feedback response recorded successfully
+InspectionCommunicationService: Completing quick action in order 6abf9373f7c76ed70c822c3f
+InspectionCommunicationService: Quick action completed successfully
+InspectionCommunicationService: Updating repair offer status to accepted for order 6abf9373f7c76ed70c822c61
+InspectionCommunicationService: Repair offer status updated to accepted
+RequireRole middleware: User t17-kunde@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde darf Rueckfrage nicht als erledigt markieren :: 403
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+  PASS Staff markiert Rueckfrage als erledigt :: 200 Zwischenfall wurde als erledigt markiert.
+  PASS Erledigung wird mit Person gespeichert :: resolved Sophie T17
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+  PASS Kundenantwort auf Feedback beendet das Warten :: false
+  PASS Autorisierte Erledigung der Schnellaktion beendet das Warten :: false
+  PASS Entscheidung zum Angebot beendet das Warten :: false
+  PASS Kundennachricht nach der Rueckfrage beendet das Warten :: false
+  PASS Autorisierte Erledigung der Rueckfrage beendet das Warten :: false
+  PASS Danach wartet kein Auftrag mehr :: 0
+  PASS Dialog: offener Grund traegt die Zwischenfall-ID (Kennzeichnung je Zwischenfall moeglich) :: ["6abf9373f7c76ed70c822cac"]
+  PASS Dialog: nach der Kundenantwort keine Kennzeichnung mehr (wie in der Liste) :: Server: false, fruehere Client-Regel: true
+RequireRole middleware: User t17-admin@test.invalid has required role admin
+  PASS Admin ohne Auftragsfilter bekommt die Liste :: 200
+
+[D] Vorschlagslogik: allgemeiner Workflow nur als Rueckfall
+WorkflowService: Getting suggested workflows for {
+  deviceType: 'smartphone',
+  serviceCategories: [],
+  serviceIdCount: 0,
+  assignedCount: 0
+}
+WorkflowService: Suggested 1 workflows {
+  offerableCount: 2,
+  specificMatchCount: 1,
+  generalCount: 2,
+  catchAllCount: 1,
+  usedGeneralFallback: false
+}
+  PASS Geraetetyp "smartphone" trifft die Smartphone-Vorlage, kein allgemeiner Rueckfall :: ["Smartphone Displaytausch"]
+WorkflowService: Getting suggested workflows for {
+  deviceType: 'Smartphone',
+  serviceCategories: [],
+  serviceIdCount: 0,
+  assignedCount: 0
+}
+WorkflowService: Suggested 1 workflows {
+  offerableCount: 2,
+  specificMatchCount: 1,
+  generalCount: 2,
+  catchAllCount: 1,
+  usedGeneralFallback: false
+}
+  PASS Exakter Typ unveraendert :: ["Smartphone Displaytausch"]
+WorkflowService: Getting suggested workflows for {
+  deviceType: 'Laptop',
+  serviceCategories: [],
+  serviceIdCount: 0,
+  assignedCount: 0
+}
+WorkflowService: Suggested 1 workflows {
+  offerableCount: 2,
+  specificMatchCount: 0,
+  generalCount: 2,
+  catchAllCount: 1,
+  usedGeneralFallback: true
+}
+  PASS Ohne passende Vorlage bleibt der allgemeine Workflow als Rueckfall (ohne widersprechende Smartphone-Vorlage) :: ["Standard Repair Process"]
+WorkflowService: Getting suggested workflows for {
+  deviceType: 'Laptop',
+  serviceCategories: [],
+  serviceIdCount: 0,
+  assignedCount: 0
+}
+WorkflowService: Suggested 1 workflows {
+  offerableCount: 1,
+  specificMatchCount: 0,
+  generalCount: 1,
+  catchAllCount: 0,
+  usedGeneralFallback: true
+}
+  PASS Ohne allgemeine Vorlage bleibt der Zuweisungsdialog nicht leer :: ["Smartphone Displaytausch"]
+
+[E] Parallele Klicks wirken genau einmal
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff2@test.invalid has required role staff
+Error approving repair start: RepairWorkflowError: Der Reparatur-Workflow kann nicht freigegeben werden, er ist in Bearbeitung.
+    at invalidTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:175:47)
+    at /home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:527:86
+    at saveTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:209:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.approveRepairStart (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:527:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:148:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_INVALID_TRANSITION'
+}
+Error approving repair start: RepairWorkflowError: Der Reparatur-Workflow kann nicht freigegeben werden, er ist in Bearbeitung.
+    at invalidTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:175:47)
+    at /home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:527:86
+    at saveTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:209:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.approveRepairStart (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:527:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:148:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_INVALID_TRANSITION'
+}
+  PASS Doppelte Freigabe: genau eine wirkt, die andere 409 :: 200,409
+  PASS Doppelte Freigabe: Start-Mail genau einmal :: 1
+  PASS Konfliktmeldung ist deutsch :: Der Reparatur-Workflow kann nicht freigegeben werden, er ist in Bearbeitung.
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff2@test.invalid has required role staff
+Error pausing repair: RepairWorkflowError: Der Reparatur-Workflow ist bereits pausiert.
+    at /home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:628:11
+    at saveTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:209:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.pauseRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:627:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:187:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_ALREADY_PAUSED'
+}
+Error pausing repair: RepairWorkflowError: Der Reparatur-Workflow ist bereits pausiert.
+    at /home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:628:11
+    at saveTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:209:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.pauseRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:627:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:187:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_ALREADY_PAUSED'
+}
+OrderService: Updating order status: new ObjectId('6abf9373f7c76ed70c822d33') to paused
+OrderService: Order status updated successfully
+  PASS Doppeltes Pausieren: genau eines wirkt, das andere 409 :: 200,409
+  PASS Doppeltes Pausieren: keine Nachricht an den Kunden (Pausengrund intern) :: 0
+  PASS Gespeicherter Pausengrund ist der der wirksamen Anfrage :: Telefon / Telefon
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff2@test.invalid has required role staff
+Error resuming repair: RepairWorkflowError: Der Reparatur-Workflow kann nicht fortgesetzt werden, er ist in Bearbeitung.
+    at invalidTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:175:47)
+    at /home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:674:78
+    at saveTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:209:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.resumeRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:674:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:201:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_INVALID_TRANSITION'
+}
+Error resuming repair: RepairWorkflowError: Der Reparatur-Workflow kann nicht fortgesetzt werden, er ist in Bearbeitung.
+    at invalidTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:175:47)
+    at /home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:674:78
+    at saveTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:209:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.resumeRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:674:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:201:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_INVALID_TRANSITION'
+}
+OrderService: Updating order status: new ObjectId('6abf9373f7c76ed70c822d33') to in-progress
+OrderService: Order status updated successfully
+  PASS Doppeltes Fortsetzen: genau eines wirkt, das andere 409 :: 200,409
+  PASS Pausenverlauf ohne Doppeleintrag :: 1
+  PASS Pausenzeit einmal gezaehlt :: 39 / 39
+
+[F] Zwischenfall auf einem pausierten Workflow
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+RequireRole middleware: User t17-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf9373f7c76ed70c822d85') to paused
+OrderService: Order status updated successfully
+RequireRole middleware: User t17-staff2@test.invalid has required role staff
+  PASS Zwischenfall auf Pause gemeldet :: 200 incident
+RequireRole middleware: User t17-admin@test.invalid has required role admin
+OrderService: Updating order status: new ObjectId('6abf9373f7c76ed70c822d85') to in-progress
+OrderService: Order status updated successfully
+  PASS Pausengrund und pausierende Person bleiben erhalten :: ["Mittagspause/Sophie T17","Zwischenfall: Akku fehlt/Techniker Zwei"]
+  PASS Die Pause beginnt weiterhin zum urspruenglichen Zeitpunkt :: Fri Oct 02 2026 13:20:19 GMT+0200 (Central European Summer Time)
+  PASS Zwischenfall als eigener Abschnitt mit meldender Person :: Zwischenfall: Akku fehlt/Techniker Zwei
+  PASS Keine Pausenzeit verloren oder doppelt :: 90 / 90 / 90
+
+61 bestanden, 0 fehlgeschlagen

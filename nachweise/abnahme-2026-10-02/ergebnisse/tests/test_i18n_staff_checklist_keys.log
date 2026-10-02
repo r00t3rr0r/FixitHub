@@ -1,0 +1,17 @@
+
+[D] Sprachdateien gültig, keine neuen doppelten Schlüssel
+  PASS de/en parsen :: ok
+  PASS nur der bekannte Doppelschlüssel :: batteryDisposal | batteryDisposal
+
+[A] Schlüssel vorhanden
+  PASS Aufrufe gefunden :: 390
+  PASS kein t()-Schlüssel ohne deutschen Text :: 0
+
+[B] keine Fehlübersetzungs-Muster
+  PASS deutsche Werte ohne bekannte Fehlmuster :: 0
+
+[C] Interpolation passt
+  PASS Platzhalter in de und en vorhanden :: 0
+  PASS sichtbare Beispieltexte deutsch :: {"staff.menu.repairRequests":"Reparaturanfragen","home.deviceSelection.noModelsFound":"Kein passendes Modell gefunden","deviceInspection.inspectionWillBeCompletedShortly":"Die Geräteprüfung wird in Kürze abgeschlossen.","profilePage.state":"Bundesland"}
+
+Ergebnis: 7 bestanden, 0 fehlgeschlagen

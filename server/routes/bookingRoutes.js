@@ -6,6 +6,52 @@ const BookingPaymentService = require('../services/bookingPaymentService');
 const DHLReturnsService = require('../services/dhlReturnsService');
 const FinancialService = require('../services/financialService');
 
+// Deutsche Bezeichnungen fuer die Validierungsmeldungen von PUT /:id/status und
+// /:id/billing-status. Sie wurden dort bereits verwendet, waren aber nie definiert -
+// ein ungueltiger Wert endete deshalb in einem 500 (ReferenceError) statt in der 400-Meldung.
+const BOOKING_STATUS_LABELS = {
+  pending: 'Ausstehend',
+  'payment-pending': 'Zahlung ausstehend',
+  processing: 'In Bearbeitung',
+  completed: 'Abgeschlossen',
+  cancelled: 'Storniert',
+};
+const BOOKING_BILLING_STATUS_LABELS = {
+  unpaid: 'Offen',
+  'partially-paid': 'Teilbezahlt',
+  paid: 'Bezahlt',
+};
+
+const isPrivilegedUser = (user) => user?.role === 'admin' || user?.role === 'staff';
+
+/**
+ * EINE Besitzpruefung fuer Buchungs-Unterrouten (DHL-7 / CUSTUX-13). Admin/Staff sehen jede
+ * Buchung, Kunden nur ihre eigenen. Fuer Kunden sind fremde, fehlende und ungueltige IDs
+ * nicht unterscheidbar (immer 403) - sonst liesse sich erkennen, welche Buchungen existieren.
+ * Liefert die Buchung oder null (dann ist die Antwort bereits gesendet).
+ */
+const loadBookingForViewer = async (req, res, { forbiddenMessage = 'Sie haben keine Berechtigung, diese Buchung einzusehen.' } = {}) => {
+  const privileged = isPrivilegedUser(req.user);
+  const deny = () => res.status(403).json({ success: false, error: forbiddenMessage, code: 'FORBIDDEN' });
+  const notFound = () => res.status(404).json({ success: false, error: 'Buchung wurde nicht gefunden.', code: 'BOOKING_NOT_FOUND' });
+  if (!/^[a-f0-9]{24}$/i.test(String(req.params.id || ''))) {
+    privileged ? notFound() : deny();
+    return null;
+  }
+  const Booking = require('../models/Booking');
+  const booking = await Booking.findById(req.params.id).setOptions({ skipAutoPopulate: true })
+    .select('customerId bookingNumber').lean();
+  if (!booking) {
+    privileged ? notFound() : deny();
+    return null;
+  }
+  if (!privileged && String(booking.customerId || '') !== String(req.user._id)) {
+    deny();
+    return null;
+  }
+  return booking;
+};
+
 // Description: Get all bookings (admin) or bookings for authenticated user (customer) with pagination
 // Endpoint: GET /api/bookings
 // Request: { status?: string, billingStatus?: string, limit?: number, skip?: number }
@@ -33,11 +79,15 @@ router.get('/', requireUser, async (req, res) => {
 
     let bookings;
     let total;
+    let labelMode;
 
     // If admin, get all bookings; otherwise get only customer's bookings
     if (req.user.role === 'admin' || req.user.role === 'staff') {
       console.log('BookingRoutes: Admin/Staff user requesting all bookings');
       bookings = await BookingService.getAllBookings(filters);
+      // DHL-5: konfigurierter Buchungslabel-Modus (dummy | live) fuer das Admin-Banner
+      // "Dummy-Modus aktiv" - nur fuer Team-Rollen, nie fuer Kunden.
+      labelMode = await BookingService.getBookingShippingLabelMode();
 
       // Get total count for pagination
       const countFilters = {};
@@ -59,6 +109,8 @@ router.get('/', requireUser, async (req, res) => {
       const countFilters = { customerId: req.user._id };
       if (status) countFilters.status = status;
       if (billingStatus) countFilters.billingStatus = billingStatus;
+      // Kundensuche (CUSTUX-3): gleiche, auf diesen Kunden begrenzte Suche wie die Liste.
+      if (search) countFilters.search = search;
       total = await BookingService.getBookingsCount(countFilters);
     }
 
@@ -69,6 +121,7 @@ router.get('/', requireUser, async (req, res) => {
       bookings: bookings,
       count: bookings.length,
       total: total,
+      ...(labelMode ? { labelMode } : {}),
     });
   } catch (error) {
     console.error('BookingRoutes: Error getting bookings:', error);
@@ -225,6 +278,11 @@ router.get('/:id', requireUser, async (req, res) => {
     // fest verdrahten, sondern liest sie hier ab (G5).
     const bookingPayload = typeof booking.toObject === 'function' ? booking.toObject() : { ...booking };
     bookingPayload.shippingLabelDirection = BookingService.resolveStoredShippingDirection(booking);
+    // K04: Kunden sehen den Verlauf nur als Positivliste (kein technischer Labelfehler, keine
+    // Abgleich-Vermerke, keine Mitarbeiternamen); das Team weiterhin vollstaendig.
+    if (!isPrivilegedUser) {
+      bookingPayload.timeline = BookingService.toCustomerTimeline(bookingPayload.timeline);
+    }
 
     res.json({
       success: true,
@@ -313,7 +371,8 @@ router.put('/:id/status', requireStaff, async (req, res) => {
       });
     }
 
-    const booking = await BookingService.updateStatus(req.params.id, status, description);
+    // 'cancelled': description ist der Pflichtgrund (BookingService.cancel, intern).
+    const booking = await BookingService.updateStatus(req.params.id, status, description, req.user);
 
     console.log('BookingRoutes: Booking status updated successfully');
 
@@ -323,9 +382,11 @@ router.put('/:id/status', requireStaff, async (req, res) => {
     });
   } catch (error) {
     console.error('BookingRoutes: Error updating booking status:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
+      ...(error.code ? { code: error.code } : {}),
+      ...(Array.isArray(error.openOrders) ? { openOrders: error.openOrders } : {}),
     });
   }
 });
@@ -357,7 +418,7 @@ router.put('/:id/billing-status', requireStaff, async (req, res) => {
       });
     }
 
-    const booking = await BookingService.updateBillingStatus(req.params.id, billingStatus, paymentStatus);
+    const booking = await BookingService.updateBillingStatus(req.params.id, billingStatus, paymentStatus, req.user);
 
     console.log('BookingRoutes: Billing status updated successfully');
 
@@ -381,6 +442,10 @@ router.put('/:id/billing-status', requireStaff, async (req, res) => {
 router.get('/:id/summary', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Getting booking summary:', req.params.id);
+
+    // SICHERHEIT (DHL-7/CUSTUX-13): frueher ohne Besitzpruefung - jeder angemeldete Kunde
+    // konnte Name, E-Mail und Telefon fremder Buchungen lesen.
+    if (!(await loadBookingForViewer(req, res))) return;
 
     const summary = await BookingService.getSummary(req.params.id);
 
@@ -415,6 +480,9 @@ router.get('/:id/orders', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Getting orders for booking:', req.params.id);
 
+    // SICHERHEIT (DHL-7/CUSTUX-13): Geraete, Preise und Sendungsnummern nur fuer Inhaber/Team.
+    if (!(await loadBookingForViewer(req, res))) return;
+
     const orders = await BookingService.getBookingOrders(req.params.id);
 
     if (!orders || orders.length === 0) {
@@ -443,13 +511,14 @@ router.get('/:id/orders', requireUser, async (req, res) => {
 
 // Description: Cancel a booking (admin only)
 // Endpoint: DELETE /api/bookings/:id
-// Request: {}
+// Request: { reason: string } (Pflicht, intern)
 // Response: { success: boolean, booking: Booking }
+// Fehler: 400 CANCEL_REASON_REQUIRED, 409 BOOKING_HAS_OPEN_ORDERS { openOrders: [{ _id, orderNumber, status }] }
 router.delete('/:id', requireAdmin, async (req, res) => {  // Keep this admin-only for safety
   try {
     console.log('BookingRoutes: Cancelling booking:', req.params.id);
 
-    const booking = await BookingService.cancel(req.params.id);
+    const booking = await BookingService.cancel(req.params.id, req.user, { reason: req.body?.reason });
 
     if (!booking) {
       console.log('BookingRoutes: Booking not found');
@@ -467,9 +536,11 @@ router.delete('/:id', requireAdmin, async (req, res) => {  // Keep this admin-on
     });
   } catch (error) {
     console.error('BookingRoutes: Error cancelling booking:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       error: error.message,
+      ...(error.code ? { code: error.code } : {}),
+      ...(Array.isArray(error.openOrders) ? { openOrders: error.openOrders } : {}),
     });
   }
 });
@@ -481,6 +552,9 @@ router.delete('/:id', requireAdmin, async (req, res) => {  // Keep this admin-on
 router.get('/:id/invoice/preview', requireUser, async (req, res) => {
   try {
     console.log('BookingRoutes: Previewing invoice for booking:', req.params.id);
+
+    // SICHERHEIT (DHL-7/CUSTUX-13): Rechnungsvorschau nur fuer Inhaber/Team.
+    if (!(await loadBookingForViewer(req, res))) return;
 
     const invoicePreview = await BookingService.previewInvoice(req.params.id, {
       invoiceMode: req.query.invoiceMode,
@@ -532,8 +606,20 @@ router.post('/:id/invoice', requireStaff, async (req, res) => {
 
     const invoice = await BookingService.createInvoice(req.params.id, invoiceData);
 
-    if (sendImmediately) {
-      await FinancialService.sendInvoice(invoice._id, invoice.customerEmail);
+    // FIN-3: genau EIN Versandweg (PDF, Verlauf, Benachrichtigung). Ein Versandfehler
+    // macht die bereits erstellte Rechnung nicht ungeschehen: 201 + Warnung statt 500.
+    let sendResult = null;
+    let warning = null;
+    if (sendImmediately === true || sendImmediately === 'true') {
+      try {
+        sendResult = await FinancialService.sendInvoice(invoice._id, invoice.customerEmail, '', {
+          actorId: req.user?._id,
+          actorName: `${req.user?.firstName || ''} ${req.user?.lastName || ''}`.trim() || req.user?.email || '',
+        });
+      } catch (sendError) {
+        console.error('BookingRoutes: Invoice created but sending failed:', sendError.message);
+        warning = `Rechnung ${invoice.invoiceNumber || ''} wurde erstellt, aber nicht versendet: ${sendError.message}`;
+      }
     }
 
     console.log('BookingRoutes: Invoice created successfully:', invoice._id);
@@ -541,6 +627,8 @@ router.post('/:id/invoice', requireStaff, async (req, res) => {
     res.status(201).json({
       success: true,
       invoice: invoice,
+      sent: Boolean(sendResult?.success),
+      warning,
     });
   } catch (error) {
     console.error('BookingRoutes: Error creating invoice:', error);
@@ -614,13 +702,38 @@ router.get('/:id/invoices', requireUser, async (req, res) => {
 // Endpoint: GET /api/bookings/:id/payments
 // Request: {}
 // Response: { success: boolean, booking: object, invoices: [], payments: [], summary: object }
-router.get('/:id/payments', requireStaff, async (req, res) => {
+// Staff/Admin: vollstaendige Uebersicht (unveraendert). Kunde (CUSTUX-7): nur fuer die
+// EIGENE Buchung und nur die Kundenprojektion (PaymentService.toCustomerPaymentOverview):
+// Summen + Zahlungsbewegungen ohne interne Felder (PayPal-IDs, Metadaten, Notizen,
+// Bearbeiter, Gateway-Antworten), keine Entwuerfe.
+router.get('/:id/payments', requireUser, async (req, res) => {
   try {
-    const overview = await BookingPaymentService.getOverview(req.params.id);
-    res.json({ success: true, ...overview });
+    const isPrivilegedUser = req.user.role === 'admin' || req.user.role === 'staff';
+    if (isPrivilegedUser) {
+      const overview = await BookingPaymentService.getOverview(req.params.id);
+      return res.json({ success: true, ...overview });
+    }
+
+    // Kunden nur ueber die interne Buchungs-ID (keine Nummern-/Auftragsaufloesung wie im
+    // Staff-Weg), damit die Eigentuemerpruefung genau dieselbe Buchung betrifft. Dieselbe
+    // Besitzpruefung wie die anderen Unterrouten: fremd/unbekannt/ungueltig -> immer 403.
+    const booking = await loadBookingForViewer(req, res, {
+      forbiddenMessage: 'Sie haben keine Berechtigung, die Zahlungen dieser Buchung einzusehen.',
+    });
+    if (!booking) return;
+    const Booking = require('../models/Booking');
+    const bookingOrders = await Booking.findById(booking._id).setOptions({ skipAutoPopulate: true }).select('orderIds').lean();
+
+    const overview = await BookingPaymentService.getOverview(String(booking._id));
+    const PaymentService = require('../services/paymentService');
+    return res.json({ success: true, ...PaymentService.toCustomerPaymentOverview(overview, { orderCount: (bookingOrders?.orderIds || []).length }) });
   } catch (error) {
     console.error('BookingRoutes: Error loading booking payments:', error);
-    res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    const statusCode = Number(error?.statusCode);
+    return res.status(Number.isFinite(statusCode) ? statusCode : 500).json({
+      success: false,
+      error: Number.isFinite(statusCode) ? error.message : 'Die Zahlungen konnten nicht geladen werden.',
+    });
   }
 });
 
@@ -732,7 +845,7 @@ router.get('/:id/shipping-label', requireUser, async (req, res) => {
     }
 
     if (!booking.shippingLabelUrl) {
-      return res.status(404).json({ success: false, error: 'Für diese Buchung ist kein Versandlabel hinterlegt.' })
+      return res.status(404).json({ success: false, error: 'Für diese Buchung ist kein Einsendelabel hinterlegt.' })
     }
 
     const base64Match = booking.shippingLabelUrl.match(/^data:application\/pdf;base64,(.+)$/)
@@ -741,7 +854,12 @@ router.get('/:id/shipping-label', requireUser, async (req, res) => {
     }
 
     const pdfBuffer = Buffer.from(base64Match[1], 'base64')
-    const filename = `versandlabel-buchung-${booking.bookingNumber || booking._id}.pdf`
+    // Einheitliche Dateinamen (DHL-8): Einsendung = DHL-Einsendelabel_<BKG>.pdf, Testlabel des
+    // Dummy-Modus = DHL-Testlabel_<BKG>.pdf, Altbestand mit Rueckweg-Label = DHL-Versandlabel_<BKG>.pdf.
+    const bookingReference = booking.bookingNumber || booking._id
+    const filename = BookingService.resolveStoredShippingDirection(booking) === 'outbound'
+      ? `DHL-Versandlabel_${String(bookingReference).replace(/[^A-Za-z0-9\-_]/g, '')}.pdf`
+      : BookingService.inboundLabelFilename(bookingReference, { placeholder: BookingService.isDummyBookingTrackingNumber(booking.trackingNumber) })
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
     res.setHeader('Content-Length', pdfBuffer.length)
@@ -773,7 +891,7 @@ router.get('/:id/return-label', requireUser, async (req, res) => {
     }
 
     if (!booking.returnLabelUrl) {
-      return res.status(404).json({ success: false, error: 'Für diese Buchung ist kein Rücksendelabel hinterlegt.' })
+      return res.status(404).json({ success: false, error: 'Für diese Buchung ist kein Einsendelabel (DHL-Retoure) hinterlegt.' })
     }
 
     const base64Match = booking.returnLabelUrl.match(/^data:application\/pdf;base64,(.+)$/)
@@ -782,7 +900,8 @@ router.get('/:id/return-label', requireUser, async (req, res) => {
     }
 
     const pdfBuffer = Buffer.from(base64Match[1], 'base64')
-    const filename = `ruecksendeetikett-${booking.bookingNumber || booking._id}.pdf`
+    // Die DHL-Retoure ist eine Einsendung (Kunde -> McRepair), kein "Ruecksendeetikett".
+    const filename = BookingService.inboundLabelFilename(booking.bookingNumber || booking._id)
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
     res.setHeader('Content-Length', pdfBuffer.length)
@@ -893,9 +1012,10 @@ router.post('/:id/return-label', requireStaff, async (req, res) => {
   try {
     console.log('BookingRoutes: Creating return label for booking:', req.params.id);
 
-    const { labelType } = req.body;
-    const options = {};
-    if (labelType) {
+    const { labelType } = req.body || {};
+    // HIST-16: handelnde Person fuer den Verlaufseintrag (nie aus dem Request-Body).
+    const options = { actor: req.user };
+    if (['PDF', 'QR', 'BOTH'].includes(labelType)) {
       options.labelType = labelType;
     }
 
@@ -905,10 +1025,66 @@ router.post('/:id/return-label', requireStaff, async (req, res) => {
 
     res.status(200).json(result);
   } catch (error) {
-    console.error('BookingRoutes: Error creating return label:', error);
-    res.status(500).json({
+    console.error('BookingRoutes: Error creating return label:', error.message);
+    // Fachliche Ablehnungen (409 Label vorhanden/in Arbeit/unklar, 404, 422) mit ihrem
+    // Status statt pauschal 500 (DHL-3).
+    const status = Number.isInteger(error.status) ? error.status : 500;
+    res.status(status).json({
       success: false,
-      error: error.message,
+      error: error.message || 'Das Retourenlabel konnte nicht erstellt werden.',
+      message: error.message || 'Das Retourenlabel konnte nicht erstellt werden.',
+      code: error.code || 'LABEL_CREATION_FAILED',
+      retryable: error.retryable === true,
+    });
+  }
+});
+
+// Description: Einsendestatus der Buchung (Kunde -> McRepair) fuer Bestellbestaetigung,
+//   Auftragsdetail und Buchungsliste - Inhaber oder Team. Kein DHL-Aufruf, kein Base64.
+// Endpoint: GET /api/bookings/:id/inbound-label
+// Response: { success, booking: { _id, bookingNumber, createdAt, status, totalCost, currency,
+//   paymentStatus, billingStatus, paymentMethod, deviceCount, isGuest },
+//   orders: [{ orderId, orderNumber, type, device, status }],
+//   inbound: { state: 'ready'|'registered'|'creating'|'review'|'error'|'none'|'not-needed'|'cancelled',
+//     canCreate, message, trackingNumber, downloadUrl, filename, source, placeholder,
+//     shippingStatus, deviceReceived, (nur Team: lastError, reconcileUrl, reconciliationReason) } }
+router.get('/:id/inbound-label', requireUser, async (req, res) => {
+  try {
+    if (!(await loadBookingForViewer(req, res))) return;
+    const view = await BookingService.getInboundLabelState(req.params.id, { includeStaffFields: isPrivilegedUser(req.user) });
+    if (!view) {
+      return res.status(404).json({ success: false, error: 'Buchung wurde nicht gefunden.' });
+    }
+    return res.status(200).json({ success: true, ...view });
+  } catch (error) {
+    console.error('BookingRoutes: Error loading inbound label state:', error.message);
+    return res.status(500).json({ success: false, error: 'Der Status des Einsendelabels konnte nicht geladen werden.' });
+  }
+});
+
+// Description: "DHL-Einsendelabel erstellen" durch den Buchungsinhaber oder das Team, wenn das
+//   automatische Label beim Checkout fehlt bzw. fehlgeschlagen ist (hoechstens ein Label je
+//   Buchung, gleiche atomare Sperre). Der Request-Body wird ignoriert.
+// Endpoint: POST /api/bookings/:id/inbound-label
+// Response: wie GET /:id/inbound-label, zusaetzlich { created: boolean, alreadyExists: boolean }
+//   Fehler: 409 LABEL_CREATION_IN_PROGRESS | LABEL_RECONCILIATION_REQUIRED | DHL_RESULT_UNKNOWN |
+//   BOOKING_CANCELLED | INBOUND_NOT_ALLOWED, 422 INBOUND_NOT_NEEDED | CUSTOMER_ADDRESS_INCOMPLETE,
+//   503 INBOUND_LABEL_UNAVAILABLE (Kunden), 403 fremde Buchung.
+router.post('/:id/inbound-label', requireUser, async (req, res) => {
+  try {
+    if (!(await loadBookingForViewer(req, res, { forbiddenMessage: 'Sie haben keine Berechtigung, für diese Buchung ein Einsendelabel zu erstellen.' }))) return;
+    const outcome = await BookingService.createInboundLabelForBooking(req.params.id, req.user);
+    const view = await BookingService.getInboundLabelState(req.params.id, { includeStaffFields: isPrivilegedUser(req.user) });
+    return res.status(200).json({ success: true, ...outcome, ...view });
+  } catch (error) {
+    console.error('BookingRoutes: Error creating inbound label on request:', error.message);
+    const status = Number.isInteger(error.status) ? error.status : 500;
+    return res.status(status).json({
+      success: false,
+      error: status === 500 && !isPrivilegedUser(req.user)
+        ? 'Das Einsendelabel konnte nicht erstellt werden. Bitte versuchen Sie es später erneut.'
+        : (error.message || 'Das Einsendelabel konnte nicht erstellt werden.'),
+      code: error.code || 'LABEL_CREATION_FAILED',
     });
   }
 });
@@ -1059,7 +1235,9 @@ router.post('/:id/shipping/create-label', requireStaff, async (req, res) => {
     }
 
     const updatedBooking = await BookingService.createShippingLabelForBooking(booking, {
-      shipmentData: req.body.shipmentData || req.body
+      shipmentData: req.body.shipmentData || req.body,
+      // HIST-16: handelnde Person im Verlauf statt 'DHL Parcel Integration'.
+      actor: req.user
     });
 
     console.log('BookingRoutes: Shipping label created successfully for booking');

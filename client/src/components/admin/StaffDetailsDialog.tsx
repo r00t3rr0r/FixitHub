@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import { format, formatDistanceToNow } from "date-fns"
 import { useNavigate } from "react-router-dom"
+import { getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 
 interface StaffDetailsDialogProps {
   open: boolean
@@ -207,7 +208,8 @@ export function StaffDetailsDialog({ open, onOpenChange, staffId }: StaffDetails
   const handleOrderClick = (orderId: string) => {
     console.log('Navigating to order details:', orderId)
     onOpenChange(false) // Close the dialog
-    navigate(`/admin/orders/${orderId}`)
+    // ADMUX-6: /admin/orders/:id existiert nicht (Catch-all = leere Seite); das Auftragsdetail ist /orders/:id.
+    navigate(getOrderDetailsPath(orderId))
   }
 
   const formatHours = (hours?: number) => {

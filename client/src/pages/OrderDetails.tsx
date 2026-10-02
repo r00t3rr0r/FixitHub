@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { SEO } from '@/components/SEO'
-import type { MouseEvent as ReactMouseEvent } from "react"
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react"
 import { useParams, Link, useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 
@@ -19,6 +19,15 @@ const COMPLAINT_STATUS_LABELS: Record<string, string> = {
 const getComplaintStatusLabel = (status?: string) =>
   status ? COMPLAINT_STATUS_LABELS[status] || status : ''
 
+// FIN-13: gespeicherter Steuersatz? 0 ist ein echter Satz; null/leer/nicht numerisch
+// heisst "nicht gespeichert" (Number(null) waere sonst 0 %).
+const hasStoredTaxRate = (value: unknown): boolean => {
+  if (value === null || value === undefined || typeof value === 'boolean') return false
+  if (typeof value === 'string' && value.trim() === '') return false
+  const num = Number(value)
+  return Number.isFinite(num) && num >= 0
+}
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -29,12 +38,12 @@ import { useAuth } from "@/contexts/AuthContext"
 import { safeToNumber, formatEUR } from "@/lib/utils"
 import { OrderDetailsNavigationState } from "@/lib/orderDetailsNavigation"
 import "./OrderDetails.css"
-import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct, buildRepricingConfirmation, isRepricingConfirmationOutdated, type OrderRepricingOptions, createOrderReturnLabel, downloadOrderReturnLabel, getCustomerInvoicesForOrder, downloadCustomerInvoicePdf, CustomerOrderInvoice, reconcileOrderInboundShipment, summarizeInvoicePayment, splitRefundPendingByScope, INVOICE_PAYMENT_TONE_CLASSES } from "@/api/orders"
+import { createOrderComplaint, getOrderById, Order, getOrderProgressTimeline, addShopProductToOrder, removeShopProductFromOrder, updateShopProductQuantity, ShopProduct, buildRepricingConfirmation, isRepricingConfirmationOutdated, type OrderRepricingOptions, createOrderReturnLabel, downloadOrderReturnLabel, getCustomerInvoicesForOrder, downloadCustomerInvoicePdf, CustomerOrderInvoice, reconcileOrderInboundShipment, summarizeInvoicePayment, splitRefundPendingByScope, INVOICE_PAYMENT_TONE_CLASSES, getOrderInboundLabel, downloadOrderShippingLabel, getOrderHistory, type OrderHistoryEntry, type OrderMilestone } from "@/api/orders"
 import { getComplaint, acknowledgeComplaint, denyComplaint, acceptComplaintOffer, rejectComplaintOffer, Complaint as ComplaintRecord } from "@/api/complaints"
 import { startOrderTracking, endOrderTracking } from "@/api/timeTracking"
 import { getAvailableStaff, assignStaffToOrder, StaffMember, getAdminOrderById, removeEPartFromOrder, addAddonToOrder, updateOrderAddon, removeAddonFromOrder, assignStaffToAddon, confirmUnlockCode, requestUnlockInfoUpdate, updateOrderDevice, updateOrderStatus, confirmPickup } from "@/api/adminOrders"
 import { createInvoiceFromOrder, getInvoices, getInvoiceDetails, Invoice as FinancialInvoice } from "@/api/financial"
-import { createOutboundShippingLabel, getOrderShipments, reconcileOrderShipment, type OrderShipmentsView } from "@/api/shipping"
+import { createOutboundShippingLabel, getOrderShipments, reconcileOrderShipment, reconcileBookingInboundLabel, type OrderShipmentsView, type ShipmentPartyView } from "@/api/shipping"
 import { getUserProfile, UserProfile } from "@/api/user"
 import { getAddOnServices, AddOnService as AddOnServiceType } from "@/api/services"
 import { getOrderWorkflows, getSuggestedWorkflowsForOrder, assignWorkflowToOrder, deleteWorkflowFromOrder, startWorkflow, updateWorkflowStatus } from "@/api/workflow"
@@ -55,7 +64,15 @@ import { UnlockPatternVisual } from "@/components/inspection/UnlockPatternVisual
 import { DeviceChangeDialog } from "@/components/admin/DeviceChangeDialog"
 import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
 import { generateInspectionReport, getInspection } from "@/api/deviceInspection"
-import { getBooking, updateBookingShippingStatus, updateReturnStatus, downloadBookingShippingLabel, downloadBookingReturnLabel, createBookingShippingLabel } from "@/api/bookings"
+import { getBooking, updateBookingShippingStatus, updateReturnStatus, downloadBookingShippingLabel, downloadBookingReturnLabel, createBookingShippingLabel, createBookingInboundLabel, downloadInboundLabel, printInboundLabel, type InboundLabelView } from "@/api/bookings"
+import { getCustomerBookingPayments, getBookingPayments, type CustomerBookingPaymentOverview, type BookingPaymentOverview } from "@/api/bookingPayments"
+import { BookingPaymentsDialog } from "@/components/admin/BookingPaymentsDialog"
+import { OrderCancelDialog } from "@/components/admin/OrderCancelDialog"
+import { describeReadyState, READY_NEUTRAL_LABEL } from "@/lib/returnMethod"
+import { OrderHistoryPanel, OrderMilestoneList } from "@/components/order/OrderHistoryPanel"
+import { getUnreadMessageCounts } from "@/api/inspectionCommunication"
+import type { OrderHistoryEntry as AdminHistoryEntry, OrderHistoryLink } from "@/api/orders"
+import { labelFilename } from "@/api/labelPdf"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -75,7 +92,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogBody,
 } from "@/components/ui/dialog"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -92,14 +111,12 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Calendar,
   MessageSquare,
   Camera,
   Send,
   Paperclip,
   Shield,
   Star,
-  MapPin,
   Phone,
   Mail,
   Smartphone,
@@ -136,6 +153,12 @@ import {
   Timer,
   Truck,
   Receipt,
+  Printer,
+  ArrowRight,
+  RefreshCw,
+  History,
+  Inbox,
+  Euro,
 } from "lucide-react"
 
 // Zusatzfelder der Versandrichtung, die der Server für Sperre/Abgleich liefert
@@ -146,6 +169,10 @@ type ReconcilableShipmentView = OrderShipmentsView['outbound'] & {
   lockStartedAt?: string | null
   reconcileUrl?: string
 }
+
+// Bereiche der Personal-/Admin-Ansicht (ADMUX-7); Wert steht als ?bereich=… in der URL.
+const ADMIN_ORDER_TABS = ['uebersicht', 'kommunikation', 'verlauf', 'rechnungen', 'versand'] as const
+type AdminOrderTab = typeof ADMIN_ORDER_TABS[number]
 
 export function OrderDetails() {
   const SPECIAL_REPAIR_WORKFLOW_NAME_MARKERS = [
@@ -198,6 +225,7 @@ export function OrderDetails() {
   const [repairWorkflowDialogOpen, setRepairWorkflowDialogOpen] = useState(false)
   const [workflowExecutionMode, setWorkflowExecutionMode] = useState<'start' | 'resume' | 'execute' | 'view'>('view')
   const [progressTimeline, setProgressTimeline] = useState<any>(null)
+  const [progressTimelineError, setProgressTimelineError] = useState(false)
   const [repairServices, setRepairServices] = useState<any[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
   // Entfernen einer Reparaturposition mit Rückfrage und optionalem Grund (Auftragshistorie)
@@ -264,7 +292,6 @@ export function OrderDetails() {
   const [returnToInspectionAfterDeviceDialog, setReturnToInspectionAfterDeviceDialog] = useState(false)
   const [forceInspectionStepOne, setForceInspectionStepOne] = useState(false)
   const [generatingInspectionReport, setGeneratingInspectionReport] = useState(false)
-  const [deviceHistoryOpen, setDeviceHistoryOpen] = useState(false)
   const [customerInspection, setCustomerInspection] = useState<any>(null)
   const [customerInspectionLoading, setCustomerInspectionLoading] = useState(false)
   const [diagnosisPopupOpen, setDiagnosisPopupOpen] = useState(false)
@@ -291,6 +318,49 @@ export function OrderDetails() {
   const [commQuickActionOpen, setCommQuickActionOpen] = useState(false)
   const [linkedBooking, setLinkedBooking] = useState<any | null>(null)
   const bookingTrackingRefreshRef = useRef<Record<string, number>>({})
+  // Laden / leer / Fehler getrennt (CUSTUX-8): 'not-found' = 403/404, 'error' = alles andere.
+  const [orderLoadError, setOrderLoadError] = useState<'' | 'not-found' | 'error'>('')
+  const [profileLoadError, setProfileLoadError] = useState(false)
+  const [orderReloadToken, setOrderReloadToken] = useState(0)
+  const [customerInvoicesError, setCustomerInvoicesError] = useState(false)
+  const [customerInvoicesReloadToken, setCustomerInvoicesReloadToken] = useState(0)
+  const [shipmentsLoadError, setShipmentsLoadError] = useState(false)
+  // Kundensicht: Zahlungsstand der Buchung (Kundenprojektion GET /api/bookings/:id/payments,
+  // dieselben PaymentService-Zahlen wie das Team) und Einsendestatus (GET /api/orders/:id/inbound-label).
+  const [customerPayments, setCustomerPayments] = useState<CustomerBookingPaymentOverview | null>(null)
+  const [customerPaymentsState, setCustomerPaymentsState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [customerPaymentsReloadToken, setCustomerPaymentsReloadToken] = useState(0)
+  const [customerInbound, setCustomerInbound] = useState<InboundLabelView | null>(null)
+  const [customerInboundState, setCustomerInboundState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [customerInboundReloadToken, setCustomerInboundReloadToken] = useState(0)
+  const [customerInboundBusy, setCustomerInboundBusy] = useState<'' | 'download' | 'print' | 'create'>('')
+  // Offene Rückfragen/Aktionen/Angebote im Nachrichtenverlauf (vom CommunicationPanel gemeldet).
+  const [threadPending, setThreadPending] = useState({ questions: 0, actions: 0, offers: 0 })
+  const handleThreadPendingChange = useCallback((pending: { questions: number; actions: number; offers: number }) => {
+    setThreadPending((previous) => (
+      previous.questions === pending.questions && previous.actions === pending.actions && previous.offers === pending.offers
+        ? previous
+        : pending
+    ))
+  }, [])
+  // Kundenverlauf (freigegebene Einträge aus GET /api/orders/:id/history), erst beim Aufklappen geladen.
+  const [customerHistoryOpen, setCustomerHistoryOpen] = useState(false)
+  const [customerHistory, setCustomerHistory] = useState<OrderHistoryEntry[] | null>(null)
+  const [customerHistoryState, setCustomerHistoryState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [customerHistoryReloadToken, setCustomerHistoryReloadToken] = useState(0)
+  // Personal/Admin (ADMUX-7): Zahlungsübersicht der Buchung (dieselbe Serverberechnung wie
+  // "Zahlungen verwalten"), Zähler für die Bereichs-Tabs und der Zahlungsdialog.
+  const [adminPayments, setAdminPayments] = useState<BookingPaymentOverview | null>(null)
+  const [adminPaymentsState, setAdminPaymentsState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [adminPaymentsReloadToken, setAdminPaymentsReloadToken] = useState(0)
+  const [bookingPaymentsDialogOpen, setBookingPaymentsDialogOpen] = useState(false)
+  // HIST-14: Storno nur mit Grund über den gemeinsamen Dialog "Auftrag stornieren?" (Server verlangt den Grund).
+  const [orderCancelDialogOpen, setOrderCancelDialogOpen] = useState(false)
+  const [orderReopenDialogOpen, setOrderReopenDialogOpen] = useState(false)
+  const [adminCommunicationCounts, setAdminCommunicationCounts] = useState<{ unread: number; awaitingReply: boolean } | null>(null)
+  const [adminCommunicationReloadToken, setAdminCommunicationReloadToken] = useState(0)
+  const [adminHistoryTotal, setAdminHistoryTotal] = useState<number | null>(null)
+  const [orderInvoicesError, setOrderInvoicesError] = useState(false)
   const { toast } = useToast()
 
   const ACK_REASON_OPTIONS = [
@@ -333,6 +403,7 @@ export function OrderDetails() {
 
     try {
       setLoadingOrderInvoices(true)
+      setOrderInvoicesError(false)
       const [orderInvoiceResponse, bookingInvoiceResponse] = await Promise.all([
         getInvoices({ orderId, limit: 50 }),
         bookingId ? getInvoices({ bookingId, limit: 50 }) : Promise.resolve(null),
@@ -362,6 +433,8 @@ export function OrderDetails() {
     } catch (error) {
       console.error('OrderDetails: Failed to load related invoices:', error)
       setOrderInvoices([])
+      // Ladefehler ist nicht "noch keine Rechnung" (eigener Zustand mit "Erneut versuchen").
+      setOrderInvoicesError(true)
     } finally {
       setLoadingOrderInvoices(false)
     }
@@ -431,14 +504,19 @@ export function OrderDetails() {
         console.log("Fetching user profile...")
         const response = await getUserProfile()
         setUser((response as any).user)
+        setProfileLoadError(false)
         console.log("User profile loaded:", (response as any).user?.email, "Role:", (response as any).user?.role)
       } catch (error) {
         console.error("Error fetching user profile:", error)
+        // Ohne Profil kann der Auftrag nicht geladen werden: Fehler mit "Erneut versuchen"
+        // statt eines endlosen Ladezustands.
+        setProfileLoadError(true)
+        setLoading(false)
       }
     }
 
     fetchUserProfile()
-  }, [isAuthenticated])
+  }, [isAuthenticated, orderReloadToken])
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -476,6 +554,7 @@ export function OrderDetails() {
 
         const fetchedOrder = (orderResponse as any).order
         setOrder(fetchedOrder)
+        setOrderLoadError(fetchedOrder ? '' : 'not-found')
 
         if (user.role === 'admin') {
             const bookingId = typeof fetchedOrder?.bookingId === 'string'
@@ -496,18 +575,17 @@ export function OrderDetails() {
 
       } catch (error) {
         console.error("Error fetching order details:", error)
-        toast({
-          title: "Fehler",
-          description: "Die Auftragsdetails konnten nicht geladen werden.",
-          variant: "destructive"
-        })
+        // 403/404 = nicht vorhanden oder kein Zugriff; alles andere ist ein Ladefehler
+        // mit "Erneut versuchen" (nie als "existiert nicht" ausgeben).
+        const status = Number((error as { status?: number } | null)?.status)
+        setOrderLoadError(status === 403 || status === 404 ? 'not-found' : 'error')
       } finally {
         setLoading(false)
       }
     }
 
     fetchOrderDetails()
-  }, [id, user, toast])
+  }, [id, user, toast, orderReloadToken])
 
   useEffect(() => {
     const loadComplaintWorkflow = async () => {
@@ -596,13 +674,8 @@ export function OrderDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order])
 
-  useEffect(() => {
-    if (!id || user?.role !== 'admin' || !linkedBooking?._id) {
-      return
-    }
-
-    loadOrderInvoices(id, String(linkedBooking._id))
-  }, [id, user?.role, linkedBooking?._id])
+  // Rechnungen (nur Admin) lädt fetchOrder direkt mit dem Auftrag - auch für Aufträge ohne
+  // Buchung; ein zweiter Abruf beim Eintreffen der Buchung entfällt (gleiche Daten).
 
   // Invoices for the CUSTOMER. The admin list above uses the admin-only finance API;
   // customers get their own documents through the owner-scoped /api/invoices endpoint,
@@ -620,18 +693,139 @@ export function OrderDetails() {
 
       try {
         setLoadingCustomerInvoices(true)
+        setCustomerInvoicesError(false)
         const invoices = await getCustomerInvoicesForOrder(id, bookingId ? String(bookingId) : null)
         setCustomerInvoices(invoices)
       } catch (error) {
         console.error('OrderDetails: Failed to load customer invoices:', error)
         setCustomerInvoices([])
+        // Fehler ist NICHT "noch keine Rechnung" - eigener Zustand mit "Erneut versuchen".
+        setCustomerInvoicesError(true)
       } finally {
         setLoadingCustomerInvoices(false)
       }
     }
 
     loadCustomerInvoices()
-  }, [id, user?.role, order?.bookingId])
+  }, [id, user?.role, order?.bookingId, customerInvoicesReloadToken])
+
+  // Zahlungsstand für den Kunden: Kundenprojektion der Buchungs-Zahlungsübersicht.
+  // Beträge gelten für die GESAMTE Buchung (bei mehreren Geräten so beschriftet).
+  const customerBookingIdForPayments = typeof order?.bookingId === 'string'
+    ? order.bookingId
+    : String((order as any)?.bookingId?._id || '')
+  useEffect(() => {
+    if (user?.role !== 'customer' || !customerBookingIdForPayments) {
+      setCustomerPayments(null)
+      setCustomerPaymentsState('idle')
+      return
+    }
+    let cancelled = false
+    setCustomerPaymentsState('loading')
+    getCustomerBookingPayments(customerBookingIdForPayments)
+      .then((overview) => {
+        if (cancelled) return
+        setCustomerPayments(overview)
+        setCustomerPaymentsState('ready')
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error('OrderDetails: Failed to load customer payment summary:', error)
+        setCustomerPayments(null)
+        setCustomerPaymentsState('error')
+      })
+    return () => { cancelled = true }
+  }, [user?.role, customerBookingIdForPayments, customerPaymentsReloadToken])
+
+  // Personal/Admin: Zahlungsübersicht der Buchung (GET /api/bookings/:id/payments, volle
+  // Personalsicht). Die Beträge rechnet ausschließlich der Server (PaymentService).
+  useEffect(() => {
+    const privileged = user?.role === 'admin' || user?.role === 'staff'
+    if (!privileged || !customerBookingIdForPayments) {
+      setAdminPayments(null)
+      setAdminPaymentsState('idle')
+      return
+    }
+    let cancelled = false
+    setAdminPaymentsState((previous) => (previous === 'ready' ? previous : 'loading'))
+    getBookingPayments(customerBookingIdForPayments)
+      .then((overview) => {
+        if (cancelled) return
+        setAdminPayments(overview)
+        setAdminPaymentsState('ready')
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error('OrderDetails: Failed to load booking payment overview:', error)
+        setAdminPayments(null)
+        setAdminPaymentsState('error')
+      })
+    return () => { cancelled = true }
+  }, [user?.role, customerBookingIdForPayments, order?.updatedAt, adminPaymentsReloadToken])
+
+  // Personal/Admin: Ungelesen / Antwort ausstehend für den Tab "Kommunikation" (gleiche
+  // Regel wie das Postfach). Der Verlauf selbst wird erst im Tab geladen und als gelesen markiert.
+  useEffect(() => {
+    const privileged = user?.role === 'admin' || user?.role === 'staff'
+    if (!privileged || !id) {
+      setAdminCommunicationCounts(null)
+      return
+    }
+    let cancelled = false
+    getUnreadMessageCounts([id])
+      .then((counts) => {
+        if (cancelled) return
+        const entry = counts?.[id] || {}
+        setAdminCommunicationCounts({ unread: Number(entry.unread) || 0, awaitingReply: Boolean(entry.awaitingReply) })
+      })
+      .catch(() => {
+        if (!cancelled) setAdminCommunicationCounts(null)
+      })
+    return () => { cancelled = true }
+  }, [user?.role, id, adminCommunicationReloadToken])
+
+  // Einsendestatus (Kunde -> McRepair) für den "Nächster Schritt" der Kundensicht.
+  useEffect(() => {
+    if (user?.role !== 'customer' || !order?._id) {
+      setCustomerInbound(null)
+      setCustomerInboundState('idle')
+      return
+    }
+    let cancelled = false
+    setCustomerInboundState((previous) => (previous === 'ready' ? previous : 'loading'))
+    getOrderInboundLabel(String(order._id))
+      .then((view) => {
+        if (cancelled) return
+        setCustomerInbound(view)
+        setCustomerInboundState('ready')
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error('OrderDetails: Failed to load inbound label state:', error)
+        setCustomerInbound(null)
+        setCustomerInboundState('error')
+      })
+    return () => { cancelled = true }
+  }, [user?.role, order?._id, order?.updatedAt, customerInboundReloadToken])
+
+  // Kundenverlauf: erst beim Aufklappen laden (freigegebene Einträge, deutsche Titel vom Server).
+  useEffect(() => {
+    if (!customerHistoryOpen || user?.role !== 'customer' || !order?._id) return
+    let cancelled = false
+    setCustomerHistoryState('loading')
+    getOrderHistory(String(order._id), { limit: 100 })
+      .then((response) => {
+        if (cancelled) return
+        setCustomerHistory(Array.isArray(response?.entries) ? response.entries : [])
+        setCustomerHistoryState('ready')
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error('OrderDetails: Failed to load customer history:', error)
+        setCustomerHistoryState('error')
+      })
+    return () => { cancelled = true }
+  }, [customerHistoryOpen, user?.role, order?._id, order?.updatedAt, customerHistoryReloadToken])
 
   useEffect(() => {
     const fetchAvailableStaff = async () => {
@@ -836,24 +1030,39 @@ export function OrderDetails() {
     navigate(location.pathname, { replace: true })
   }, [location.pathname, navigate, requestedWorkflowId, requestedWorkflowMode, toast, workflows])
 
-  // Fetch progress timeline for order
+  // Fetch progress timeline for order. Neu laden, sobald sich Status oder Stand des
+  // Auftrags ändern (Statusmenü, Workflow, refreshOrder), damit Meilensteine und
+  // "Aktueller Schritt" nicht veralten. Antworten eines älteren Aufrufs werden verworfen.
+  // Erst laden, wenn der Auftrag da ist (sonst ein überflüssiger zweiter Abruf beim Eintreffen).
+  const progressTimelineOrderKey = order ? `${order.status || ''}|${(order as any)?.updatedAt || ''}` : null
   useEffect(() => {
+    if (!id || progressTimelineOrderKey === null) return
+    let cancelled = false
     const fetchProgressTimeline = async () => {
-      if (!id) return
-
       try {
-        console.log("OrderDetails: Fetching progress timeline for order:", id)
         const timelineResponse = await getOrderProgressTimeline(id)
-        console.log("OrderDetails: Progress timeline received:", timelineResponse)
-
+        if (cancelled) return
         setProgressTimeline(timelineResponse)
+        setProgressTimelineError(false)
       } catch (error: any) {
+        if (cancelled) return
         console.error("OrderDetails: Error fetching progress timeline:", error)
+        setProgressTimelineError(true)
         // Don't show error toast as timeline is not critical
       }
     }
 
     fetchProgressTimeline()
+    return () => { cancelled = true }
+  }, [id, progressTimelineOrderKey])
+
+  // Beim Wechsel auf einen anderen Auftrag (Links im Kopf: Reklamation / Originalauftrag)
+  // bleibt die Seite gemountet: offene Rückfragen des vorherigen Auftrags verwerfen und
+  // den alten Zeitstrahl nicht als den des neuen Auftrags anzeigen.
+  useEffect(() => {
+    setThreadPending({ questions: 0, actions: 0, offers: 0 })
+    setProgressTimeline(null)
+    setProgressTimelineError(false)
   }, [id])
 
   const handleSubmitComplaint = async () => {
@@ -1057,6 +1266,12 @@ export function OrderDetails() {
 
   const handleStatusChange = async (newStatus: string) => {
     if (!id || !order) return
+    // Stornieren nur mit Grund (Server: 400 ohne Grund) - immer über den Storno-Dialog.
+    if (newStatus === 'cancelled') {
+      setStatusDropdownOpen(false)
+      setOrderCancelDialogOpen(true)
+      return
+    }
 
     try {
       setUpdatingStatus(true)
@@ -1197,9 +1412,11 @@ export function OrderDetails() {
     if (!orderId) return
     try {
       setOrderShipments(await getOrderShipments(orderId))
+      setShipmentsLoadError(false)
     } catch (error) {
       console.error('OrderDetails: Failed to load shipment state:', error)
       setOrderShipments(null)
+      setShipmentsLoadError(true)
     }
   }
 
@@ -1236,32 +1453,8 @@ export function OrderDetails() {
 
     try {
       setDownloadingOrderShippingLabel(true)
-
-      const response = await fetch(`/api/orders/${order._id}/shipping-label`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          Accept: 'application/pdf',
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Versandlabel konnte nicht geladen werden.')
-      }
-
-      const labelBlob = await response.blob()
-      const labelUrl = window.URL.createObjectURL(labelBlob)
-
-      const link = document.createElement('a')
-      link.href = labelUrl
-      link.download = `versandlabel-${order.orderNumber || order._id}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      window.setTimeout(() => {
-        window.URL.revokeObjectURL(labelUrl)
-      }, 60000)
+      // Gemeinsamer Label-Helfer (PDF-Prüfung, deutsche Fehlermeldungen, kein Logout bei 401/403).
+      await downloadOrderShippingLabel(order._id, labelFilename('outbound', order.orderNumber || order._id))
     } catch (error: any) {
       toast({
         title: 'Versandlabel konnte nicht heruntergeladen werden',
@@ -1333,12 +1526,13 @@ export function OrderDetails() {
       setDownloadingOrderReturnLabel(true)
       const bookingId = String(inbound.bookingId || linkedBooking?._id || '')
       const bookingRef = inbound.bookingNumber || linkedBooking?.bookingNumber || bookingId
+      const placeholder = Boolean((inbound as { placeholder?: boolean }).placeholder)
       if (inbound.source === 'booking' && bookingId) {
-        await downloadBookingShippingLabel(bookingId, `einsendelabel-${bookingRef}.pdf`)
+        await downloadBookingShippingLabel(bookingId, labelFilename('inbound', bookingRef, placeholder))
       } else if (inbound.source === 'booking-retoure' && bookingId) {
-        await downloadBookingReturnLabel(bookingId, `einsendelabel-retoure-${bookingRef}.pdf`)
+        await downloadBookingReturnLabel(bookingId, labelFilename('inbound', bookingRef, placeholder))
       } else {
-        await downloadOrderReturnLabel(order._id, `einsendelabel-${order.orderNumber || order._id}.pdf`)
+        await downloadOrderReturnLabel(order._id, labelFilename('inbound', order.orderNumber || order._id, placeholder))
       }
     } catch (error: any) {
       toast({
@@ -1403,9 +1597,30 @@ export function OrderDetails() {
 
     try {
       setReconcilingInbound(true)
-      const reconcileUrl = String((orderShipments?.inbound as ReconcilableShipmentView | undefined)?.reconcileUrl || '')
-      const response = await reconcileOrderInboundShipment(order._id, { resolution, trackingNumber: trackingNumber || undefined }, reconcileUrl)
-      if (response?.shipments) setOrderShipments(response.shipments)
+      const inboundView = orderShipments?.inbound as (ReconcilableShipmentView & { lockScope?: string }) | undefined
+      const reconcileUrl = String(inboundView?.reconcileUrl || '')
+      // DHL-4: liegt die Sperre an der BUCHUNG (Checkout-/Buchungs-Einsendelabel), schließt der
+      // Abgleich an der Buchung ab (POST /api/bookings/:id/shipping/reconcile). Nur die Buchung
+      // DIESES Auftrags wird akzeptiert.
+      const bookingReconcileMatch = /^\/api\/bookings\/([a-f0-9]{24})\/shipping\/reconcile$/i.exec(reconcileUrl)
+      const ownBookingId = String(linkedBooking?._id || customerBookingIdForPayments || '')
+      if (inboundView?.lockScope === 'booking' || bookingReconcileMatch) {
+        const bookingId = bookingReconcileMatch?.[1] || ownBookingId
+        if (!bookingId || (ownBookingId && bookingId !== ownBookingId)) {
+          throw new Error('Die Buchung dieses Auftrags konnte nicht eindeutig bestimmt werden. Bitte den Abgleich in der Buchungsverwaltung abschließen.')
+        }
+        await reconcileBookingInboundLabel(bookingId, { resolution, trackingNumber: trackingNumber || undefined })
+        await loadOrderShipments(order._id)
+        try {
+          const refreshedBooking = await getBooking(bookingId)
+          setLinkedBooking((refreshedBooking as any)?.booking || null)
+        } catch (bookingError) {
+          console.error('OrderDetails: Failed to reload booking after reconcile:', bookingError)
+        }
+      } else {
+        const response = await reconcileOrderInboundShipment(order._id, { resolution, trackingNumber: trackingNumber || undefined }, reconcileUrl)
+        if (response?.shipments) setOrderShipments(response.shipments)
+      }
       setReconcileInboundTrackingNumber('')
       await refreshOrder()
       toast({
@@ -2480,7 +2695,8 @@ export function OrderDetails() {
   const translatePaymentStatus = (status: string) => {
     switch (status) {
       case 'paid': return 'Bezahlt'
-      case 'pending': return 'Ausstehend'
+      // 'Offen' statt 'Ausstehend': sonst dasselbe Wort wie der Auftragsstatus 'Ausstehend'.
+      case 'pending': return 'Offen'
       case 'refunded': return 'Erstattet'
       case 'partial': return 'Teilbezahlt'
       case 'unpaid': return 'Nicht bezahlt'
@@ -2815,10 +3031,18 @@ export function OrderDetails() {
     refreshOrder()
   }
 
+  const handleRetryOrderLoad = () => {
+    setLoading(true)
+    setProfileLoadError(false)
+    setOrderLoadError('')
+    setOrderReloadToken((current) => current + 1)
+  }
+
   if (loading) {
     return (
       <div className="order-details-container">
-        <div className="order-section-card animate-pulse">
+        <div className="order-section-card order-loading-skeleton" role="status" aria-live="polite">
+          <p className="order-loading-text">Auftrag wird geladen …</p>
           <div className="h-7 bg-gray-200 rounded w-1/2 mb-4"></div>
           <div className="h-4 bg-gray-200 rounded w-1/3 mb-6"></div>
           <div className="space-y-3">
@@ -2831,21 +3055,49 @@ export function OrderDetails() {
   }
 
   if (!order) {
+    // Drei getrennte Zustände: Ladefehler (mit "Erneut versuchen") vs. nicht gefunden / kein Zugriff.
+    const isLoadFailure = profileLoadError || orderLoadError === 'error'
+    // handleBackNavigation ist erst nach dieser Rückgabe definiert (TDZ) - hier eigene Rücksprung-Logik.
+    const goBackWithoutOrder = () => {
+      if (backTarget?.pathname) {
+        navigate(`${backTarget.pathname}${backTarget.search || ''}${backTarget.hash || ''}`, { state: backTarget.state })
+        return
+      }
+      navigate(user?.role === 'admin' ? '/admin/orders' : user?.role === 'staff' ? '/staff/bookings' : '/bookings')
+    }
     return (
       <div className="order-details-container">
         <div className="order-section-card">
-          <div className="order-empty-state">
-            <Package className="h-20 w-20 mx-auto mb-4 opacity-30" />
-            <h3>Auftrag nicht gefunden</h3>
-            <p>Der gesuchte Auftrag existiert nicht.</p>
-            <button
-              type="button"
-              className="order-btn order-btn-primary mt-4"
-              onClick={() => handleBackNavigation()}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              {backTarget?.label || (user?.role === 'admin' ? t('orderDetails.backToOrders') : user?.role === 'staff' ? t('common.back') : t('common.back'))}
-            </button>
+          <div className="order-empty-state" role={isLoadFailure ? 'alert' : undefined}>
+            {isLoadFailure
+              ? <AlertTriangle className="h-16 w-16 mx-auto mb-4 text-amber-500" aria-hidden="true" />
+              : <Package className="h-20 w-20 mx-auto mb-4 opacity-30" aria-hidden="true" />}
+            <h3>{isLoadFailure ? 'Auftrag konnte nicht geladen werden.' : 'Auftrag nicht gefunden oder kein Zugriff'}</h3>
+            <p>
+              {isLoadFailure
+                ? 'Bitte prüfen Sie Ihre Verbindung und versuchen Sie es erneut.'
+                : 'Dieser Auftrag existiert nicht oder ist Ihrem Konto nicht zugeordnet.'}
+            </p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {isLoadFailure && (
+                <button
+                  type="button"
+                  className="order-btn order-btn-primary"
+                  onClick={handleRetryOrderLoad}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Erneut versuchen
+                </button>
+              )}
+              <button
+                type="button"
+                className={`order-btn ${isLoadFailure ? 'order-btn-secondary' : 'order-btn-primary'}`}
+                onClick={goBackWithoutOrder}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" aria-hidden="true" />
+                {backTarget?.label || (user?.role === 'admin' ? t('orderDetails.backToOrders') : user?.role === 'staff' ? t('common.back') : t('common.back'))}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2873,7 +3125,7 @@ export function OrderDetails() {
     ? customer.name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase()
     : 'U'
   const customerSinceText = customer.createdAt
-    ? new Date(customer.createdAt).toLocaleDateString()
+    ? new Date(customer.createdAt).toLocaleDateString('de-DE')
     : '-'
   const isStaffOrAdmin = user?.role === 'admin' || user?.role === 'staff'
   const isCustomer = user?.role === 'customer'
@@ -2960,7 +3212,7 @@ export function OrderDetails() {
   const escalationOfferDescription = (latestDenyEscalationLog as any)?.metadata?.offerDescription || ''
   const staffCount = order.assignedStaff?.length || 0
   const serviceCount = (repairServices?.filter((s) => s && s._id).length || 0) + (order.addOns?.length || 0)
-  const lastUpdate = order.updatedAt ? new Date(order.updatedAt).toLocaleString() : '-'
+  const lastUpdate = order.updatedAt ? new Date(order.updatedAt).toLocaleString('de-DE') : '-'
   const normalizedAddonSearch = addonSearchTerm.trim().toLowerCase()
   const filteredAvailableAddons = availableAddons.filter((addon) => {
     if (!normalizedAddonSearch) return true
@@ -3008,15 +3260,28 @@ export function OrderDetails() {
       'Workflow Paused': 'Workflow pausiert',
       'Workflow Resumed': 'Workflow fortgesetzt',
       'Workflow Status Updated': 'Workflow-Status aktualisiert',
+      // gleiche Bezeichnungen wie server/utils/orderHistory.js KEY_META
+      'Workflow Completed': 'Workflow abgeschlossen',
+      'Workflow Step Reopened': 'Workflow-Schritt erneut geöffnet',
+      'Repair Workflow Started': 'Reparatur gestartet',
+      'Repair Workflow Paused': 'Reparatur pausiert',
+      'Repair Workflow Resumed': 'Reparatur fortgesetzt',
+      'Repair Workflow Incident': 'Zwischenfall gemeldet',
+      'Repair Workflow Incident Resolved': 'Zwischenfall erledigt',
+      'Repair Workflow Completed': 'Reparatur abgeschlossen',
+      'Repair Workflow Reopened': 'Reparatur wieder aufgenommen',
+      'Order Reopened': 'Stornierung aufgehoben',
       'Diagnostic Assessment': 'Diagnosebewertung',
       'Quality Check': 'Qualitätskontrolle',
       'Completed': 'Abgeschlossen',
-      'Ready for Pickup': 'Abholbereit',
+      // Verlauf/Altbestand: neutral (der Rueckgabeweg galt evtl. damals anders) - HIST-17.
+      'Ready for Pickup': READY_NEUTRAL_LABEL,
       'Shipping Label Created': 'Versandetikett erstellt',
       'Shipping Label Reconciliation Required': 'Abgleich des Versandlabels erforderlich',
       'Shipping Label Reconciled': 'Versandlabel abgeglichen',
       'Legacy Inbound Label Moved': 'Einsendelabel (Altbestand) getrennt',
       'Inbound Label Created': 'Einsendelabel erstellt',
+      'Booking Inbound Label Created': 'Einsendelabel erstellt',
       'Inbound Label Reconciliation Required': 'Abgleich des Einsendelabels erforderlich',
       'Return Label Created': 'Rückgabeetikett erstellt',
       'Return Status Updated': 'Rückgabestatus aktualisiert',
@@ -3029,11 +3294,13 @@ export function OrderDetails() {
       'diagnostic-assessment': 'Diagnosebewertung',
       'in-progress': 'In Bearbeitung',
       'paused': 'Pausiert',
+      // Status-Enum (Statusmenue "Qualitätskontrolle"); stand bisher roh als "quality-check" im Kopf.
+      'quality-check': 'Qualitätskontrolle',
       'completed': 'Abgeschlossen',
       'on-hold': 'Pausiert',
       'diagnosed': 'Diagnostiziert',
       'awaiting-parts': 'Wartet auf Teile',
-      'ready-for-pickup': 'Abholbereit',
+      'ready-for-pickup': READY_NEUTRAL_LABEL,
       // Versandstatus-Enums: standen bisher roh in deutschen Verlaufszeilen.
       'label-created': 'Label erstellt',
       'shipped': 'Versendet',
@@ -3050,6 +3317,11 @@ export function OrderDetails() {
     if (status.startsWith('return_exchange_')) return `Rückgabe/Umtausch – ${status.replace('return_exchange_', '').replace('_', ' ')}`
     return status
   }
+
+  // AKTUELLER Bereit-Zustand nach Rückgabeweg (Versand wird vorbereitet / Versandstatus / Abholung),
+  // gleiche Regel wie der Server (lib/returnMethod). Verlaufszeilen bleiben neutral (translateOrderStatus).
+  const readyStateView = describeReadyState(order.status, orderShipments)
+  const currentOrderStatusLabel = readyStateView?.label ?? translateOrderStatus(order.status)
 
   const orderCreatedText = new Date(order.createdAt).toLocaleDateString('de-DE')
   const estimatedCompletionText = order.estimatedCompletion
@@ -3165,7 +3437,10 @@ export function OrderDetails() {
         grossTotal: round2(safeToNumber(serverPricing.grossTotal)),
         netTotal: round2(safeToNumber(serverPricing.netTotal)),
         taxAmount: round2(safeToNumber(serverPricing.taxAmount)),
-        taxRate: Number.isFinite(Number(serverPricing.taxRate)) ? Number(serverPricing.taxRate) : 19,
+        // FIN-13: der Server liefert den GESPEICHERTEN Satz (auch 0 %) bzw. den Standardsatz
+        // mit taxRateSource 'default' - hier nichts umdeuten.
+        taxRate: hasStoredTaxRate(serverPricing.taxRate) ? Number(serverPricing.taxRate) : 19,
+        taxRateSource: serverPricing.taxRateSource === 'default' || !hasStoredTaxRate(serverPricing.taxRate) ? 'default' : 'stored',
         hasPositions: positionsGross > 0,
         positionsReconcile: serverPricing.positionsReconcile !== false,
       }
@@ -3191,7 +3466,9 @@ export function OrderDetails() {
     const discount = round2(safeToNumber(order.discount))
     const dealerDiscountAmount = round2(safeToNumber(order.dealerDiscountAmount))
     const grossTotal = round2(round2(safeToNumber(order.totalCost)) - dealerDiscountAmount)
-    const taxRate = Number.isFinite(Number(order.taxRate)) ? Number(order.taxRate) : 19
+    // FIN-13: gespeicherte 0 bleibt 0; null/leer = nicht gespeichert (Standardsatz), nie 0 %.
+    const taxRateStored = hasStoredTaxRate(order.taxRate)
+    const taxRate = taxRateStored ? Number(order.taxRate) : 19
     const netTotal = round2(grossTotal / (1 + taxRate / 100))
     const taxAmount = round2(grossTotal - netTotal)
 
@@ -3207,6 +3484,7 @@ export function OrderDetails() {
       netTotal,
       taxAmount,
       taxRate,
+      taxRateSource: taxRateStored ? 'stored' : 'default',
       hasPositions: positionsGross > 0,
       positionsReconcile: Math.abs(positionsGross - discount - dealerDiscountAmount - grossTotal) <= 0.02,
     }
@@ -3216,6 +3494,10 @@ export function OrderDetails() {
   // eine ganze Zahl runden - sonst steht '8 %' neben einem mit 7,5 % gerechneten Betrag.
   const formatTaxRate = (rate: number) =>
     new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(safeToNumber(rate))
+  // FIN-13: "19 %" = am Auftrag gespeichert; "19 %, Standardsatz" = kein Satz gespeichert.
+  const orderTaxRateLabel = `${formatTaxRate(orderPriceBreakdown.taxRate)} %${
+    orderPriceBreakdown.taxRateSource === 'default' ? ', Standardsatz' : ''
+  }`
   // Rabattzeilen der Preisübersicht (Kopf, Admin-Block und Kundenansicht lesen dieselbe
   // Liste): Aktionsrabatt (fester Betrag) und Kunden-/Händlerkondition (Prozent + EUR).
   // Die Summe der Zeilen ist immer pricing.discount (+ Händlerrabatt aus Altbestand).
@@ -3296,6 +3578,14 @@ export function OrderDetails() {
   const timelineCurrentStageIndex = (() => {
     if (!timelineStages.length) return -1
 
+    // HIST-1: Die ehrliche Meilenstein-Projektion liefert pro Stufe ein state-Feld.
+    // Dann gilt ausschließlich die Stufe mit state === 'current' (dieselbe Quelle wie
+    // die Meilensteinliste); ohne aktuelle Stufe wird nichts aus dem Index geraten,
+    // das Label fällt auf den Auftragsstatus zurück.
+    if (timelineStages.some((stage: any) => typeof stage?.state === 'string')) {
+      return timelineStages.findIndex((stage: any) => stage?.state === 'current')
+    }
+
     const currentStage = progressTimeline?.currentStage
 
     if (typeof currentStage === 'number' && Number.isFinite(currentStage)) {
@@ -3341,7 +3631,7 @@ export function OrderDetails() {
     : null
   const currentStageLabel = activeTimelineStage
     ? translateOrderStatus(activeTimelineStage.label || activeTimelineStage.name || 'Aktiver Schritt')
-    : translateOrderStatus(order.status)
+    : currentOrderStatusLabel
   const rawOrderProgress = Math.max(0, Math.min(100, safeToNumber(order.progress)))
   const isRepairStageActive = (() => {
     const normalizedOrderStatus = String(order.status || '').toLowerCase()
@@ -3395,11 +3685,16 @@ export function OrderDetails() {
     }
 
     if (normalizedStatus === 'ready-for-pickup') {
+      // Text nach Rückgabeweg (lib/returnMethod) - kein "abholbereit" für Versandaufträge.
       return {
-        eyebrow: 'Rückgabe organisiert',
+        eyebrow: readyStateView?.label || READY_NEUTRAL_LABEL,
         steps: [
-          'Ihr Gerät ist bereit zur Abholung oder zum Versand.',
-          'Das Team stimmt bei Bedarf Uhrzeit, Übergabe oder Versanddetails mit Ihnen ab.',
+          readyStateView?.description || 'Ihre Reparatur ist abgeschlossen.',
+          readyStateView?.method === 'pickup'
+            ? 'Das Team stimmt bei Bedarf Uhrzeit und Übergabe mit Ihnen ab.'
+            : readyStateView?.method === 'shipping'
+              ? 'Bei Fragen zum Versand schreiben Sie uns im Nachrichtenbereich.'
+              : 'Das Team stimmt bei Bedarf Übergabe oder Versanddetails mit Ihnen ab.',
         ],
       }
     }
@@ -3467,8 +3762,8 @@ export function OrderDetails() {
     return {
       eyebrow: 'Auftrag vorbereitet',
       steps: [
-        'Ihr Auftrag wurde aufgenommen und für die Bearbeitung vorbereitet.',
-        'Als Nächstes beginnt die technische Diagnose und danach die Reparaturplanung.',
+        'Ihr Auftrag wurde aufgenommen. Senden Sie Ihr Gerät mit dem DHL-Einsendelabel an uns.',
+        'Nach dem Eingang prüfen wir Ihr Gerät (Diagnosebewertung) und melden uns mit den nächsten Schritten.',
       ],
     }
   })()
@@ -3605,14 +3900,14 @@ export function OrderDetails() {
     // X added to order (+$Y)
     d = d.replace(
       /^(.+?) added to order \(\+\$(.+?)\)$/,
-      (_, name, price) => `${name} zum Auftrag hinzugefügt (+${price} €)`
+      (_, name, price) => `${name} zum Auftrag hinzugefügt (+${Number.isFinite(Number(price)) ? formatEUR(Number(price)) : `${price} €`})`
     )
     if (d !== desc) return d
 
     // X removed from order (-$Y)
     d = d.replace(
       /^(.+?) removed from order \(-\$(.+?)\)$/,
-      (_, name, price) => `${name} vom Auftrag entfernt (-${price} €)`
+      (_, name, price) => `${name} vom Auftrag entfernt (-${Number.isFinite(Number(price)) ? formatEUR(Number(price)) : `${price} €`})`
     )
     if (d !== desc) return d
 
@@ -3728,56 +4023,8 @@ export function OrderDetails() {
     return d
   }
 
-  const progressHistoryEntries = Array.isArray(progressTimeline?.stages)
-    ? progressTimeline.stages.map((stage: any, index: number) => {
-        const isActiveStage = index === timelineCurrentStageIndex || stage.status === 'in-progress'
-
-        return {
-          id: `progress-${stage.id || index}`,
-          title: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
-          description:
-            stage.status === 'completed'
-              ? 'Meilenstein abgeschlossen'
-              : isActiveStage
-                ? 'Aktueller Prozessschritt'
-                : 'Ausstehender Prozessschritt',
-          meta: stage.date || 'Noch kein Zeitstempel vorhanden',
-          statusLabel:
-            stage.status === 'completed'
-              ? 'Abgeschlossen'
-              : isActiveStage
-                ? 'Aktiv'
-                : 'Offen',
-          tone:
-            stage.status === 'completed'
-              ? 'completed'
-              : isActiveStage
-                ? 'active'
-                : 'pending',
-        }
-      })
-    : []
-  const orderHistoryEntries = Array.isArray(order.timeline)
-    ? [...order.timeline]
-        .filter((entry) => entry && (entry.status || entry.description || entry.completedAt))
-        .sort((left, right) => {
-          const leftTime = left?.completedAt ? new Date(left.completedAt).getTime() : 0
-          const rightTime = right?.completedAt ? new Date(right.completedAt).getTime() : 0
-          return rightTime - leftTime
-        })
-        .map((entry, index) => ({
-          id: entry._id || `history-${index}`,
-          title: entry.status ? translateOrderStatus(entry.status) : 'Statusänderung',
-          description: entry.description ? translateOrderDescription(entry.description) : 'Kein Beschreibungstext verfügbar',
-          meta: [
-            entry.completedAt ? new Date(entry.completedAt).toLocaleString('de-DE') : 'Noch kein Zeitstempel vorhanden',
-            entry.staffName || '',
-          ].filter(Boolean).join(' • '),
-          statusLabel: entry.staffName ? 'Historie' : 'System',
-          tone: 'history',
-        }))
-    : []
-  const hasDeviceHistoryTimeline = isStaffOrAdmin && (progressHistoryEntries.length > 0 || orderHistoryEntries.length > 0)
+  // Der frühere Verlaufs-Block (Meilensteine + Roh-Timeline im Kommunikationskasten) ist durch den
+  // Bereich "Verlauf" ersetzt (GET /api/orders/:id/history, deutsche Titel vom Server).
 
   const staffLastActions = (() => {
     const timeline = Array.isArray(order?.timeline) ? order.timeline : []
@@ -4101,6 +4348,21 @@ export function OrderDetails() {
           </div>
           <div className={`details flex-1 ${!isStaffOrAdmin ? 'customer-device-details' : ''}`}>
             <h3>{order.deviceBrand} {order.deviceModel}</h3>
+            {/* HIST-9: die ursprüngliche Angabe des Kunden bleibt sichtbar, wenn das Gerät korrigiert
+                wurde (Order.reportedDevice, nur in der Personal-Antwort). */}
+            {isStaffOrAdmin && (() => {
+              const reported = (order as { reportedDevice?: { brand?: string; model?: string; deviceType?: string; capturedAt?: string } }).reportedDevice
+              if (!reported?.model) return null
+              const reportedLabel = `${reported.brand || ''} ${reported.model}`.trim()
+              const currentLabel = `${order.deviceBrand || ''} ${order.deviceModel || ''}`.trim()
+              if (reportedLabel.toLowerCase() === currentLabel.toLowerCase()) return null
+              return (
+                <p className="admin-od-reported-device">
+                  Vom Kunden gemeldet: <strong>{reportedLabel}</strong>
+                  {reported.deviceType && reported.deviceType !== order.deviceType ? ` (${reported.deviceType})` : ''}
+                </p>
+              )
+            })()}
             <p>Reparaturleistungen</p>
             <div className="services-tags">
               {/* Positionen aus /api/order-services (vollständige Objekte inkl. manueller
@@ -4278,7 +4540,7 @@ export function OrderDetails() {
               <span className="unlock-confirm-btn-label">
                 {order.unlockConfirmation
                   ? t('orderDetails.updateConfirmation', 'Update Confirmation')
-                  : t('orderDetails.confirmUnlock', 'Confirm Unlock Information')}
+                  : t('orderDetails.confirmUnlock', 'Entsperrdaten bestätigen')}
               </span>
               <ChevronDown className="unlock-confirm-btn-arrow" style={{ transform: 'rotate(-90deg)' }} />
             </button>
@@ -4442,6 +4704,7 @@ export function OrderDetails() {
           orderId={id!}
           userRole={user?.role}
           onStartInspection={() => setInspectionDialogOpen(true)}
+          startBlockedReason={order?.status === 'cancelled' ? 'Auftrag storniert – Inspektion gesperrt' : undefined}
         />
       </CardContent>
     </Card>
@@ -4559,7 +4822,7 @@ export function OrderDetails() {
           <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">{t('orderDetails.noRepairServices')}</p>
           {(user?.role === 'admin' || user?.role === 'staff') && (
-            <p className="text-xs mt-1">{t('orderDetails.clickToAddService')}</p>
+            <p className="text-xs mt-1">{t('orderDetails.clickToAddService', 'Klicken Sie auf „Dienst hinzufügen“, um eine Reparaturleistung hinzuzufügen.')}</p>
           )}
         </div>
       )}
@@ -4710,7 +4973,7 @@ export function OrderDetails() {
 
         <div className="flex items-center justify-between py-1">
           <span className="text-muted-foreground">
-            davon MwSt. ({formatTaxRate(orderPriceBreakdown.taxRate)} %)
+            davon MwSt. ({orderTaxRateLabel})
           </span>
           <span>{formatEUR(orderPriceBreakdown.taxAmount)}</span>
         </div>
@@ -4805,7 +5068,7 @@ export function OrderDetails() {
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>
-                        Hinzugefügt: {new Date(shopProduct.addedAt).toLocaleDateString()}
+                        Hinzugefügt: {new Date(shopProduct.addedAt).toLocaleDateString('de-DE')}
                       </span>
                       {shopProduct.addedBy && (
                         <span>
@@ -4911,7 +5174,7 @@ export function OrderDetails() {
                         )}
                         <span className="text-muted-foreground">
                           Zugewiesen: <span className="font-medium text-foreground">
-                            {new Date(ePart.assignedAt).toLocaleDateString()}
+                            {new Date(ePart.assignedAt).toLocaleDateString('de-DE')}
                           </span>
                         </span>
                       </div>
@@ -4969,7 +5232,7 @@ export function OrderDetails() {
                       </span>
                       <span className="text-muted-foreground inline-flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        Hinzugefügt: <span className="font-medium text-foreground">{new Date(entry.requestedAt).toLocaleString()}</span>
+                        Hinzugefügt: <span className="font-medium text-foreground">{new Date(entry.requestedAt).toLocaleString('de-DE')}</span>
                       </span>
                       <span className="text-muted-foreground">
                         Durch: <span className="font-medium text-foreground">{requestedByName}</span>
@@ -4991,39 +5254,12 @@ export function OrderDetails() {
     )
   }
 
+  // Personal/Admin: Fortschritt mit EHRLICHEN Meilensteinen (HIST-1). Eine Stufe gilt nur als
+  // erreicht, wenn der Server ein Ereignis dafür kennt; nie erfasste Stufen erscheinen als
+  // "Übersprungen – nicht erfasst", unbekannte Zeitpunkte als "Zeitpunkt nicht erfasst".
+  // Nichts wird aus der Position in der Liste abgeleitet. (Kunden: renderCustomerProgressCard.)
   const renderRepairProgressCard = () => {
     const progressValue = calculatedProgressValue
-    const progressLabel = currentStageLabel || (
-      progressValue >= 100 ? 'Abgeschlossen' :
-      progressValue >= 75 ? 'Qualitätskontrolle' :
-      progressValue >= 50 ? 'Reparatur in Bearbeitung' :
-      progressValue >= 25 ? 'Diagnosebewertung' :
-      'Auftrag erhalten'
-    )
-
-    const progressSteps = progressTimeline?.stages?.length
-      ? progressTimeline.stages.map((stage: any, index: number) => ({
-          key: stage.id || stage.name || `stage-${index}`,
-          label: translateOrderStatus(stage.label || stage.name || `Schritt ${index + 1}`),
-          completed: Boolean(stage.completed) || stage.status === 'completed' || (timelineCurrentStageIndex >= 0 && index < timelineCurrentStageIndex),
-          active: (timelineCurrentStageIndex >= 0 && index === timelineCurrentStageIndex) || stage.status === 'in-progress',
-        }))
-      : [
-          { key: 'received', label: 'Auftrag erhalten', completed: true, active: progressValue < 25 },
-          { key: 'diagnostic', label: 'Diagnosebewertung', completed: progressValue >= 25, active: progressValue >= 25 && progressValue < 50 },
-          { key: 'repair', label: 'Reparatur in Bearbeitung', completed: progressValue >= 50, active: progressValue >= 50 && progressValue < 75 },
-          { key: 'quality', label: 'Qualitätskontrolle', completed: progressValue >= 75, active: progressValue >= 75 && progressValue < 100 },
-          { key: 'pickup', label: 'Abgeschlossen', completed: progressValue >= 100, active: progressValue >= 100 },
-        ]
-
-    const resolvedActiveStepIndex = progressSteps.findIndex((step: any) => step.active)
-    const firstPendingIndex = progressSteps.findIndex((step: any) => !step.completed)
-    const activeStepIndex = resolvedActiveStepIndex >= 0
-      ? resolvedActiveStepIndex
-      : firstPendingIndex >= 0
-        ? firstPendingIndex
-        : Math.max(progressSteps.length - 1, 0)
-
     return (
       <Card id="order-progress" className="order-section-card order-repair-progress-card">
         <CardHeader className="order-section-header">
@@ -5031,104 +5267,35 @@ export function OrderDetails() {
             <Clock className="h-5 w-5" />
             {t('orderDetails.repairProgress')}
           </CardTitle>
-          <p className="order-section-description">
-            Übersicht über den aktuellen Auftragsstatus und die verbleibenden Reparaturschritte.
-          </p>
+          <Button size="sm" variant="outline" onClick={() => openAdminTabAndFocus('verlauf', 'order-history')}>
+            <History className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+            Verlauf ansehen
+          </Button>
         </CardHeader>
-          <CardContent className={`space-y-4 pt-3 ${!isStaffOrAdmin ? 'customer-progress-card-content' : ''}`}>
-            <div className={`flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between ${!isStaffOrAdmin ? 'customer-progress-hero' : ''}`}>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Aktueller Status</p>
-              <div className="mt-1 flex items-center gap-2 flex-wrap">
-                <Badge className={`${getStatusColor(order.status)} text-xs px-2 py-0.5`}>
-                  {translateOrderStatus(order.status)}
-                </Badge>
-                <span className="text-sm font-semibold">{progressLabel}</span>
-              </div>
+        <CardContent className="space-y-3 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className={`${getStatusColor(order.status)} text-xs px-2 py-0.5`}>
+                {currentOrderStatusLabel}
+              </Badge>
+              {currentStageLabel ? <span className="font-semibold">Aktueller Schritt: {currentStageLabel}</span> : null}
+              {progressTimeline?.paused ? <span className="text-amber-800">· pausiert</span> : null}
             </div>
-            <div className="text-left lg:text-right">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Fertigstellung</p>
-              <p className="text-2xl font-bold text-foreground">{progressValue}%</p>
-            </div>
+            <span className="font-semibold">{progressValue} %</span>
           </div>
-
-          <div className={`space-y-2 ${!isStaffOrAdmin ? 'customer-progress-bar-wrap' : ''}`}>
-            <Progress value={progressValue} className="h-3" />
-            <div className="flex flex-col gap-1 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between">
-              <span>{t('orderDetails.currentProgress')}</span>
-              {order.estimatedCompletion && order.status !== 'completed' ? (
-                <span>
-                  {t('orderDetails.estimatedCompletion')}: {new Date(order.estimatedCompletion).toLocaleDateString()}
-                </span>
-              ) : (
-                <span>Aktualisiert: {lastUpdate}</span>
-              )}
-            </div>
-          </div>
-
-          <div className={`grid gap-2 md:grid-cols-5 ${!isStaffOrAdmin ? 'customer-progress-steps-grid' : ''}`}>
-            {progressSteps.map((step: any, index: number) => {
-              const distanceFromActive = Math.abs(index - activeStepIndex)
-              const normalizedStepLabel = String(step?.label || '').toLowerCase()
-              const isDiagnosticStep = normalizedStepLabel.includes('diagnose')
-              const isRepairInProgressStep = normalizedStepLabel.includes('reparatur in bearbeitung')
-                || normalizedStepLabel.includes('repair in progress')
-                || step.key === 'repair'
-              const isOrderReceivedStep = normalizedStepLabel.includes('auftrag erhalten') || step.key === 'received'
-              const isFirstStep = index === 0
-              const hasReachedStep = isFirstStep || Boolean(step.active || step.completed)
-              const isInspectionJumpEnabled = !isStaffOrAdmin && isDiagnosticStep
-              const isRepairPopupEnabled = !isStaffOrAdmin && isRepairInProgressStep
-              const isRepairDetailsJumpEnabled = !isStaffOrAdmin && isOrderReceivedStep
-              const progressStepAction = hasReachedStep && isInspectionJumpEnabled
-                ? openDiagnosisPopup
-                : hasReachedStep && isRepairPopupEnabled
-                  ? openRepairServicesPopup
-                : hasReachedStep && isRepairDetailsJumpEnabled
-                  ? openRepairDetailsPopup
-                  : null
-              const progressiveTone = step.active
-                ? 'active'
-                : step.completed
-                  ? 'completed'
-                  : distanceFromActive === 1
-                    ? 'near'
-                    : index > activeStepIndex
-                      ? 'future'
-                      : 'base'
-
-              return (
-              <div
-                key={step.key}
-                className={`rounded-lg border px-3 py-2 text-xs ${
-                  step.completed || step.active
-                    ? 'border-[#e5ab00] bg-[#f5b800] text-slate-900'
-                    : 'border-slate-200 bg-slate-50 text-slate-500'
-                } ${!isStaffOrAdmin ? `customer-progress-step-card customer-progress-step--${progressiveTone}` : ''} ${progressStepAction ? 'customer-progress-step--interactive' : ''}`}
-                onClick={progressStepAction || undefined}
-                role={progressStepAction ? 'button' : undefined}
-                tabIndex={progressStepAction ? 0 : undefined}
-                onKeyDown={progressStepAction ? (event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    progressStepAction()
-                  }
-                } : undefined}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
-                    step.completed || step.active
-                      ? 'bg-[#1a2a5e] text-white'
-                      : 'bg-slate-200 text-slate-600'
-                  }`}>
-                    {step.completed ? '✓' : step.active ? '•' : '○'}
-                  </span>
-                  <span className="font-medium leading-tight">{step.label}</span>
-                </div>
-              </div>
-              )
-            })}
-          </div>
+          <Progress value={progressValue} className="h-2" aria-label={`Fortschritt ${progressValue} %`} />
+          {timelineStages.length > 0 ? (
+            <OrderMilestoneList milestones={progressTimeline} />
+          ) : progressTimelineError ? (
+            <p className="text-red-700">Fortschritt konnte nicht geladen werden.</p>
+          ) : (
+            <p className="text-muted-foreground" role="status">Meilensteine werden geladen …</p>
+          )}
+          {order.estimatedCompletion && order.status !== 'completed' ? (
+            <p className="text-xs text-muted-foreground">
+              {t('orderDetails.estimatedCompletion')}: {new Date(order.estimatedCompletion).toLocaleDateString('de-DE')}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
     )
@@ -5415,150 +5582,1023 @@ export function OrderDetails() {
     </div>
   )
 
-  const renderCustomerSummaryCard = () => (
-    <Card id="order-customer-summary" className="order-section-card customer-order-summary-card">
-      <CardHeader className="order-section-header">
-        <CardTitle className="order-section-title">
-          <FileText className="h-5 w-5" />
-          Auftragsübersicht
-        </CardTitle>
-        <p className="order-section-description">
-          Kompakte Zusammenfassung der wichtigsten Auftrags-, Zahlungs- und Versanddaten.
-        </p>
-      </CardHeader>
-      <CardContent className="pt-3 space-y-4">
-        <div className="customer-summary-list">
-          <div className="customer-summary-row">
-            <span>Auftragsnummer</span>
-            <strong>{order.orderNumber || order._id.slice(-6)}</strong>
+  // ===================== KUNDENSICHT ===========================================
+  // Oben "Auf einen Blick" (Status, Gesamt/Bezahlt/Offen, EIN nächster Schritt), darunter
+  // ehrliche Meilensteine, links der Nachrichtenverlauf (derselbe Verlauf wie /messages),
+  // rechts aufklappbare Abschnitte. Geldbeträge kommen ausschließlich vom Server
+  // (order.pricing bzw. PaymentService über die Kundenprojektion) - hier wird nichts gerechnet.
+  const customerBookingNumber = String(
+    linkedBooking?.bookingNumber
+    || customerPayments?.booking?.bookingNumber
+    || customerInbound?.booking?.bookingNumber
+    || ''
+  )
+  const customerOrderRef = order.orderNumber || order._id.slice(-6)
+
+  type CustomerMoneyView = {
+    state: 'loading' | 'unknown' | 'no-invoice' | 'known'
+    gross: number
+    received: number
+    open: number
+    overpaidTotal: number
+    refundPending: number
+    refundsInProgress: number
+    bookingWide: boolean
+    bookingGross: number
+    deviceCount: number
+  }
+
+  const customerMoney: CustomerMoneyView = (() => {
+    const gross = orderPriceBreakdown.grossTotal
+    const base = {
+      gross,
+      received: 0,
+      open: 0,
+      overpaidTotal: 0,
+      refundPending: 0,
+      refundsInProgress: 0,
+      bookingWide: false,
+      bookingGross: gross,
+      deviceCount: 1,
+    }
+    if (customerBookingIdForPayments) {
+      if (customerPaymentsState === 'loading' || customerPaymentsState === 'idle') return { ...base, state: 'loading' }
+      if (customerPaymentsState !== 'ready' || !customerPayments) return { ...base, state: 'unknown' }
+      const summary = customerPayments.summary
+      const deviceCount = Math.max(1, Number(customerPayments.orderCount) || 1)
+      const bookingGross = safeToNumber(summary.referenceTotal)
+      return {
+        state: 'known',
+        gross,
+        received: safeToNumber(summary.receivedTotal),
+        open: safeToNumber(summary.openOrderBalance),
+        overpaidTotal: safeToNumber(summary.overpaidTotal),
+        refundPending: safeToNumber(summary.refundPendingTotal),
+        refundsInProgress: safeToNumber(summary.refundsInProgressTotal),
+        bookingWide: deviceCount > 1 || Math.abs(bookingGross - gross) > 0.01,
+        bookingGross,
+        deviceCount,
+      }
+    }
+    // Auftrag ohne Buchung: nur die Salden der Rechnungen dieses Auftrags - nie "0,00 €" erfinden.
+    if (loadingCustomerInvoices) return { ...base, state: 'loading' }
+    if (customerInvoicesError) return { ...base, state: 'unknown' }
+    const ownInvoices = customerInvoices.filter((invoice) => !invoice.isCreditNote && !['cancelled', 'draft'].includes(String(invoice.status || '')))
+    if (ownInvoices.length === 0) return { ...base, state: 'no-invoice' }
+    const summaries = ownInvoices.map((invoice) => summarizeInvoicePayment(invoice)).filter((entry) => entry.known)
+    if (summaries.length === 0) return { ...base, state: 'unknown' }
+    const total = (pick: (entry: typeof summaries[number]) => number | null) =>
+      Math.round(summaries.reduce((sum, entry) => sum + (pick(entry) ?? 0), 0) * 100) / 100
+    const refundPending = total((entry) => entry.refundPending)
+    return {
+      ...base,
+      state: 'known',
+      received: total((entry) => entry.received),
+      open: total((entry) => entry.open),
+      overpaidTotal: refundPending,
+      refundPending,
+      refundsInProgress: total((entry) => entry.refundsInProgress),
+    }
+  })()
+
+  // Stornierter Auftrag ohne bekannten Saldo: "Offen" (paymentStatus pending/unpaid) wäre irreführend,
+  // "keine Zahlung offen" aber unbelegt (Rechnungen bleiben beim Storno bestehen) - daher neutral "Storniert".
+  // Die Aussage "keine Zahlung offen" steht nur dort, wo die angezeigten Beträge sie belegen.
+  const cancelledWithoutPayment = order?.status === 'cancelled' && ['pending', 'unpaid'].includes(String(order?.paymentStatus || ''))
+
+  // Zahlungswort aus den Beträgen (CUSTUX-15); order.paymentStatus nur, wenn kein Saldo bekannt ist.
+  const customerPaymentLabel = (() => {
+    if (customerMoney.state === 'no-invoice') return order?.status === 'cancelled' ? 'Storniert' : 'Rechnung folgt'
+    if (customerMoney.state !== 'known') return cancelledWithoutPayment ? 'Storniert' : translatePaymentStatus(order.paymentStatus)
+    if (customerMoney.overpaidTotal > 0.009) return 'Überzahlt'
+    if (customerMoney.open <= 0.009 && customerMoney.received > 0.009) return 'Bezahlt'
+    if (customerMoney.open <= 0.009) return order?.status === 'cancelled' ? 'Storniert – keine Zahlung offen' : 'Ausgeglichen'
+    if (customerMoney.received > 0.009) return 'Teilbezahlt'
+    return 'Offen'
+  })()
+
+  const customerBookingScopeHint = customerMoney.state === 'known' && customerMoney.bookingWide
+    ? `Bezahlt und Offen gelten für die gesamte Buchung${customerBookingNumber ? ` ${customerBookingNumber}` : ''} (${customerMoney.deviceCount} ${customerMoney.deviceCount === 1 ? 'Gerät' : 'Geräte'}, Gesamt ${formatEUR(customerMoney.bookingGross)}).`
+    : ''
+
+  // Offene Rechnung zum Bezahlen (Kundenprojektion der Buchung, sonst eigene Rechnungsliste).
+  const customerInvoiceToPay = (() => {
+    const bookingInvoices = (customerPayments?.invoices || [])
+      .filter((invoice) => !invoice.isCreditNote
+        && safeToNumber(invoice.openAmount) > 0.009
+        && !['cancelled', 'credited', 'draft'].includes(String(invoice.status || '')))
+      .sort((left, right) => {
+        const leftDue = left.dueDate ? new Date(left.dueDate).getTime() : Number.MAX_SAFE_INTEGER
+        const rightDue = right.dueDate ? new Date(right.dueDate).getTime() : Number.MAX_SAFE_INTEGER
+        return leftDue - rightDue
+      })
+    if (bookingInvoices[0]) {
+      return { id: String(bookingInvoices[0]._id), number: bookingInvoices[0].invoiceNumber || '', open: safeToNumber(bookingInvoices[0].openAmount) }
+    }
+    for (const invoice of customerInvoices) {
+      if (invoice.isCreditNote) continue
+      const payment = summarizeInvoicePayment(invoice)
+      if (payment.known && (payment.open ?? 0) > 0.009) {
+        return { id: String(invoice._id), number: invoice.invoiceNumber || '', open: payment.open ?? 0 }
+      }
+    }
+    return null
+  })()
+
+  // Gleiches Deep-Link-Format wie CustomerBookings (buildInvoiceDeepLink):
+  // CustomerInvoices reagiert nur, wenn highlightInvoiceId gesetzt ist, und oeffnet
+  // dann openInvoiceId. URL fuer Reload/kopierten Link, state fuer die In-App-Navigation.
+  const openCustomerInvoicePayment = (invoiceId: string) => {
+    const encoded = encodeURIComponent(invoiceId)
+    navigate(`/invoices?highlightInvoiceId=${encoded}&openInvoiceId=${encoded}`, {
+      state: { highlightInvoiceId: invoiceId, openInvoiceId: invoiceId },
+    })
+  }
+
+  // Einsendung (Kunde -> McRepair): Zustand aus GET /api/orders/:id/inbound-label.
+  const customerInboundInfo = customerInbound?.inbound || null
+  const customerInboundStatus = String(customerInboundInfo?.shippingStatus || '').toLowerCase()
+  const customerInboundUnderway = ['shipped', 'in-transit', 'out-for-delivery'].includes(customerInboundStatus)
+  const customerDeviceArrived = customerInboundStatus === 'delivered' || Boolean(customerInboundInfo?.deviceReceived)
+  const customerAwaitingDevice = String(order.status || '').toLowerCase() === 'pending'
+    && !customerDeviceArrived
+    && !['not-needed', 'cancelled'].includes(String(customerInboundInfo?.state || ''))
+  const customerInboundTrackingVisible = Boolean(customerInboundInfo?.trackingNumber) && !customerInboundInfo?.placeholder
+  const isPlaceholderTracking = (trackingNumber?: string | null) => String(trackingNumber || '').toUpperCase().startsWith('DHL-DUMMY-')
+
+  const scrollToCustomerMessages = () => {
+    const target = document.getElementById('order-customer-messages')
+    if (!target) return
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    target.focus({ preventScroll: true })
+  }
+
+  const handleCustomerInboundFile = async (mode: 'download' | 'print') => {
+    if (!customerInboundInfo || customerInboundBusy) return
+    try {
+      setCustomerInboundBusy(mode)
+      if (mode === 'download') {
+        await downloadInboundLabel(customerInboundInfo)
+      } else {
+        await printInboundLabel(customerInboundInfo)
+      }
+    } catch (error: any) {
+      toast({
+        title: mode === 'download' ? 'Einsendelabel konnte nicht heruntergeladen werden' : 'Einsendelabel konnte nicht gedruckt werden',
+        description: error?.message || 'Bitte versuchen Sie es erneut.',
+        variant: 'destructive',
+      })
+    } finally {
+      setCustomerInboundBusy('')
+    }
+  }
+
+  const handleCustomerInboundCreate = async () => {
+    const bookingId = customerInbound?.booking?._id
+    if (!bookingId || customerInboundBusy) return
+    try {
+      setCustomerInboundBusy('create')
+      const view = await createBookingInboundLabel(String(bookingId))
+      setCustomerInbound(view)
+      toast({
+        title: view?.alreadyExists ? 'Einsendelabel bereits vorhanden' : 'DHL-Einsendelabel erstellt',
+        description: view?.inbound?.message || 'Sie können das Einsendelabel jetzt herunterladen und drucken.',
+      })
+      void loadOrderShipments(String(order._id))
+    } catch (error: any) {
+      toast({
+        title: 'Einsendelabel konnte nicht erstellt werden',
+        description: error?.message || 'Bitte versuchen Sie es später erneut.',
+        variant: 'destructive',
+      })
+      setCustomerInboundReloadToken((current) => current + 1)
+    } finally {
+      setCustomerInboundBusy('')
+    }
+  }
+
+  type CustomerActionButton = {
+    label: string
+    onClick?: () => void
+    href?: string
+    disabled?: boolean
+    icon?: ReactNode
+  }
+  type CustomerNextAction = {
+    key: string
+    title: string
+    description: string
+    tone: 'action' | 'waiting' | 'info'
+    badge?: string
+    primary?: CustomerActionButton
+    secondary?: CustomerActionButton[]
+  }
+
+  // Priorität: (1) Rückfrage/Angebot beantworten, (2) Gerät einsenden (Label herunterladen /
+  // erstellen), (3) bezahlen, (4) Rücksendung verfolgen, (5) Abholung.
+  const customerNextActions: CustomerNextAction[] = (() => {
+    const list: CustomerNextAction[] = []
+    const status = String(order.status || '').toLowerCase()
+    const iconClass = 'h-4 w-4'
+
+    if (status === 'cancelled') {
+      return [{
+        key: 'cancelled',
+        title: 'Auftrag storniert',
+        description: 'Dieser Auftrag wird nicht weiter bearbeitet. Bei Fragen schreiben Sie uns im Nachrichtenbereich.',
+        tone: 'info',
+        primary: { label: 'Nachricht schreiben', onClick: scrollToCustomerMessages, icon: <MessageSquare className={iconClass} aria-hidden="true" /> },
+      }]
+    }
+
+    const complaintOfferPending = isComplaintFollowupOrder && complaintWorkflow?.repairOffer?.status === 'pending'
+    if (complaintOfferPending || threadPending.offers > 0) {
+      list.push({
+        key: 'offer',
+        title: 'Angebot prüfen',
+        description: 'Für Ihren Auftrag liegt ein Angebot vor. Bitte nehmen Sie es an oder lehnen Sie es ab.',
+        tone: 'action',
+        badge: 'Ihre Entscheidung erforderlich',
+        primary: { label: 'Angebot prüfen', onClick: scrollToCustomerMessages, icon: <FileText className={iconClass} aria-hidden="true" /> },
+      })
+    }
+
+    const openQuestions = threadPending.questions + threadPending.actions
+    if (openQuestions > 0) {
+      list.push({
+        key: 'question',
+        title: openQuestions === 1 ? 'Rückfrage beantworten' : `${openQuestions} Rückfragen beantworten`,
+        description: 'Das Reparaturteam braucht eine Antwort von Ihnen, damit es weitergehen kann. Sie antworten direkt hier im Nachrichtenbereich.',
+        tone: 'action',
+        badge: 'Antwort erforderlich',
+        primary: { label: 'Rückfrage beantworten', onClick: scrollToCustomerMessages, icon: <MessageSquare className={iconClass} aria-hidden="true" /> },
+      })
+    }
+
+    if (customerAwaitingDevice) {
+      if (customerInboundState === 'error') {
+        list.push({
+          key: 'inbound-error',
+          title: 'Gerät an McRepair senden',
+          description: 'Versandstand konnte nicht geladen werden.',
+          tone: 'waiting',
+          primary: { label: 'Erneut versuchen', onClick: () => setCustomerInboundReloadToken((current) => current + 1), icon: <RefreshCw className={iconClass} aria-hidden="true" /> },
+        })
+      } else if (customerInboundInfo) {
+        const info = customerInboundInfo
+        if (customerInboundUnderway) {
+          list.push({
+            key: 'inbound-underway',
+            title: 'Ihr Gerät ist unterwegs zu uns',
+            description: info.message || 'DHL hat Ihr Paket übernommen. Sobald es bei uns eingeht, prüfen wir Ihr Gerät.',
+            tone: 'waiting',
+            primary: customerInboundTrackingVisible
+              ? { label: 'Sendung verfolgen', href: buildDhlTrackingUrl(info.trackingNumber), icon: <ExternalLink className={iconClass} aria-hidden="true" /> }
+              : undefined,
+          })
+        } else if (info.state === 'ready') {
+          list.push({
+            key: 'inbound-ready',
+            title: 'Gerät an McRepair senden',
+            description: 'Laden Sie das DHL-Einsendelabel herunter, drucken Sie es aus, kleben Sie es auf das Paket und geben Sie es bei DHL ab.',
+            tone: 'action',
+            badge: info.placeholder ? 'Testlabel – nicht für den Versand verwenden' : undefined,
+            primary: {
+              label: customerInboundBusy === 'download'
+                ? 'Einsendelabel wird geladen…'
+                : info.placeholder ? 'Testlabel herunterladen (PDF)' : 'DHL-Einsendelabel herunterladen (PDF)',
+              onClick: () => void handleCustomerInboundFile('download'),
+              disabled: Boolean(customerInboundBusy),
+              icon: <Download className={iconClass} aria-hidden="true" />,
+            },
+            secondary: [{
+              label: customerInboundBusy === 'print' ? 'Druck wird vorbereitet…' : 'Drucken',
+              onClick: () => void handleCustomerInboundFile('print'),
+              disabled: Boolean(customerInboundBusy),
+              icon: <Printer className={iconClass} aria-hidden="true" />,
+            }],
+          })
+        } else if (info.state === 'creating') {
+          list.push({
+            key: 'inbound-creating',
+            title: 'Einsendelabel wird erstellt…',
+            description: info.message || 'Ihr DHL-Einsendelabel wird gerade erstellt. Bitte einen Moment Geduld.',
+            tone: 'waiting',
+            primary: { label: 'Status neu laden', onClick: () => setCustomerInboundReloadToken((current) => current + 1), icon: <RefreshCw className={iconClass} aria-hidden="true" /> },
+          })
+        } else if (info.canCreate) {
+          list.push({
+            key: 'inbound-create',
+            title: 'Gerät an McRepair senden',
+            description: info.message || 'Für Ihre Buchung liegt noch kein Einsendelabel vor. Sie können es hier selbst erstellen.',
+            tone: 'action',
+            primary: {
+              label: customerInboundBusy === 'create' ? 'Einsendelabel wird erstellt…' : 'DHL-Einsendelabel erstellen',
+              onClick: () => void handleCustomerInboundCreate(),
+              disabled: Boolean(customerInboundBusy),
+              icon: <Truck className={iconClass} aria-hidden="true" />,
+            },
+          })
+        } else if (info.message) {
+          list.push({
+            key: 'inbound-info',
+            title: 'Gerät an McRepair senden',
+            description: info.message,
+            tone: 'waiting',
+          })
+        }
+      }
+    }
+
+    if (customerMoney.state === 'known' && customerMoney.open > 0.009) {
+      if (customerInvoiceToPay) {
+        const invoiceToPay = customerInvoiceToPay
+        list.push({
+          key: 'pay',
+          title: `Rechnung ${invoiceToPay.number || ''} bezahlen`.replace(/\s+/g, ' ').trim(),
+          description: `Offener Betrag der Rechnung: ${formatEUR(invoiceToPay.open)}. Sie bezahlen bequem unter „Rechnungen“.`,
+          tone: 'action',
+          primary: {
+            label: `Rechnung bezahlen (${formatEUR(invoiceToPay.open)})`,
+            onClick: () => openCustomerInvoicePayment(invoiceToPay.id),
+            icon: <CreditCard className={iconClass} aria-hidden="true" />,
+          },
+        })
+      } else {
+        list.push({
+          key: 'pay-later',
+          title: 'Rechnung folgt – noch keine Zahlung nötig',
+          description: `Offen: ${formatEUR(customerMoney.open)}. Sie erhalten die Rechnung, sobald die Reparatur abgerechnet wird.`,
+          tone: 'info',
+        })
+      }
+    }
+
+    const outboundTracking = String(outboundShipment?.trackingNumber || '')
+    const outboundStatus = String(outboundShipment?.status || '').toLowerCase()
+    const outboundUnderway = Boolean(outboundTracking) && ['shipped', 'in-transit', 'out-for-delivery'].includes(outboundStatus)
+    if (outboundUnderway) {
+      list.push({
+        key: 'outbound',
+        title: 'Ihr Gerät ist unterwegs zu Ihnen',
+        description: `Sendungsnummer ${outboundTracking}`,
+        tone: 'waiting',
+        primary: isPlaceholderTracking(outboundTracking)
+          ? undefined
+          : { label: 'Sendung verfolgen', href: buildDhlTrackingUrl(outboundTracking), icon: <ExternalLink className={iconClass} aria-hidden="true" /> },
+      })
+    }
+
+    // Reparatur fertig: Abholung NUR bei Abholaufträgen; Versandaufträge zeigen "Versand an Sie wird
+    // vorbereitet" bzw. den Versandstatus (lib/returnMethod). Keine Aussage über Zahlung.
+    if (status === 'ready-for-pickup' && !order.pickupConfirmation?.confirmedAt && !outboundUnderway && readyStateView) {
+      list.push({
+        key: readyStateView.method === 'pickup' ? 'pickup' : 'ready',
+        title: readyStateView.label,
+        description: readyStateView.description,
+        tone: readyStateView.phase === 'preparing' ? 'waiting' : 'info',
+      })
+    }
+
+    return list
+  })()
+
+  const renderCustomerActionButton = (action: CustomerActionButton, variant: 'primary' | 'secondary', key?: string) => {
+    const className = `customer-next-btn ${variant === 'primary' ? 'is-primary' : 'is-secondary'}`
+    if (action.href) {
+      return (
+        <a key={key} href={action.href} target="_blank" rel="noreferrer" className={className}>
+          {action.icon}
+          <span>{action.label}</span>
+        </a>
+      )
+    }
+    return (
+      <button key={key} type="button" className={className} onClick={action.onClick} disabled={action.disabled}>
+        {action.icon}
+        <span>{action.label}</span>
+      </button>
+    )
+  }
+
+  const renderCustomerMoneyFigures = () => {
+    if (customerMoney.state === 'loading') {
+      return <p className="customer-money-note" role="status">Zahlungsstand wird geladen …</p>
+    }
+    const overpaid = customerMoney.state === 'known' && customerMoney.overpaidTotal > 0.009
+    // Mehrere Geraete in einer Buchung: Gesamt gilt fuer dieses Geraet, Bezahlt/Offen fuer die ganze
+    // Buchung - das steht direkt am Betrag, nicht nur im Hinweis darunter.
+    const bookingScope = customerMoney.state === 'known' && customerMoney.bookingWide
+    return (
+      <>
+        <dl className="customer-money-grid">
+          <div className="customer-money-item">
+            <dt>{bookingScope ? 'Dieses Gerät (brutto)' : 'Gesamt (brutto)'}</dt>
+            <dd>{formatEUR(customerMoney.gross)}</dd>
           </div>
-          <div className="customer-summary-row">
-            <span>Status</span>
-            <strong>{translateOrderStatus(order.status)}</strong>
-          </div>
-          <div className="customer-summary-row">
-            <span>Aktiver Schritt</span>
-            <strong>{currentStageLabel}</strong>
-          </div>
-          <div className="customer-summary-row">
-            <span>Erstellt am</span>
-            <strong>{orderCreatedText}</strong>
-          </div>
-          <div className="customer-summary-row">
-            <span>Letzte Aktualisierung</span>
-            <strong>{lastUpdate}</strong>
-          </div>
-          <div className="customer-summary-row">
-            <span>Voraussichtliche Fertigstellung</span>
-            <strong>{estimatedCompletionText}</strong>
-          </div>
-          <div className="customer-summary-row">
-            <span>Zahlung</span>
-            <strong>{translatePaymentStatus(order.paymentStatus)}</strong>
-          </div>
-          {orderRefundPendingTotal > 0.009 && (
-            <div className="customer-summary-row">
-              <span>Überzahlt · Erstattung offen</span>
-              <strong className="text-violet-700">{formatEUR(orderRefundPendingTotal)}</strong>
+          {customerMoney.state === 'known' ? (
+            <>
+              <div className="customer-money-item">
+                <dt>{bookingScope ? 'Bezahlt (ganze Buchung)' : 'Bezahlt'}</dt>
+                <dd>{formatEUR(customerMoney.received)}</dd>
+              </div>
+              {overpaid ? (
+                <div className="customer-money-item is-overpaid">
+                  <dt>{`${customerMoney.refundPending > 0.009 ? 'Überzahlt · Erstattung offen' : 'Überzahlt · Erstattung läuft'}${bookingScope ? ' (ganze Buchung)' : ''}`}</dt>
+                  <dd>{formatEUR(customerMoney.refundPending > 0.009 ? customerMoney.refundPending : customerMoney.refundsInProgress)}</dd>
+                </div>
+              ) : (
+                <div className={`customer-money-item ${customerMoney.open > 0.009 ? 'is-open' : 'is-settled'}`}>
+                  <dt>{bookingScope ? 'Offen (ganze Buchung)' : 'Offen'}</dt>
+                  <dd>{formatEUR(customerMoney.open)}</dd>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="customer-money-item is-wide">
+              <dt>Zahlungsstand</dt>
+              <dd className="is-muted">
+                {customerMoney.state === 'no-invoice' ? (order?.status === 'cancelled' ? 'Storniert – keine Rechnung' : 'Rechnung folgt – noch keine Zahlung nötig') : 'derzeit nicht verfügbar'}
+              </dd>
             </div>
           )}
-          {orderRefundPendingScope.bookingLevel.map((entry) => (
-            <div key={`refund-${entry.invoiceId}`} className="customer-summary-row">
-              <span>Rechnung {entry.invoiceNumber || '–'} (mehrere Aufträge) überzahlt · Erstattung offen</span>
-              <strong className="text-violet-700">{formatEUR(entry.amount)}</strong>
+        </dl>
+        {customerBookingScopeHint && <p className="customer-money-note">{customerBookingScopeHint}</p>}
+        {customerMoney.state === 'unknown' && customerBookingIdForPayments && (
+          <button
+            type="button"
+            className="customer-link-btn"
+            onClick={() => setCustomerPaymentsReloadToken((current) => current + 1)}
+          >
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            Zahlungsstand erneut laden
+          </button>
+        )}
+      </>
+    )
+  }
+
+  const renderCustomerGlanceCard = () => {
+    // Nur echte Schritte (tone 'action') zählen als "offene Schritte"; Warte- und
+    // Info-Einträge (z. B. "Rechnung folgt", "Gerät ist unterwegs") sind Hinweise.
+    // Gibt es keinen echten Schritt, rückt der erste Hinweis an die Stelle des
+    // nächsten Schritts (z. B. Sendungsverfolgung), ohne als Aufgabe zu zählen.
+    const actionableSteps = customerNextActions.filter((action) => action.tone === 'action')
+    const primaryAction = actionableSteps[0] || customerNextActions[0]
+    const moreActions = actionableSteps.filter((action) => action !== primaryAction)
+    const hintActions = customerNextActions.filter((action) => action.tone !== 'action' && action !== primaryAction)
+    return (
+      <section id="order-customer-glance" className="customer-glance-card" aria-labelledby="order-customer-glance-title">
+        <h2 id="order-customer-glance-title" className="customer-glance-heading">Auf einen Blick</h2>
+        <div className="customer-glance-top">
+          <div className="customer-glance-status">
+            <span className="customer-glance-label">Reparaturstatus</span>
+            <div className="customer-glance-status-line">
+              <span className={`order-status-badge ${getStatusColor(order.status)} text-xs px-2.5 py-1`}>
+                {getStatusIcon(order.status)}
+                <span className="ml-1">{currentOrderStatusLabel}</span>
+              </span>
+              <span className="customer-glance-stage">
+                Aktueller Schritt: <strong>{currentStageLabel}</strong>
+              </span>
             </div>
-          ))}
-          {orderPriceBreakdown.hasPositions && orderDiscountLines.length > 0 && (
-            <div className="customer-summary-row">
-              <span>Listenpreis (Brutto)</span>
-              <strong>{formatEUR(orderPriceBreakdown.positionsGross)}</strong>
-            </div>
-          )}
-          {orderDiscountLines.map((line) => (
-            <div key={line.key} className="customer-summary-row">
-              <span>{line.label}</span>
-              <strong className="text-green-600">−{formatEUR(line.amount)}</strong>
-            </div>
-          ))}
-          <div className="customer-summary-row">
-            <span>Gesamtbetrag (Brutto)</span>
-            <strong>{formatEUR(orderPriceBreakdown.grossTotal)}</strong>
+            <span className="customer-glance-payment-word">
+              <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
+              Zahlungsstand: <strong>{customerMoney.state === 'loading' ? 'wird geladen …' : customerPaymentLabel}</strong>
+            </span>
           </div>
-          <div className="customer-summary-row">
-            <span>davon Netto</span>
-            <strong>{formatEUR(orderPriceBreakdown.netTotal)}</strong>
-          </div>
-          <div className="customer-summary-row">
-            <span>davon MwSt. ({formatTaxRate(orderPriceBreakdown.taxRate)} %)</span>
-            <strong>{formatEUR(orderPriceBreakdown.taxAmount)}</strong>
+          <div className="customer-glance-money" aria-label="Beträge">
+            {renderCustomerMoneyFigures()}
           </div>
         </div>
 
-        {/* Rechnungen zum Auftrag - Kundensicht.
-            Quelle ist der eigentümergebundene Endpunkt /api/invoices; Entwürfe werden
-            serverseitig ausgeschlossen, fremde Dokumente sind nicht erreichbar. */}
-        <div className="customer-summary-subcard">
-          <div className="customer-summary-subcard-title">
-            <FileText className="h-4 w-4" />
-            Rechnungen
-          </div>
-          {loadingCustomerInvoices ? (
-            <p className="text-xs text-muted-foreground">Rechnungen werden geladen…</p>
-          ) : customerInvoices.length > 0 ? (
-            <div className="space-y-2">
-              {customerInvoices.map((invoice) => (
-                <div
-                  key={invoice._id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium truncate">
-                      {invoice.isCreditNote ? 'Gutschrift' : 'Rechnung'} {invoice.invoiceNumber || invoice._id}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString('de-DE') : 'Ohne Datum'}
-                      {typeof invoice.total === 'number' ? ` · ${formatEUR(invoice.total)}` : ''}
-                    </p>
-                    {(() => {
-                      // Zahlungsstand nur, wenn der Server ihn liefert - nie eine erfundene 0.
-                      const payment = summarizeInvoicePayment(invoice)
-                      return payment.known ? (
-                        <span className={`mt-1 inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${INVOICE_PAYMENT_TONE_CLASSES[payment.tone]}`}>
-                          {payment.label}
-                        </span>
-                      ) : null
-                    })()}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void handleDownloadCustomerInvoicePdf(invoice)}
-                    disabled={downloadingInvoiceId === String(invoice._id)}
-                    className="text-xs h-8"
-                  >
-                    <Download className="h-3.5 w-3.5 mr-1.5" />
-                    {downloadingInvoiceId === String(invoice._id) ? 'PDF wird geladen…' : 'PDF herunterladen'}
-                  </Button>
+        <div className={`customer-glance-next tone-${primaryAction?.tone || 'info'}`} aria-live="polite">
+          <span className="customer-glance-next-eyebrow">
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            Nächster Schritt
+          </span>
+          {primaryAction ? (
+            <div className="customer-glance-next-body">
+              <div className="customer-glance-next-copy">
+                <h3>{primaryAction.title}</h3>
+                {primaryAction.badge && <span className="customer-glance-next-badge">{primaryAction.badge}</span>}
+                <p>{primaryAction.description}</p>
+              </div>
+              {(primaryAction.primary || primaryAction.secondary?.length) && (
+                <div className="customer-glance-next-actions">
+                  {primaryAction.primary && renderCustomerActionButton(primaryAction.primary, 'primary')}
+                  {(primaryAction.secondary || []).map((button, index) => renderCustomerActionButton(button, 'secondary', `secondary-${index}`))}
                 </div>
-              ))}
+              )}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              Für diesen Auftrag wurde noch keine Rechnung erstellt.
-            </p>
+            <div className="customer-glance-next-body">
+              <div className="customer-glance-next-copy">
+                <h3>Aktuell ist nichts zu tun</h3>
+                <p>
+                  Wir melden uns, sobald es weitergeht.
+                  {String(order.status || '').toLowerCase() !== 'pending' && customerNextStepInfo.steps[0]
+                    ? ` ${customerNextStepInfo.steps[0]}`
+                    : ''}
+                </p>
+              </div>
+            </div>
+          )}
+          {moreActions.length > 0 && (
+            <div className="customer-glance-more">
+              <span className="customer-glance-more-title">Weitere offene Schritte ({moreActions.length})</span>
+              <ul>
+                {moreActions.map((action) => (
+                  <li key={action.key}>
+                    <div>
+                      <strong>{action.title}</strong>
+                      <span>{action.description}</span>
+                    </div>
+                    {action.primary && renderCustomerActionButton(action.primary, 'secondary')}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {hintActions.length > 0 && (
+            <div className="customer-glance-more is-hints">
+              <span className="customer-glance-more-title">Hinweise</span>
+              <ul>
+                {hintActions.map((action) => (
+                  <li key={action.key}>
+                    <div>
+                      <strong>{action.title}</strong>
+                      <span>{action.description}</span>
+                    </div>
+                    {action.primary && renderCustomerActionButton(action.primary, 'secondary')}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
+      </section>
+    )
+  }
 
-        {/* Versand in ZWEI getrennten Richtungen. Die Daten kommen vom Server
-            (orderShipments), der Einsendung und Auslieferung auseinanderhält - auch für
-            Altbestand, in dem ein Einsendelabel im Versandfeld des Auftrags steht. */}
-        {(order.shippingAddress || inboundShipment?.trackingNumber || inboundShipment?.status || inboundDownloadable || outboundShipment?.trackingNumber || outboundShipment?.hasLabel || outboundReconciliationRequired) && (
-          <div className="customer-summary-subcard">
-            <div className="customer-summary-subcard-title">
-              <MapPin className="h-4 w-4" />
-              Versand
+  // Ehrliche Meilensteine (HIST-1): reached / current / skipped / pending vom Server, nie aus
+  // dem Index abgeleitet. Kunden sehen keine Mitarbeiternamen.
+  const describeCustomerMilestone = (stage: OrderMilestone) => {
+    const detail = stage.detail ? String(stage.detail) : ''
+    switch (stage.state) {
+      case 'reached': {
+        const when = stage.timeKnown && stage.date ? `Erreicht am ${stage.date}` : (stage.note || 'Zeitpunkt nicht erfasst')
+        return detail ? `${detail} · ${when}` : when
+      }
+      case 'current':
+        return detail ? `Aktueller Schritt · ${detail}` : 'Aktueller Schritt'
+      case 'skipped':
+        return stage.note || 'Übersprungen – nicht erfasst'
+      default:
+        return 'Offen'
+    }
+  }
+
+  const renderCustomerProgressCard = () => {
+    const stages = (timelineStages as OrderMilestone[]).filter((stage) => stage && stage.id)
+    const currentIndex = stages.findIndex((stage) => stage.state === 'current')
+    const currentStage = currentIndex >= 0 ? stages[currentIndex] : null
+    const hasServices = (repairServices || []).some((service) => service && service._id) || (order.addOns || []).length > 0
+    return (
+      <Card id="order-progress" className="order-section-card customer-order-section-card customer-milestones-card">
+        <CardHeader className="order-section-header customer-section-header-row">
+          <CardTitle className="order-section-title">
+            <Clock className="h-5 w-5" aria-hidden="true" />
+            Reparaturfortschritt
+          </CardTitle>
+          {stages.length > 0 && (
+            <p className="customer-milestones-summary">
+              {currentStage
+                ? <>Schritt {currentIndex + 1} von {stages.length}: <strong>{translateOrderStatus(currentStage.label)}</strong></>
+                : progressTimeline?.cancelled ? 'Auftrag storniert' : <>Stand: <strong>{currentStageLabel}</strong></>}
+              {progressTimeline?.paused ? ' · pausiert' : ''}
+            </p>
+          )}
+        </CardHeader>
+        <CardContent className="pt-3 space-y-3">
+          {stages.length > 0 ? (
+            <ol className="customer-milestones">
+              {stages.map((stage) => (
+                <li
+                  key={stage.id}
+                  className={`customer-milestone is-${stage.state}`}
+                  aria-current={stage.state === 'current' ? 'step' : undefined}
+                >
+                  <span className="customer-milestone-dot" aria-hidden="true">
+                    {stage.state === 'reached' ? '✓' : stage.state === 'current' ? '●' : stage.state === 'skipped' ? '–' : '○'}
+                  </span>
+                  <span className="customer-milestone-copy">
+                    <span className="customer-milestone-label">{translateOrderStatus(stage.label)}</span>
+                    <span className="customer-milestone-meta">{describeCustomerMilestone(stage)}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : progressTimelineError ? (
+            <p className="customer-section-state is-error">Der Fortschritt konnte nicht geladen werden. Aktueller Status: {currentOrderStatusLabel}.</p>
+          ) : (
+            <p className="customer-section-state" role="status">Fortschritt wird geladen …</p>
+          )}
+          <div className="customer-progress-actions">
+            <button type="button" className="customer-link-btn" onClick={openRepairDetailsPopup}>
+              <Wrench className="h-4 w-4" aria-hidden="true" />
+              Reparaturdetails ansehen
+            </button>
+            {customerInspection && (
+              <button type="button" className="customer-link-btn" onClick={openDiagnosisPopup}>
+                <FileText className="h-4 w-4" aria-hidden="true" />
+                Diagnose ansehen
+              </button>
+            )}
+            {hasServices && (
+              <button type="button" className="customer-link-btn" onClick={openRepairServicesPopup}>
+                <Package className="h-4 w-4" aria-hidden="true" />
+                Geplante Leistungen ansehen
+              </button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderCustomerSectionToggle = (title: string, icon: ReactNode, summary: ReactNode) => (
+    <CollapsibleTrigger asChild>
+      <button type="button" className="customer-section-toggle">
+        <span className="customer-section-toggle-title">
+          {icon}
+          {title}
+        </span>
+        <span className="customer-section-toggle-summary">{summary}</span>
+        <ChevronDown className="customer-section-toggle-chevron h-4 w-4" aria-hidden="true" />
+      </button>
+    </CollapsibleTrigger>
+  )
+
+  const customerPaymentsToggleSummary = (() => {
+    if (customerMoney.state === 'loading') return 'wird geladen …'
+    if (customerMoney.state === 'unknown') return 'Zahlungsstand nicht verfügbar'
+    if (customerMoney.state === 'no-invoice') return order?.status === 'cancelled' ? 'Storniert' : 'Rechnung folgt'
+    if (customerMoney.overpaidTotal > 0.009) return `Überzahlt · Erstattung offen ${formatEUR(customerMoney.refundPending)}`
+    if (customerMoney.open > 0.009) return `Offen ${formatEUR(customerMoney.open)}`
+    return customerPaymentLabel
+  })()
+
+  const renderCustomerPaymentsSection = () => {
+    const movements = customerPayments?.payments || []
+    return (
+      <Card id="order-customer-payments" className="order-section-card customer-order-section-card">
+        <Collapsible>
+          {renderCustomerSectionToggle(
+            'Zahlungen & Rechnungen',
+            <Receipt className="h-5 w-5" aria-hidden="true" />,
+            <span className={customerMoney.state === 'known' && customerMoney.open > 0.009 ? 'is-open' : ''}>{customerPaymentsToggleSummary}</span>
+          )}
+          <CollapsibleContent className="customer-section-body">
+            {customerMoney.state === 'known' && customerMoney.bookingWide && (
+              <div className="customer-subsection">
+                <h4>Buchung {customerBookingNumber || ''} · {customerMoney.deviceCount} {customerMoney.deviceCount === 1 ? 'Gerät' : 'Geräte'}</h4>
+                <div className="customer-summary-list">
+                  <div className="customer-summary-row"><span>Gesamt Buchung (brutto)</span><strong>{formatEUR(customerMoney.bookingGross)}</strong></div>
+                  <div className="customer-summary-row"><span>Bezahlt</span><strong>{formatEUR(customerMoney.received)}</strong></div>
+                  <div className="customer-summary-row"><span>Offen</span><strong>{formatEUR(customerMoney.open)}</strong></div>
+                  {customerMoney.overpaidTotal > 0.009 && (
+                    <div className="customer-summary-row"><span>Überzahlt · Erstattung offen</span><strong className="text-violet-700">{formatEUR(customerMoney.refundPending)}</strong></div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="customer-subsection">
+              <h4>Rechnungen</h4>
+              {loadingCustomerInvoices ? (
+                <p className="customer-section-state" role="status">Rechnungen werden geladen …</p>
+              ) : customerInvoicesError ? (
+                <div className="customer-section-state is-error">
+                  <span>Rechnungen konnten nicht geladen werden.</span>
+                  <button type="button" className="customer-link-btn" onClick={() => setCustomerInvoicesReloadToken((current) => current + 1)}>
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                    Erneut versuchen
+                  </button>
+                </div>
+              ) : customerInvoices.length > 0 ? (
+                <ul className="customer-document-list">
+                  {customerInvoices.map((invoice) => {
+                    const payment = summarizeInvoicePayment(invoice)
+                    const canPay = !invoice.isCreditNote && payment.known && (payment.open ?? 0) > 0.009
+                    return (
+                      <li key={invoice._id} className="customer-document-row">
+                        <div className="min-w-0">
+                          <p className="customer-document-title">
+                            {invoice.isCreditNote ? 'Gutschrift' : 'Rechnung'} {invoice.invoiceNumber || invoice._id}
+                          </p>
+                          <p className="customer-document-meta">
+                            {invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString('de-DE') : 'Ohne Datum'}
+                            {typeof invoice.total === 'number' ? ` · ${formatEUR(invoice.total)}` : ''}
+                          </p>
+                          {payment.known && (
+                            <span className={`mt-1 inline-flex rounded px-1.5 py-0.5 text-[11px] font-semibold ${INVOICE_PAYMENT_TONE_CLASSES[payment.tone]}`}>
+                              {payment.label}
+                            </span>
+                          )}
+                        </div>
+                        <div className="customer-document-actions">
+                          {canPay && (
+                            <button type="button" className="customer-next-btn is-primary is-small" onClick={() => openCustomerInvoicePayment(String(invoice._id))}>
+                              <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
+                              <span>Bezahlen</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="customer-next-btn is-secondary is-small"
+                            onClick={() => void handleDownloadCustomerInvoicePdf(invoice)}
+                            disabled={downloadingInvoiceId === String(invoice._id)}
+                          >
+                            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>{downloadingInvoiceId === String(invoice._id) ? 'PDF wird geladen…' : 'PDF herunterladen'}</span>
+                          </button>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <p className="customer-section-state">Noch keine Rechnung zu diesem Auftrag.</p>
+              )}
             </div>
-            {order.shippingAddress && (
+
+            {customerBookingIdForPayments && (
+              <div className="customer-subsection">
+                <h4>Zahlungseingänge</h4>
+                {customerPaymentsState === 'loading' || customerPaymentsState === 'idle' ? (
+                  <p className="customer-section-state" role="status">Zahlungen werden geladen …</p>
+                ) : customerPaymentsState === 'error' ? (
+                  <div className="customer-section-state is-error">
+                    <span>Zahlungen konnten nicht geladen werden.</span>
+                    <button type="button" className="customer-link-btn" onClick={() => setCustomerPaymentsReloadToken((current) => current + 1)}>
+                      <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                      Erneut versuchen
+                    </button>
+                  </div>
+                ) : movements.length === 0 ? (
+                  <p className="customer-section-state">Noch keine Zahlung eingegangen.</p>
+                ) : (
+                  <ul className="customer-document-list">
+                    {movements.map((payment) => (
+                      <li key={payment._id} className="customer-document-row">
+                        <div className="min-w-0">
+                          <p className="customer-document-title">
+                            {translatePaymentMethodLabel(payment.paymentMethod)} · {formatEUR(payment.effectiveAmount)}
+                          </p>
+                          <p className="customer-document-meta">
+                            {payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('de-DE') : 'Ohne Datum'}
+                            {payment.refundedAmount > 0.009 ? ` · davon erstattet ${formatEUR(payment.refundedAmount)}` : ''}
+                          </p>
+                          <p className="customer-document-meta">
+                            {payment.allocations.length > 0
+                              ? payment.allocations.map((allocation) => `Rechnung ${allocation.invoiceNumber || '–'}: ${formatEUR(allocation.allocatedAmount)}`).join(' · ')
+                              : 'Vorauszahlung (noch keiner Rechnung zugeordnet)'}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+      </Card>
+    )
+  }
+
+  const renderCustomerPriceSection = () => (
+    <Card id="order-customer-price" className="order-section-card customer-order-section-card">
+      <Collapsible>
+        {renderCustomerSectionToggle(
+          'Preisaufstellung',
+          <Euro className="h-5 w-5" aria-hidden="true" />,
+          `Gesamt ${formatEUR(orderPriceBreakdown.grossTotal)}`
+        )}
+        <CollapsibleContent className="customer-section-body">
+          <div className="customer-summary-list">
+            {orderPriceBreakdown.hasPositions && orderDiscountLines.length > 0 && (
+              <div className="customer-summary-row">
+                <span>Listenpreis (Brutto)</span>
+                <strong>{formatEUR(orderPriceBreakdown.positionsGross)}</strong>
+              </div>
+            )}
+            {orderDiscountLines.map((line) => (
+              <div key={line.key} className="customer-summary-row">
+                <span>{line.label}</span>
+                <strong className="text-green-700">−{formatEUR(line.amount)}</strong>
+              </div>
+            ))}
+            <div className="customer-summary-row">
+              <span>Gesamtbetrag (Brutto)</span>
+              <strong>{formatEUR(orderPriceBreakdown.grossTotal)}</strong>
+            </div>
+            <div className="customer-summary-row">
+              <span>davon Netto</span>
+              <strong>{formatEUR(orderPriceBreakdown.netTotal)}</strong>
+            </div>
+            <div className="customer-summary-row">
+              <span>davon MwSt. ({orderTaxRateLabel})</span>
+              <strong>{formatEUR(orderPriceBreakdown.taxAmount)}</strong>
+            </div>
+          </div>
+          <button type="button" className="customer-link-btn" onClick={openRepairDetailsPopup}>
+            <Wrench className="h-4 w-4" aria-hidden="true" />
+            Leistungen im Detail ansehen
+          </button>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  )
+
+  const renderCustomerShippingCard = () => {
+    const outboundTracking = String(outboundShipment?.trackingNumber || '')
+    const showInboundBlock = Boolean(customerInboundInfo && !['not-needed'].includes(String(customerInboundInfo.state)))
+      || Boolean(inboundShipment?.trackingNumber || inboundShipment?.status || inboundDownloadable)
+    const showOutboundBlock = Boolean(outboundTracking || outboundShipment?.hasLabel || outboundReconciliationRequired)
+    return (
+      <Card id="order-customer-shipping" className="order-section-card customer-order-section-card">
+        <CardHeader className="order-section-header customer-section-header-row">
+          <CardTitle className="order-section-title">
+            <Truck className="h-5 w-5" aria-hidden="true" />
+            Versand
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-3 space-y-3">
+          {shipmentsLoadError && (
+            <div className="customer-section-state is-error">
+              <span>Versandstand konnte nicht geladen werden.</span>
+              <button type="button" className="customer-link-btn" onClick={() => void loadOrderShipments(String(order._id))}>
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                Erneut versuchen
+              </button>
+            </div>
+          )}
+
+          {showInboundBlock && (
+            <div className="customer-summary-logistics-block">
+              <div className="customer-summary-logistics-title">Einsendung (Sie → McRepair)</div>
+              {customerInboundInfo ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {customerInboundStatus && (
+                      <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(customerInboundStatus).className}`}>
+                        {getShipmentStatusMeta(customerInboundStatus).label}
+                      </Badge>
+                    )}
+                    {customerInboundInfo.placeholder && (
+                      <span className="customer-testlabel-badge">Testlabel – nicht für den Versand verwenden</span>
+                    )}
+                  </div>
+                  {customerInboundInfo.message && (
+                    <p className="customer-shipping-status-description">{customerInboundInfo.message}</p>
+                  )}
+                  {customerInboundInfo.trackingNumber && (
+                    <div className="customer-summary-tracking">
+                      <span>Sendungsnummer Einsendung</span>
+                      <strong>{customerInboundInfo.trackingNumber}</strong>
+                      {customerInboundTrackingVisible && (
+                        <a href={buildDhlTrackingUrl(customerInboundInfo.trackingNumber)} target="_blank" rel="noreferrer" className="customer-summary-tracking-link">
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                          DHL-Sendung verfolgen
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  {customerInboundInfo.state === 'ready' && customerInboundInfo.downloadUrl && (
+                    <div className="customer-document-actions">
+                      <button
+                        type="button"
+                        className="customer-next-btn is-secondary is-small"
+                        onClick={() => void handleCustomerInboundFile('download')}
+                        disabled={Boolean(customerInboundBusy)}
+                      >
+                        <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{customerInboundBusy === 'download' ? 'Einsendelabel wird geladen…' : customerInboundInfo.placeholder ? 'Testlabel herunterladen' : 'Einsendelabel herunterladen'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="customer-next-btn is-secondary is-small"
+                        onClick={() => void handleCustomerInboundFile('print')}
+                        disabled={Boolean(customerInboundBusy)}
+                      >
+                        <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{customerInboundBusy === 'print' ? 'Druck wird vorbereitet…' : 'Drucken'}</span>
+                      </button>
+                    </div>
+                  )}
+                  {customerInboundInfo.state !== 'ready' && customerInboundInfo.canCreate && (
+                    <div className="customer-document-actions">
+                      <button
+                        type="button"
+                        className="customer-next-btn is-primary is-small"
+                        onClick={() => void handleCustomerInboundCreate()}
+                        disabled={Boolean(customerInboundBusy)}
+                      >
+                        <Truck className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{customerInboundBusy === 'create' ? 'Einsendelabel wird erstellt…' : 'DHL-Einsendelabel erstellen'}</span>
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {inboundShipment?.status && (
+                    <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(String(inboundShipment.status).toLowerCase()).className}`}>
+                      {getShipmentStatusMeta(String(inboundShipment.status).toLowerCase()).label}
+                    </Badge>
+                  )}
+                  {inboundShipment?.statusDescription && (
+                    <p className="customer-shipping-status-description">{inboundShipment.statusDescription}</p>
+                  )}
+                  {inboundShipment?.trackingNumber && (
+                    <div className="customer-summary-tracking">
+                      <span>Sendungsnummer Einsendung</span>
+                      <strong>{inboundShipment.trackingNumber}</strong>
+                      {!isPlaceholderTracking(inboundShipment.trackingNumber) && (
+                        <a href={buildDhlTrackingUrl(inboundShipment.trackingNumber)} target="_blank" rel="noreferrer" className="customer-summary-tracking-link">
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                          DHL-Sendung verfolgen
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  {inboundDownloadable && (
+                    <div className="customer-document-actions">
+                      <button
+                        type="button"
+                        onClick={handleDownloadInboundLabel}
+                        disabled={downloadingOrderReturnLabel}
+                        className="customer-next-btn is-secondary is-small"
+                      >
+                        <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{downloadingOrderReturnLabel ? 'Einsendelabel wird geladen…' : 'Einsendelabel herunterladen'}</span>
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {showOutboundBlock && (
+            <div className="customer-summary-logistics-block">
+              <div className="customer-summary-logistics-title">Auslieferung (McRepair → Sie)</div>
+              {outboundShipment?.status && (
+                <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(String(outboundShipment.status).toLowerCase()).className}`}>
+                  {getShipmentStatusMeta(String(outboundShipment.status).toLowerCase()).label}
+                </Badge>
+              )}
+              {outboundShipment?.statusDescription && (
+                <p className="customer-shipping-status-description">{outboundShipment.statusDescription}</p>
+              )}
+              {outboundTracking && (
+                <div className="customer-summary-tracking">
+                  <span>Sendungsnummer Auslieferung</span>
+                  <strong>{outboundTracking}</strong>
+                  {!isPlaceholderTracking(outboundTracking) && (
+                    <a href={buildDhlTrackingUrl(outboundTracking)} target="_blank" rel="noreferrer" className="customer-summary-tracking-link">
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                      Sendung verfolgen
+                    </a>
+                  )}
+                </div>
+              )}
+              {outboundShipment?.hasLabel && (
+                <div className="customer-document-actions">
+                  <button
+                    type="button"
+                    onClick={handleDownloadOrderShippingLabel}
+                    disabled={downloadingOrderShippingLabel}
+                    className="customer-next-btn is-secondary is-small"
+                  >
+                    <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>{downloadingOrderShippingLabel ? 'Versandlabel wird geladen…' : 'Versandlabel herunterladen'}</span>
+                  </button>
+                </div>
+              )}
+              {String(outboundShipment?.status || '') === 'label-created' && (
+                <div className="customer-summary-shipping-note is-pending">
+                  Das Versandlabel ist erstellt. Als versendet gilt das Gerät erst, wenn DHL das Paket übernommen hat.
+                </div>
+              )}
+            </div>
+          )}
+
+          {order.shippingAddress ? (
+            <div className="customer-subsection">
+              <h4>Lieferadresse</h4>
               <div className="customer-summary-address">
                 {String((order.shippingAddress as any).deliveryType || '') === 'packstation' ? (
                   <>
@@ -5571,162 +6611,104 @@ export function OrderDetails() {
                 <p>{order.shippingAddress.zipCode} {order.shippingAddress.city}</p>
                 <p>{order.shippingAddress.country}</p>
               </div>
-            )}
-
-            {(inboundShipment?.trackingNumber || inboundShipment?.status || inboundDownloadable) && (
-              <div className="customer-summary-logistics-block">
-                <div className="customer-summary-logistics-title">Versand zum Reparaturbetrieb (Kunde → McRepair)</div>
-                {inboundShipment?.status && (
-                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(String(inboundShipment.status).toLowerCase()).className}`}>
-                    {getShipmentStatusMeta(String(inboundShipment.status).toLowerCase()).label}
-                  </Badge>
-                )}
-                {inboundShipment?.statusDescription && (
-                  <p className="customer-shipping-status-description">{inboundShipment.statusDescription}</p>
-                )}
-                {inboundShipment?.trackingNumber && (
-                  <div className="customer-summary-tracking">
-                    <span>Sendungsnummer Einsendung</span>
-                    <strong>{inboundShipment.trackingNumber}</strong>
-                    <a
-                      href={buildDhlTrackingUrl(inboundShipment.trackingNumber)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="customer-summary-tracking-link"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      DHL-Sendung verfolgen
-                    </a>
-                  </div>
-                )}
-                {inboundDownloadable && (
-                  <div className="customer-summary-shipping-label">
-                    <span>Einsendelabel</span>
-                    <button
-                      onClick={handleDownloadInboundLabel}
-                      disabled={downloadingOrderReturnLabel}
-                      className="customer-summary-label-download"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {downloadingOrderReturnLabel ? 'Einsendelabel wird geladen…' : 'Einsendelabel herunterladen'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {(outboundShipment?.trackingNumber || outboundShipment?.hasLabel || outboundReconciliationRequired) && (
-              <div className="customer-summary-logistics-block">
-                <div className="customer-summary-logistics-title">Auslieferung an den Kunden (McRepair → Kunde)</div>
-                {outboundShipment?.status && (
-                  <Badge className={`customer-shipping-status-badge ${getShipmentStatusMeta(String(outboundShipment.status).toLowerCase()).className}`}>
-                    {getShipmentStatusMeta(String(outboundShipment.status).toLowerCase()).label}
-                  </Badge>
-                )}
-                {outboundShipment?.statusDescription && (
-                  <p className="customer-shipping-status-description">{outboundShipment.statusDescription}</p>
-                )}
-                {outboundShipment?.trackingNumber && (
-                  <div className="customer-summary-tracking">
-                    <span>Sendungsnummer Auslieferung</span>
-                    <strong>{outboundShipment.trackingNumber}</strong>
-                    <a
-                      href={buildDhlTrackingUrl(outboundShipment.trackingNumber)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="customer-summary-tracking-link"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Sendung verfolgen
-                    </a>
-                  </div>
-                )}
-                {outboundShipment?.hasLabel && (
-                  <div className="customer-summary-shipping-label">
-                    <span>Versandlabel</span>
-                    <button
-                      onClick={handleDownloadOrderShippingLabel}
-                      disabled={downloadingOrderShippingLabel}
-                      className="customer-summary-label-download"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {downloadingOrderShippingLabel ? 'Versandlabel wird geladen…' : 'Versandlabel herunterladen'}
-                    </button>
-                  </div>
-                )}
-                {String(outboundShipment?.status || '') === 'label-created' && (
-                  <div className="customer-summary-shipping-note is-pending">
-                    Das Versandlabel ist erstellt. Als versendet gilt das Gerät erst, wenn DHL das Paket übernommen hat.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="customer-summary-subcard">
-          <div className="customer-summary-subcard-title">
-            <User className="h-4 w-4" />
-            Kontaktdaten
-          </div>
-          <div className="customer-summary-contact-list">
-            <div>
-              <Mail className="h-3.5 w-3.5" />
-              <span>{customer.email}</span>
             </div>
-            <div>
-              <Phone className="h-3.5 w-3.5" />
-              <span>{customer.phone || 'Keine Telefonnummer hinterlegt'}</span>
-            </div>
+          ) : null}
+
+          {!showInboundBlock && !showOutboundBlock && !order.shippingAddress && !shipmentsLoadError && (
+            <p className="customer-section-state">Noch keine Versanddaten zu diesem Auftrag.</p>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const renderCustomerOrderFactsCard = () => (
+    <Card id="order-customer-summary" className="order-section-card customer-order-section-card">
+      <CardHeader className="order-section-header customer-section-header-row">
+        <CardTitle className="order-section-title">
+          <FileText className="h-5 w-5" aria-hidden="true" />
+          Auftragsdaten &amp; Kontakt
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-3 space-y-3">
+        <div className="customer-summary-list">
+          <div className="customer-summary-row"><span>Auftrag</span><strong>{customerOrderRef}</strong></div>
+          {customerBookingNumber && (
+            <div className="customer-summary-row"><span>Buchung</span><strong>{customerBookingNumber}</strong></div>
+          )}
+          <div className="customer-summary-row"><span>Erstellt am</span><strong>{orderCreatedText}</strong></div>
+          <div className="customer-summary-row"><span>Letzte Aktualisierung</span><strong>{lastUpdate}</strong></div>
+          <div className="customer-summary-row"><span>Voraussichtliche Fertigstellung</span><strong>{estimatedCompletionText}</strong></div>
+        </div>
+        <div className="customer-summary-contact-list">
+          <div>
+            <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{customer.email}</span>
+          </div>
+          <div>
+            <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{customer.phone || 'Keine Telefonnummer hinterlegt'}</span>
           </div>
         </div>
       </CardContent>
     </Card>
   )
 
-  const renderCustomerSupportCard = () => (
-    <Card id="order-customer-support" className="order-section-card customer-order-support-card">
-      <CardHeader className="order-section-header">
-        <CardTitle className="order-section-title">
-          <Zap className="h-5 w-5" />
-          Nächste Schritte
-        </CardTitle>
-        <p className="order-section-description">
-          Relevante Hinweise und direkte Sprungziele für den weiteren Ablauf Ihres Auftrags.
-        </p>
-      </CardHeader>
-      <CardContent className="pt-3 space-y-4">
-        <div className="customer-next-step-panel">
-          <span className="customer-next-step-eyebrow">{customerNextStepInfo.eyebrow}</span>
-          <ul className="customer-next-step-list">
-            {customerNextStepInfo.steps.map((stepText, index) => (
-              <li key={`next-step-${index}`}>{stepText}</li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="customer-support-note">
-          <Shield className="h-4 w-4" />
-          <p>
-            Rückfragen, Freigaben oder zusätzliche Informationen laufen gesammelt über diesen Auftrag. So bleibt die Kommunikation nachvollziehbar und schnell auffindbar.
-          </p>
-        </div>
-      </CardContent>
+  const renderCustomerHistorySection = () => (
+    <Card id="order-customer-history" className="order-section-card customer-order-section-card">
+      <Collapsible open={customerHistoryOpen} onOpenChange={setCustomerHistoryOpen}>
+        {renderCustomerSectionToggle('Verlauf', <History className="h-5 w-5" aria-hidden="true" />, 'Alle Ereignisse')}
+        <CollapsibleContent className="customer-section-body">
+          {customerHistoryState === 'loading' || customerHistoryState === 'idle' ? (
+            <p className="customer-section-state" role="status">Verlauf wird geladen …</p>
+          ) : customerHistoryState === 'error' ? (
+            <div className="customer-section-state is-error">
+              <span>Verlauf konnte nicht geladen werden.</span>
+              <button type="button" className="customer-link-btn" onClick={() => setCustomerHistoryReloadToken((current) => current + 1)}>
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                Erneut versuchen
+              </button>
+            </div>
+          ) : !customerHistory || customerHistory.length === 0 ? (
+            <p className="customer-section-state">Noch keine Einträge im Verlauf.</p>
+          ) : (
+            <ol className="customer-history-list">
+              {customerHistory.map((entry) => (
+                <li key={entry.id}>
+                  <strong>{entry.title}</strong>
+                  {entry.description && entry.description !== entry.title && <span>{entry.description}</span>}
+                  <time dateTime={entry.at || undefined}>
+                    {entry.at && entry.timeKnown !== false
+                      ? new Date(entry.at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      : (entry.timeNote || 'Zeitpunkt nicht erfasst')}
+                  </time>
+                </li>
+              ))}
+            </ol>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   )
 
   const renderCustomerMessagesCard = () => (
-    <Card id="order-customer-messages" className="order-section-card customer-order-messages-card">
-      <CardHeader className="order-section-header">
+    <Card id="order-customer-messages" tabIndex={-1} className="order-section-card customer-order-messages-card">
+      <CardHeader className="order-section-header customer-section-header-row">
         <CardTitle className="order-section-title">
-          <MessageSquare className="h-5 w-5" />
+          <MessageSquare className="h-5 w-5" aria-hidden="true" />
           Nachrichten zum Auftrag
         </CardTitle>
-        <p className="order-section-description">
-          Schreiben Sie direkt an das Reparaturteam. Antworten bleiben dem Auftrag zugeordnet und sind jederzeit nachvollziehbar.
-        </p>
+        {id && (
+          <Link to={`/messages?thread=order:${encodeURIComponent(id)}`} className="customer-link-btn">
+            <Inbox className="h-4 w-4" aria-hidden="true" />
+            Im Postfach öffnen
+          </Link>
+        )}
       </CardHeader>
       <CardContent className="pt-2 space-y-3">
+        <p className="order-section-description">
+          Schreiben Sie direkt an das Reparaturteam und beantworten Sie Rückfragen hier. Derselbe Verlauf erscheint unter „Nachrichten“.
+        </p>
         {/* Repair offer card – shown directly from complaint data so the customer always sees it */}
         {isComplaintFollowupOrder && complaintWorkflow?.repairOffer && complaintWorkflow.repairOffer.status !== 'none' && (
           <>
@@ -5752,7 +6734,7 @@ export function OrderDetails() {
                   </div>
                   <div className="flex-shrink-0 text-right">
                     <p className="text-lg font-bold text-rose-900 dark:text-rose-100">
-                      {complaintWorkflow.repairOffer.amount.toFixed(2)} €
+                      {formatEUR(safeToNumber(complaintWorkflow.repairOffer.amount))}
                     </p>
                     <p className="text-xs text-muted-foreground">Angebotspreis</p>
                   </div>
@@ -5801,7 +6783,7 @@ export function OrderDetails() {
                       : 'Reparaturangebot abgelehnt'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {complaintWorkflow.repairOffer.amount.toFixed(2)} € &bull;{' '}
+                    {formatEUR(safeToNumber(complaintWorkflow.repairOffer.amount))} &bull;{' '}
                     {complaintWorkflow.repairOffer.status === 'accepted' && complaintWorkflow.repairOffer.acceptedAt
                       ? new Date(complaintWorkflow.repairOffer.acceptedAt).toLocaleDateString('de-DE')
                       : complaintWorkflow.repairOffer.rejectedAt
@@ -5814,10 +6796,11 @@ export function OrderDetails() {
           </>
         )}
         {id && (
+          // Derselbe Verlauf wie /messages (COMMS-12); keine Auftrags-ID als inspectionId (COMMS-13).
           <CommunicationPanel
             orderId={id}
-            inspectionId={order?._id}
             entityType="order"
+            onThreadChange={handleThreadPendingChange}
           />
         )}
       </CardContent>
@@ -5826,12 +6809,22 @@ export function OrderDetails() {
 
   const renderCustomerLayout = () => (
     <div className="customer-order-flow">
-      {renderRepairProgressCard()}
+      {renderCustomerGlanceCard()}
+      {renderCustomerProgressCard()}
 
-      <div className="customer-order-secondary">
-        {renderCustomerMessagesCard()}
-        {renderCustomerSupportCard()}
-        {renderCustomerSummaryCard()}
+      {/* >= 1100 px: links Nachrichten, rechts Abschnitte; darunter eine Spalte in der
+          Reihenfolge Nachrichten, Zahlungen, Preise, Versand, Auftragsdaten, Verlauf. */}
+      <div className="customer-order-columns">
+        <div className="customer-order-col customer-order-col-messages">
+          {renderCustomerMessagesCard()}
+        </div>
+        <div className="customer-order-col customer-order-col-side">
+          {renderCustomerPaymentsSection()}
+          {renderCustomerPriceSection()}
+          {renderCustomerShippingCard()}
+          {renderCustomerOrderFactsCard()}
+          {renderCustomerHistorySection()}
+        </div>
       </div>
 
       <Dialog open={repairDetailsPopupOpen} onOpenChange={setRepairDetailsPopupOpen}>
@@ -5846,7 +6839,7 @@ export function OrderDetails() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="customer-repair-details-popup-body">
+          <div className="order-dialog-body customer-repair-details-popup-body">
             {renderCustomerRepairDetailsContent()}
           </div>
         </DialogContent>
@@ -5864,7 +6857,7 @@ export function OrderDetails() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="customer-diagnosis-popup-body">
+          <div className="order-dialog-body customer-diagnosis-popup-body">
             {renderCustomerInspectionSummaryContent()}
           </div>
         </DialogContent>
@@ -5882,7 +6875,7 @@ export function OrderDetails() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="customer-repair-services-popup-body">
+          <div className="order-dialog-body customer-repair-services-popup-body">
             <section className="customer-repair-services-popup-section">
               <h4>Reparaturdienste</h4>
               {repairServices && repairServices.filter((s) => s && s._id).length > 0 ? (
@@ -5953,6 +6946,1119 @@ export function OrderDetails() {
     </div>
   )
 
+  // ══ PERSONAL/ADMIN: Kurzübersicht + Bereiche (ADMUX-7, HIST-18, COMMS-12/13, DHL-4/5/8) ══
+  // Kein zweites Auftragsdetail: dieselben render*-Blöcke, nur in klar benannte Bereiche
+  // gruppiert. Der aktive Bereich steht in der URL (?bereich=…), damit Postfach,
+  // Benachrichtigungen und "Zurück" denselben Bereich wieder öffnen.
+  const adminTabFromLocation = (() => {
+    const requested = String(new URLSearchParams(location.search).get('bereich') || '').toLowerCase()
+    if ((ADMIN_ORDER_TABS as readonly string[]).includes(requested)) return requested as AdminOrderTab
+    if (location.hash === '#order-communication' || location.hash === '#order-customer-messages') return 'kommunikation'
+    if (location.hash === '#order-history') return 'verlauf'
+    return 'uebersicht'
+  })()
+  const adminTab: AdminOrderTab = adminTabFromLocation
+
+  const setAdminTab = (next: AdminOrderTab) => {
+    const params = new URLSearchParams(location.search)
+    params.set('bereich', next)
+    navigate(
+      { pathname: location.pathname, search: `?${params.toString()}` },
+      // Nur das Rücksprungziel mitnehmen (kein erneutes Öffnen eines Workflows o. Ä.).
+      { replace: true, state: backTarget ? { backTarget } : undefined }
+    )
+  }
+
+  const openAdminTabAndFocus = (next: AdminOrderTab, elementId?: string) => {
+    setAdminTab(next)
+    if (!elementId) return
+    window.setTimeout(() => {
+      const element = document.getElementById(elementId)
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        if (typeof (element as HTMLElement).focus === 'function') (element as HTMLElement).focus({ preventScroll: true })
+      }
+    }, 60)
+  }
+
+  // Zahlungsstand: Beträge ausschließlich vom Server (Buchungs-Zahlungsübersicht bzw. Saldo
+  // der eigenen Rechnungen bei Aufträgen ohne Buchung). Nichts wird hier nachgerechnet,
+  // außer der Summe der serverseitigen Rechnungssalden.
+  const adminBookingOrderCount = Array.isArray((linkedBooking as any)?.orderIds) ? (linkedBooking as any).orderIds.length : 0
+  const adminMoney = (() => {
+    if (adminPayments) {
+      const summary = (adminPayments.summary || {}) as Partial<BookingPaymentOverview['summary']>
+      const balance = adminPayments.balance
+      const bookingTotal = safeToNumber(balance?.total ?? summary.referenceTotal ?? summary.orderValue)
+      return {
+        scope: 'booking' as const,
+        bookingTotal,
+        received: safeToNumber(balance?.received ?? summary.receivedTotal),
+        open: safeToNumber(balance?.open ?? summary.openOrderBalance),
+        refundPending: safeToNumber(balance?.refundPending ?? summary.refundPendingTotal),
+        notInvoiced: safeToNumber(summary.notInvoicedTotal),
+      }
+    }
+    if (!customerBookingIdForPayments && user?.role === 'admin' && orderInvoices.length > 0) {
+      const summaries = orderInvoices.map((invoice) => summarizeInvoicePayment(invoice as any)).filter((entry) => entry.known)
+      if (!summaries.length) return null
+      return {
+        scope: 'order' as const,
+        bookingTotal: orderPriceBreakdown.grossTotal,
+        received: summaries.reduce((sum, entry) => sum + safeToNumber(entry.received), 0),
+        open: summaries.reduce((sum, entry) => sum + safeToNumber(entry.open), 0),
+        refundPending: summaries.reduce((sum, entry) => sum + safeToNumber(entry.refundPending), 0),
+        notInvoiced: 0,
+      }
+    }
+    return null
+  })()
+  const adminMoneyWord = !adminMoney
+    ? null
+    : adminMoney.refundPending > 0.009
+      ? { label: 'Überzahlt · Erstattung offen', tone: 'overpaid' as const }
+      : adminMoney.open <= 0.009 && adminMoney.received > 0.009
+        ? { label: 'Bezahlt', tone: 'paid' as const }
+        : adminMoney.received > 0.009
+          ? { label: 'Teilbezahlt', tone: 'partial' as const }
+          // 'Offen' nur, wenn laut denselben angezeigten Zahlen wirklich etwas offen ist.
+          : adminMoney.open > 0.009
+            ? { label: 'Offen', tone: 'open' as const }
+            : order?.status === 'cancelled'
+              ? { label: 'Storniert – keine Zahlung offen', tone: 'neutral' as const }
+              : adminMoney.notInvoiced > 0.009
+                ? { label: 'Noch nicht berechnet', tone: 'neutral' as const }
+                : { label: 'Nichts offen', tone: 'neutral' as const }
+  const adminMoneyIsBookingWide = Boolean(
+    adminMoney?.scope === 'booking'
+    && (adminBookingOrderCount > 1 || Math.abs(safeToNumber(adminMoney?.bookingTotal) - orderPriceBreakdown.grossTotal) > 0.009)
+  )
+  const adminBookingNumber = String(linkedBooking?.bookingNumber || adminPayments?.booking?.bookingNumber || '')
+
+  const inboundIsPlaceholder = Boolean(
+    (inboundShipment as { placeholder?: boolean } | undefined)?.placeholder
+    || orderShipments?.inboundLabels?.some((entry) => Boolean((entry as { placeholder?: boolean }).placeholder) || isPlaceholderTracking(entry.trackingNumber))
+    || isPlaceholderTracking(inboundShipment?.trackingNumber)
+  )
+  const outboundIsPlaceholder = isPlaceholderTracking(outboundShipment?.trackingNumber)
+
+  const describeShipmentChip = (direction: 'inbound' | 'outbound') => {
+    const shipment = direction === 'inbound' ? inboundShipment : outboundShipment
+    if (!orderShipments) return { text: shipmentsLoadError ? 'nicht verfügbar' : 'wird geladen …', tone: 'muted' }
+    if (shipment?.reconciliationRequired) return { text: 'Abgleich erforderlich', tone: 'warn' }
+    if (shipment?.inProgress) return { text: 'Label wird erstellt …', tone: 'info' }
+    const exists = direction === 'inbound' ? inboundLabelExists : outboundLabelExists
+    if (!exists) return { text: direction === 'inbound' ? 'Noch kein Einsendelabel' : 'Noch nicht versendet', tone: 'muted' }
+    const placeholder = direction === 'inbound' ? inboundIsPlaceholder : outboundIsPlaceholder
+    const label = shipment?.status ? getShipmentStatusMeta(shipment.status).label : 'Label erstellt'
+    return { text: placeholder ? `${label} (Testlabel)` : label, tone: placeholder ? 'warn' : 'ok' }
+  }
+
+  const adminInspectionStatus = String(customerInspection?.status || '').toLowerCase()
+  // Stornierter Auftrag: keine Inspektion starten/fortsetzen (Server lehnt mit 409 ab);
+  // ein fertiger Prüfbericht bleibt lesbar. Wieder öffnen nur per 'Stornierung aufheben' (Admin).
+  const adminInspectionAction: { label: string; open: boolean; blocked?: boolean } = adminInspectionStatus === 'completed' && customerInspection
+    ? { label: 'Prüfbericht ansehen', open: false }
+    : order?.status === 'cancelled'
+      ? { label: 'Storniert – Inspektion gesperrt', open: false, blocked: true }
+      : !customerInspection
+        ? { label: 'Inspektion starten', open: true }
+        : { label: 'Inspektion fortsetzen', open: true }
+
+  const PAYMENT_METHOD_LABELS_DE: Record<string, string> = {
+    cash: 'Bar',
+    bank_transfer: 'Überweisung',
+    sepa: 'SEPA-Lastschrift',
+    credit_card: 'Kreditkarte',
+    debit_card: 'Debitkarte',
+    paypal: 'PayPal',
+    invoice: 'Rechnung',
+  }
+  const formatDateTimeDe = (value?: string | null) => {
+    if (!value) return '–'
+    const date = new Date(value)
+    return Number.isNaN(date.getTime())
+      ? '–'
+      : date.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
+
+  const handleAdminHistoryLink = (link: OrderHistoryLink, _entry: AdminHistoryEntry) => {
+    switch (link.kind) {
+      case 'invoice': {
+        if (user?.role !== 'admin') {
+          openAdminTabAndFocus('rechnungen', 'admin-od-invoices')
+          return
+        }
+        const invoice = orderInvoices.find((entry) => String(entry._id) === String(link.id))
+        void openInvoiceDetailsDialog(invoice || ({ _id: link.id } as FinancialInvoice))
+        return
+      }
+      case 'payment':
+        openAdminTabAndFocus('rechnungen', 'admin-od-payments')
+        return
+      case 'inspection':
+        if (link.href) navigate(link.href)
+        return
+      case 'communication':
+        openAdminTabAndFocus('kommunikation', 'admin-od-communication')
+        return
+      case 'tracking':
+        openAdminTabAndFocus('versand', 'admin-od-shipping')
+        return
+      case 'revision':
+        openAdminTabAndFocus('uebersicht', 'order-repair-info')
+        return
+      default:
+        if (link.href) navigate(link.href)
+    }
+  }
+
+  const renderAdminStatusMenu = () => (
+              <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`${getStatusButtonClasses(order.status)} text-xs px-3 py-1.5 cursor-pointer font-semibold flex items-center gap-1.5 rounded-md`}
+                    disabled={updatingStatus}
+                  >
+                    {getStatusIcon(order.status)}
+                    <span>{currentOrderStatusLabel}</span>
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {order.status === 'cancelled' ? (
+                    <>
+                      <DropdownMenuLabel className="text-xs font-semibold">Auftrag ist storniert</DropdownMenuLabel>
+                      <p className="px-2 pb-2 text-[11px] leading-snug text-slate-600">
+                        Ein stornierter Auftrag wird nicht weiterbearbeitet. Wieder öffnen nur mit Begründung.
+                      </p>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => { setStatusDropdownOpen(false); setOrderReopenDialogOpen(true) }}
+                        disabled={updatingStatus || user?.role !== 'admin'}
+                        className="text-xs cursor-pointer"
+                      >
+                        <span className="inline-block w-2 h-2 bg-blue-600 rounded-full mr-2"></span>
+                        {user?.role === 'admin' ? 'Stornierung aufheben …' : 'Stornierung aufheben (nur Admin)'}
+                      </DropdownMenuItem>
+                    </>
+                  ) : (<>
+                  <DropdownMenuLabel className="text-xs font-semibold">Auftragsstatus ändern</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleStatusChange('pending')} disabled={updatingStatus || order.status === 'pending'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                    Ausstehend
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange('in-progress')} disabled={updatingStatus || order.status === 'in-progress'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                    In Bearbeitung
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange('paused')} disabled={updatingStatus || order.status === 'paused'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-slate-500 rounded-full mr-2"></span>
+                    Pausiert
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange('quality-check')} disabled={updatingStatus || order.status === 'quality-check'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                    Qualitätskontrolle
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange('ready-for-pickup')} disabled={updatingStatus || order.status === 'ready-for-pickup'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                    {READY_NEUTRAL_LABEL}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusChange('completed')} disabled={updatingStatus || order.status === 'completed'} className="text-xs cursor-pointer">
+                    <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                    Abgeschlossen
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setOrderCancelDialogOpen(true)} disabled={updatingStatus || order.status === 'cancelled'} className="text-xs cursor-pointer text-destructive">
+                    <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                    Storniert
+                  </DropdownMenuItem>
+                  </>)}
+                </DropdownMenuContent>
+              </DropdownMenu>
+  )
+
+  const renderAdminHeader = () => {
+    const inboundChip = describeShipmentChip('inbound')
+    const outboundChip = describeShipmentChip('outbound')
+    const customerLabel = customer?.name || order.guestInfo?.email || 'Unbekannter Kunde'
+    const isGuestOrder = Boolean(order.guestInfo?.isGuest)
+    return (
+      <header className="order-details-header admin-od-header" aria-labelledby="admin-od-title">
+        <div className="admin-od-header-top">
+          <div className="admin-od-identity">
+            {(isComplaintFollowupOrder || order.hasComplaint) && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <Badge className="bg-rose-100 text-rose-800 border border-rose-300" variant="outline">
+                  {isComplaintFollowupOrder ? 'Reklamationsauftrag' : 'Reklamation vorhanden'}
+                </Badge>
+                {isComplaintFollowupOrder ? (
+                  <>
+                    <span className="admin-od-on-dark-muted">Basiert auf Auftrag:</span>
+                    {originalComplaintOrderId ? (
+                      <Link to={`/orders/${originalComplaintOrderId}`} className="font-medium underline admin-od-on-dark-link">
+                        {originalComplaintOrderNumber || originalComplaintOrderId}
+                      </Link>
+                    ) : <span className="font-medium">Nicht verknüpft</span>}
+                  </>
+                ) : (
+                  <>
+                    <span className="admin-od-on-dark-muted">Reklamationsauftrag:</span>
+                    {complaintOrderId ? (
+                      <Link to={`/orders/${complaintOrderId}`} className="font-medium underline admin-od-on-dark-link">
+                        {complaintOrderNumber || complaintOrderId}
+                      </Link>
+                    ) : <span className="font-medium">Noch nicht erstellt</span>}
+                  </>
+                )}
+              </div>
+            )}
+            <h1 id="admin-od-title" className="admin-od-title">
+              <Package className="h-6 w-6 shrink-0" aria-hidden="true" />
+              <span>Auftrag {order.orderNumber || order._id.slice(-6)}</span>
+              <span className="admin-od-title-device">· {order.deviceBrand} {order.deviceModel}</span>
+            </h1>
+            <p className="admin-od-identity-meta">
+              <span>Kunde: <strong>{customerLabel}</strong>{isGuestOrder ? ' (Gast)' : ''}</span>
+              {customer?.email ? <span><Mail className="inline h-3.5 w-3.5 mr-1" aria-hidden="true" />{customer.email}</span> : null}
+              {customer?.phone ? <span><Phone className="inline h-3.5 w-3.5 mr-1" aria-hidden="true" />{customer.phone}</span> : null}
+              {adminBookingNumber ? <span>Buchung {adminBookingNumber}</span> : null}
+              <span>Erstellt am {orderCreatedText}</span>
+            </p>
+          </div>
+
+          <div className="admin-od-actions" aria-label="Hauptaktionen">
+            <Button
+              size="sm"
+              className="admin-od-action-primary"
+              disabled={adminInspectionAction.blocked}
+              title={adminInspectionAction.blocked ? 'Auftrag storniert – Inspektion gesperrt. Zum Fortsetzen muss ein Admin die Stornierung aufheben.' : undefined}
+              onClick={() => {
+                if (adminInspectionAction.blocked) return
+                if (adminInspectionAction.open) {
+                  setInspectionDialogOpen(true)
+                } else {
+                  openAdminTabAndFocus('uebersicht', 'order-device-inspection')
+                }
+              }}
+            >
+              <FileText className="h-4 w-4 mr-1.5" aria-hidden="true" />
+              {adminInspectionAction.label}
+            </Button>
+            <Button size="sm" className="admin-od-action-secondary" onClick={() => openAdminTabAndFocus('kommunikation', 'admin-od-communication')}>
+              <MessageSquare className="h-4 w-4 mr-1.5" aria-hidden="true" />
+              Nachricht an Kunden
+            </Button>
+            {user?.role === 'admin' && (
+              <Button
+                size="sm"
+                className="admin-od-action-secondary"
+                onClick={handleCreateOrderInvoice}
+                disabled={creatingOrderInvoice}
+              >
+                <Receipt className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                {creatingOrderInvoice ? 'Rechnung wird erstellt…' : 'Rechnung erstellen'}
+              </Button>
+            )}
+            {order.status === 'ready-for-pickup' && !order.pickupConfirmation && (
+              <Button
+                size="sm"
+                onClick={handleConfirmPickup}
+                disabled={confirmingPickup}
+                className="bg-green-600 hover:bg-green-700 text-white border-0"
+              >
+                <PackageCheck className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                {confirmingPickup ? 'Wird bestätigt…' : 'Abholung bestätigen'}
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="admin-od-action-more" aria-label="Weitere Aktionen">
+                  Weitere Aktionen
+                  <ChevronDown className="h-3.5 w-3.5 ml-1" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel className="text-xs">Versand</DropdownMenuLabel>
+                <DropdownMenuItem
+                  disabled={creatingOrderReturnLabel || !inboundAction?.allowed}
+                  onClick={() => void handleCreateInboundLabel()}
+                  className="text-sm"
+                >
+                  <Send className="h-4 w-4 mr-2" aria-hidden="true" />
+                  {inboundLabelExists ? 'Einsendelabel bereits erstellt' : 'DHL-Einsendelabel erstellen (Kunde → McRepair)'}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={creatingOrderShippingLabel || !outboundAction?.allowed}
+                  onClick={() => void handleCreateOutboundLabel()}
+                  className="text-sm"
+                >
+                  <Truck className="h-4 w-4 mr-2" aria-hidden="true" />
+                  {outboundLabelExists ? 'Versandlabel bereits erstellt' : 'An Kunden versenden (McRepair → Kunde)'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => openAdminTabAndFocus('versand', 'admin-od-shipping')} className="text-sm">
+                  <Package className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Versand-Details ansehen
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Kommunikation</DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCommFeedbackOpen(true)
+                    openAdminTabAndFocus('kommunikation', 'admin-od-communication')
+                  }}
+                  className="text-sm"
+                >
+                  <HelpCircle className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Rückfrage an Kunden stellen
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCommQuickActionOpen(true)
+                    openAdminTabAndFocus('kommunikation', 'admin-od-communication')
+                  }}
+                  className="text-sm"
+                >
+                  <Zap className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Aktion vom Kunden anfordern
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate(`/messages?thread=order:${order._id}`)} className="text-sm">
+                  <Inbox className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Im Postfach öffnen
+                </DropdownMenuItem>
+                {guestTrackingUrl && (
+                  <DropdownMenuItem onClick={() => window.open(guestTrackingUrl, '_blank', 'noopener,noreferrer')} className="text-sm">
+                    <ExternalLink className="h-4 w-4 mr-2" aria-hidden="true" />
+                    Gast-Tracking-Seite öffnen
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <div className="admin-od-status-row">
+          <div className="admin-od-status-item">
+            <span className="admin-od-status-label">Reparaturstatus</span>
+            {renderAdminStatusMenu()}
+          </div>
+          <button
+            type="button"
+            className="admin-od-status-item admin-od-status-item--button"
+            onClick={() => openAdminTabAndFocus('rechnungen', 'admin-od-finance')}
+            aria-label="Zahlungsstand – Rechnungen & Zahlungen öffnen"
+          >
+            <span className="admin-od-status-label">Zahlung</span>
+            {adminMoney && adminMoneyWord ? (
+              <span className="admin-od-status-value">
+                <span className={`admin-od-pill is-${adminMoneyWord.tone}`}>
+                  <CreditCard className="h-3.5 w-3.5" aria-hidden="true" /> {adminMoneyWord.label}
+                </span>
+                <span className="admin-od-money">
+                  <span className="admin-od-money-part">Gesamt (brutto) <strong>{formatEUR(orderPriceBreakdown.grossTotal)}</strong></span>
+                  {' · '}<span className="admin-od-money-part">Bezahlt <strong>{formatEUR(adminMoney.received)}</strong></span>
+                  {' · '}{adminMoney.refundPending > 0.009
+                    ? <span className="admin-od-money-part">Erstattung offen <strong>{formatEUR(adminMoney.refundPending)}</strong></span>
+                    : <span className="admin-od-money-part">Offen <strong>{formatEUR(adminMoney.open)}</strong></span>}
+                </span>
+                {adminMoneyIsBookingWide && (
+                  <span className="admin-od-money-note">
+                    Bezahlt/Offen gelten für die gesamte Buchung{adminBookingNumber ? ` ${adminBookingNumber}` : ''}
+                    {adminBookingOrderCount > 1 ? ` (${adminBookingOrderCount} Geräte, ` : ' ('}Gesamt {formatEUR(adminMoney.bookingTotal)})
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span className="admin-od-status-value">
+                <span className={`admin-od-pill is-neutral ${cancelledWithoutPayment ? '' : getPaymentStatusColor(order.paymentStatus)}`}>
+                  <CreditCard className="h-3.5 w-3.5" aria-hidden="true" /> {cancelledWithoutPayment ? 'Storniert' : translatePaymentStatus(order.paymentStatus)}
+                </span>
+                <span className="admin-od-money">
+                  Gesamt (brutto) <strong>{formatEUR(orderPriceBreakdown.grossTotal)}</strong>
+                  {adminPaymentsState === 'loading' ? ' · Zahlungsstand wird geladen …' : adminPaymentsState === 'error' ? ' · Zahlungsstand nicht verfügbar' : ''}
+                </span>
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            className="admin-od-status-item admin-od-status-item--button"
+            onClick={() => openAdminTabAndFocus('versand', 'admin-od-shipping')}
+            aria-label="Einsendung – Versand öffnen"
+          >
+            <span className="admin-od-status-label">Einsendung (Kunde → McRepair)</span>
+            <span className={`admin-od-pill is-${inboundChip.tone}`}><Send className="h-3.5 w-3.5" aria-hidden="true" /> {inboundChip.text}</span>
+          </button>
+          <button
+            type="button"
+            className="admin-od-status-item admin-od-status-item--button"
+            onClick={() => openAdminTabAndFocus('versand', 'admin-od-shipping')}
+            aria-label="Auslieferung – Versand öffnen"
+          >
+            <span className="admin-od-status-label">Auslieferung (McRepair → Kunde)</span>
+            <span className={`admin-od-pill is-${outboundChip.tone}`}><Truck className="h-3.5 w-3.5" aria-hidden="true" /> {outboundChip.text}</span>
+          </button>
+        </div>
+
+        {(canRunComplaintTechnicianActions || (isComplaintFollowupOrder && complaintWorkflowStatus === 'pending_approval' && latestDenyEscalationLog) || order.pickupConfirmation?.confirmedAt || orderRefundPendingTotal > 0.009 || orderRefundPendingScope.bookingLevel.length > 0) && (
+          <div className="admin-od-header-notes">
+              {canRunComplaintTechnicianActions && (
+                <div className="flex items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 dark:border-rose-800 dark:bg-rose-950/30">
+                  <span className="text-xs font-semibold text-rose-800 dark:text-rose-200">Reklamation entscheiden</span>
+                  <Button
+                    size="sm"
+                    onClick={() => setComplaintActionDialog('ack')}
+                    disabled={complaintActionLoading !== ''}
+                    className="h-7 bg-green-600 px-2 text-xs text-white hover:bg-green-700"
+                  >
+                    <CheckCircle className="mr-1 h-3.5 w-3.5" />
+                    Anerkennen
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setComplaintActionDialog('deny')}
+                    disabled={complaintActionLoading !== ''}
+                    className="h-7 border-rose-300 px-2 text-xs text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:text-rose-200 dark:hover:bg-rose-900/40"
+                  >
+                    <X className="mr-1 h-3.5 w-3.5" />
+                    Ablehnen
+                  </Button>
+                </div>
+              )}
+              {isComplaintFollowupOrder && complaintWorkflowStatus === 'pending_approval' && latestDenyEscalationLog && (
+                <div className="flex max-w-xl flex-col gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                  <span className="font-semibold">Reklamation abgelehnt · Admin-Freigabe ausstehend</span>
+                  <span>
+                    {escalationActorName ? `Von ${escalationActorName}` : 'Durch den Techniker'}
+                    {escalationCreatedAt ? ` am ${new Date(escalationCreatedAt).toLocaleString('de-DE')}` : ''}
+                    {complaintWorkflow?.technicianReason ? `: ${complaintWorkflow.technicianReason}` : ''}
+                  </span>
+                </div>
+              )}
+              {order.pickupConfirmation?.confirmedAt && (
+                <div className="flex items-center gap-1.5 text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md px-2.5 py-1">
+                  <UserCheck className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    Abgeholt{' '}
+                    {new Date(order.pickupConfirmation.confirmedAt).toLocaleString('de-DE', {
+                      day: '2-digit', month: '2-digit', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit'
+                    })}
+                    {order.pickupConfirmation.confirmedByName && (
+                      <> · {order.pickupConfirmation.confirmedByName}</>
+                    )}
+                  </span>
+                </div>
+              )}
+              {orderRefundPendingTotal > 0.009 && (
+                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${INVOICE_PAYMENT_TONE_CLASSES.overpaid}`}>
+                  Überzahlt · Erstattung offen {formatEUR(orderRefundPendingTotal)}
+                </span>
+              )}
+              {orderRefundPendingScope.bookingLevel.map((entry) => (
+                <span
+                  key={`refund-badge-${entry.invoiceId}`}
+                  className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${INVOICE_PAYMENT_TONE_CLASSES.overpaid}`}
+                  title="Die Rechnung umfasst mehrere Aufträge der Buchung; der Betrag gilt für die ganze Rechnung."
+                >
+                  Rechnung {entry.invoiceNumber || '–'} (mehrere Aufträge) überzahlt · Erstattung offen {formatEUR(entry.amount)}
+                </span>
+              ))}
+          </div>
+        )}
+
+        <p className="admin-od-header-meta">
+          Fortschritt {calculatedProgressValue} % · Leistungen: {serviceCount} · Zugewiesen: {staffCount ? `${staffCount} Mitarbeiter` : 'niemand'} · Zuletzt aktualisiert {lastUpdate}
+        </p>
+      </header>
+    )
+  }
+
+  const renderAdminCustomerCard = () => (
+    <Card id="order-customer" className="order-section-card">
+      <CardHeader className="order-section-header">
+        <CardTitle className="order-section-title">
+          <User className="h-5 w-5" />
+          Kunde
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-3">
+        <div className="flex items-start gap-3">
+          <Avatar className="w-10 h-10">
+            <AvatarImage src={customer.avatar} />
+            <AvatarFallback className="text-xs">{customerInitials}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0 space-y-1">
+            <p className="font-semibold">{customer.name}{order.guestInfo?.isGuest ? ' (Gast)' : ''}</p>
+            <p className="flex items-center gap-1 break-all"><Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{customer.email || '–'}</p>
+            <p className="flex items-center gap-1"><Phone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{customer.phone || '–'}</p>
+            {!order.guestInfo?.isGuest && <p className="text-muted-foreground">{t('orderDetails.customerSince')} {customerSinceText}</p>}
+          </div>
+        </div>
+        {customer.address && (
+          <div className="mt-3 pt-3 border-t">
+            <p className="font-medium flex items-center gap-1"><Home className="h-3.5 w-3.5" aria-hidden="true" />{t('orderDetails.address')}</p>
+            <div className="text-muted-foreground mt-1 space-y-0.5">
+              <p>{customer.address.street}</p>
+              <p>{customer.address.zipCode} {customer.address.city}{customer.address.state ? `, ${customer.address.state}` : ''}</p>
+              <p>{customer.address.country}</p>
+            </div>
+          </div>
+        )}
+        {customer.paymentMethods && customer.paymentMethods.length > 0 && (
+          <div className="mt-3 pt-3 border-t">
+            <p className="font-medium flex items-center gap-1 mb-1"><CreditCard className="h-3.5 w-3.5" aria-hidden="true" />{t('orderDetails.paymentMethods')}</p>
+            <div className="space-y-1">
+              {customer.paymentMethods.slice(0, 2).map((method) => (
+                <div key={`${method.type}-${method.last4}`} className="flex items-center justify-between">
+                  <span>{PAYMENT_METHOD_LABELS_DE[method.type] || method.type} endet auf {method.last4}</span>
+                  {method.isDefault && <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{t('orderDetails.default', 'Standard')}</Badge>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+
+  const renderAdminCommunicationTab = () => (
+    <div id="admin-od-communication" tabIndex={-1} className="admin-od-tab-panel space-y-3 focus:outline-none">
+      <div className="admin-od-tab-intro">
+        <div>
+          <h2 className="admin-od-tab-title">Kommunikation</h2>
+          <p className="admin-od-tab-description">
+            Vollständiger Verlauf mit dem Kunden und interne Notizen des Teams. Wählen Sie über dem Eingabefeld,
+            ob Sie dem Kunden schreiben („An Kunden“, mit E-Mail-Benachrichtigung) oder eine interne Notiz speichern
+            („Intern – nur für das Team“).
+          </p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => navigate(`/messages?thread=order:${order._id}`)}>
+          <Inbox className="h-4 w-4 mr-1.5" aria-hidden="true" />
+          Im Postfach öffnen
+        </Button>
+      </div>
+      {/* Repair Offer Card — shown when complaint is denied and offer is pending */}
+      {isComplaintFollowupOrder && complaintWorkflow?.repairOffer && complaintWorkflow.repairOffer.status === 'pending' && (
+        <div className="rounded-lg border-2 border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex-shrink-0 h-8 w-8 rounded-full bg-rose-100 dark:bg-rose-900 flex items-center justify-center">
+              <FileText className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <p className="text-sm font-semibold text-rose-900 dark:text-rose-100">Neues Reparaturangebot</p>
+                <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-xs">Ihre Entscheidung erforderlich</Badge>
+              </div>
+              <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed whitespace-pre-wrap">
+                {complaintWorkflow.repairOffer.description}
+              </p>
+              {complaintWorkflow.repairOffer.createdAt && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Erstellt am {new Date(complaintWorkflow.repairOffer.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </p>
+              )}
+            </div>
+            <div className="flex-shrink-0 text-right">
+              <p className="text-lg font-bold text-rose-900 dark:text-rose-100">
+                {formatEUR(safeToNumber(complaintWorkflow.repairOffer.amount))}
+              </p>
+              <p className="text-xs text-muted-foreground">Angebotspreis</p>
+            </div>
+          </div>
+
+          {isCustomer && (
+            <div className="flex gap-2 pt-1">
+              <Button
+                size="sm"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs"
+                onClick={handleAcceptRepairOffer}
+                disabled={offerActionLoading !== ''}
+              >
+                {offerActionLoading === 'accept' ? 'Wird bearbeitet...' : '✓ Angebot annehmen'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 border-rose-300 text-rose-700 hover:bg-rose-100 dark:hover:bg-rose-900 text-xs"
+                onClick={handleRejectRepairOffer}
+                disabled={offerActionLoading !== ''}
+              >
+                {offerActionLoading === 'reject' ? 'Wird bearbeitet...' : '✕ Angebot ablehnen'}
+              </Button>
+            </div>
+          )}
+
+          {!isCustomer && (
+            <p className="text-xs text-muted-foreground italic">Warte auf Kundenentscheidung.</p>
+          )}
+        </div>
+      )}
+
+      {/* Offer decided — show result */}
+      {isComplaintFollowupOrder && complaintWorkflow?.repairOffer && complaintWorkflow.repairOffer.status !== 'pending' && complaintWorkflow.repairOffer.status !== 'none' && (
+        <div className={`rounded-lg border p-3 flex items-center gap-3 ${
+          complaintWorkflow.repairOffer.status === 'accepted'
+            ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800'
+            : 'bg-slate-50 border-slate-200 dark:bg-slate-900/30 dark:border-slate-700'
+        }`}>
+          <div className={`h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+            complaintWorkflow.repairOffer.status === 'accepted' ? 'bg-green-100' : 'bg-slate-200'
+          }`}>
+            <FileText className={`h-3.5 w-3.5 ${
+              complaintWorkflow.repairOffer.status === 'accepted' ? 'text-green-700' : 'text-slate-500'
+            }`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={`text-xs font-semibold ${
+              complaintWorkflow.repairOffer.status === 'accepted' ? 'text-green-800 dark:text-green-300' : 'text-slate-700 dark:text-slate-300'
+            }`}>
+              {complaintWorkflow.repairOffer.status === 'accepted'
+                ? 'Reparaturangebot angenommen'
+                : 'Reparaturangebot abgelehnt'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {formatEUR(safeToNumber(complaintWorkflow.repairOffer.amount))} &bull;{' '}
+              {complaintWorkflow.repairOffer.status === 'accepted' && complaintWorkflow.repairOffer.acceptedAt
+                ? new Date(complaintWorkflow.repairOffer.acceptedAt).toLocaleDateString('de-DE')
+                : complaintWorkflow.repairOffer.rejectedAt
+                ? new Date(complaintWorkflow.repairOffer.rejectedAt).toLocaleDateString('de-DE')
+                : ''}
+            </p>
+          </div>
+        </div>
+      )}
+
+
+      {id && (
+        <div className="admin-od-communication-panel">
+          <CommunicationPanel
+            orderId={id}
+            variant="full"
+            layout="inline"
+            hideTitle
+            feedbackOpen={commFeedbackOpen}
+            onFeedbackOpenChange={setCommFeedbackOpen}
+            quickActionOpen={commQuickActionOpen}
+            onQuickActionOpenChange={setCommQuickActionOpen}
+            onRead={() => setAdminCommunicationReloadToken((value) => value + 1)}
+            onSent={() => setAdminCommunicationReloadToken((value) => value + 1)}
+          />
+        </div>
+      )}
+    </div>
+  )
+
+  const renderAdminFinanceTab = () => {
+    const staffInvoices = Array.isArray(adminPayments?.invoices) ? adminPayments!.invoices : []
+    const payments = Array.isArray(adminPayments?.payments) ? adminPayments!.payments : []
+    const bookingIdForDialog = customerBookingIdForPayments
+    return (
+      <div className="admin-od-tab-panel space-y-4">
+        <Card id="admin-od-finance" tabIndex={-1} className="order-section-card focus:outline-none">
+          <CardHeader className="order-section-header">
+            <CardTitle className="order-section-title">
+              <Euro className="h-5 w-5" />
+              Zahlungsstand
+            </CardTitle>
+            <div className="flex flex-wrap gap-2">
+              {user?.role === 'admin' && (
+                <Button size="sm" onClick={handleCreateOrderInvoice} disabled={creatingOrderInvoice}>
+                  <Receipt className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                  {creatingOrderInvoice ? 'Rechnung wird erstellt…' : 'Rechnung erstellen'}
+                </Button>
+              )}
+              {user?.role === 'admin' && bookingIdForDialog && (
+                <Button size="sm" variant="outline" onClick={() => setBookingPaymentsDialogOpen(true)}>
+                  <CreditCard className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                  Zahlungen verwalten
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="pt-3 space-y-3">
+            <dl className="admin-od-money-grid">
+              <div><dt>Gesamt (brutto) – dieser Auftrag</dt><dd>{formatEUR(orderPriceBreakdown.grossTotal)}</dd></div>
+              {adminMoney ? (
+                <>
+                  <div><dt>Bezahlt</dt><dd>{formatEUR(adminMoney.received)}</dd></div>
+                  <div><dt>Offen</dt><dd className={adminMoney.open > 0.009 ? 'text-red-700' : ''}>{formatEUR(adminMoney.open)}</dd></div>
+                  {adminMoney.refundPending > 0.009 && (
+                    <div><dt>Überzahlt · Erstattung offen</dt><dd className="text-violet-700">{formatEUR(adminMoney.refundPending)}</dd></div>
+                  )}
+                  {adminMoney.notInvoiced > 0.009 && (
+                    <div><dt>Noch nicht berechnet</dt><dd>{formatEUR(adminMoney.notInvoiced)}</dd></div>
+                  )}
+                </>
+              ) : null}
+              {orderDiscountTotal > 0 && (
+                <div><dt>Rabatt (im Gesamt enthalten)</dt><dd className="text-green-700">−{formatEUR(orderDiscountTotal)}</dd></div>
+              )}
+              <div><dt>Netto</dt><dd>{formatEUR(orderPriceBreakdown.netTotal)}</dd></div>
+              <div><dt>MwSt. ({orderTaxRateLabel})</dt><dd>{formatEUR(orderPriceBreakdown.taxAmount)}</dd></div>
+            </dl>
+            {adminMoneyIsBookingWide && adminMoney && (
+              <p className="text-xs text-muted-foreground">
+                Bezahlt und Offen gelten für die gesamte Buchung{adminBookingNumber ? ` ${adminBookingNumber}` : ''}
+                {adminBookingOrderCount > 1 ? ` (${adminBookingOrderCount} Geräte, ` : ' ('}Gesamt {formatEUR(adminMoney.bookingTotal)}).
+              </p>
+            )}
+            {!adminMoney && (
+              adminPaymentsState === 'loading' ? (
+                <p className="text-muted-foreground" role="status">Zahlungsstand wird geladen …</p>
+              ) : adminPaymentsState === 'error' ? (
+                <p className="text-red-700">
+                  Zahlungsstand konnte nicht geladen werden.{' '}
+                  <Button size="sm" variant="outline" onClick={() => setAdminPaymentsReloadToken((value) => value + 1)}>Erneut versuchen</Button>
+                </p>
+              ) : (
+                <p className="text-muted-foreground">
+                  {customerBookingIdForPayments ? 'Zahlungsstand nicht verfügbar.' : 'Kein Zahlungsstand: Für diesen Auftrag ohne Buchung gibt es noch keine Rechnung.'}
+                </p>
+              )
+            )}
+          </CardContent>
+        </Card>
+
+        <Card id="admin-od-invoices" tabIndex={-1} className="order-section-card focus:outline-none">
+          <CardHeader className="order-section-header">
+            <CardTitle className="order-section-title">
+              <FileText className="h-5 w-5" />
+              Rechnungen &amp; Gutschriften
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-3">
+            {user?.role === 'admin' ? (
+              loadingOrderInvoices ? (
+                <p className="text-muted-foreground" role="status">Rechnungen werden geladen …</p>
+              ) : orderInvoicesError ? (
+                <p className="text-red-700">
+                  Rechnungen konnten nicht geladen werden.{' '}
+                  <Button size="sm" variant="outline" onClick={() => void loadOrderInvoices(String(order._id), customerBookingIdForPayments || null)}>Erneut versuchen</Button>
+                </p>
+              ) : orderInvoices.length > 0 ? (
+                <ul className="space-y-2">
+                  {orderInvoices.map((invoice) => {
+                    const payment = summarizeInvoicePayment(invoice as any)
+                    return (
+                      <li key={invoice._id}>
+                        <button
+                          type="button"
+                          onClick={() => void openInvoiceDetailsDialog(invoice)}
+                          className="admin-od-invoice-row"
+                        >
+                          <span className="min-w-0 space-y-1">
+                            <span className="flex items-center gap-1.5 font-semibold text-[#1a2a5e]">
+                              <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+                              {(invoice as any).isCreditNote ? 'Gutschrift' : 'Rechnung'} {invoice.invoiceNumber || invoice._id}
+                            </span>
+                            <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                              <Badge variant="outline" className="text-xs font-medium">{getInvoiceScopeLabel(invoice)}</Badge>
+                              <Badge className={`text-xs font-medium ${getInvoiceStatusBadgeClass(invoice.status)}`}>{translateInvoiceStatus(invoice.status)}</Badge>
+                              {payment.known && <Badge className={`text-xs font-medium ${INVOICE_PAYMENT_TONE_CLASSES[payment.tone]}`}>{payment.label}</Badge>}
+                              <span>Datum: {formatInvoiceDate(invoice.createdAt)}</span>
+                            </span>
+                          </span>
+                          <span className="flex items-center gap-2 shrink-0">
+                            <strong>{formatEUR((invoice as any).total)}</strong>
+                            <span className="text-xs text-[#1a2a5e] underline">Details ansehen</span>
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <p className="text-muted-foreground">Noch keine Rechnung für diesen Auftrag bzw. die zugehörige Buchung erstellt.</p>
+              )
+            ) : staffInvoices.length > 0 ? (
+              <ul className="space-y-2">
+                {staffInvoices.map((invoice) => (
+                  <li key={invoice._id} className="admin-od-invoice-row is-static">
+                    <span className="font-semibold text-[#1a2a5e]">{invoice.isCreditNote ? 'Gutschrift' : 'Rechnung'} {invoice.invoiceNumber}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {translateInvoiceStatus(invoice.status)} · Gesamt {formatEUR(invoice.total)}
+                      {!invoice.isCreditNote ? ` · Offen ${formatEUR(invoice.openAmount)}` : ''}
+                    </span>
+                  </li>
+                ))}
+                <li className="text-xs text-muted-foreground">Rechnungsdetails und PDFs sind für Administratoren freigegeben.</li>
+              </ul>
+            ) : adminPaymentsState === 'loading' ? (
+              <p className="text-muted-foreground" role="status">Rechnungen werden geladen …</p>
+            ) : (
+              <p className="text-muted-foreground">Noch keine Rechnung zu dieser Buchung. Rechnungsdetails sind für Administratoren freigegeben.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card id="admin-od-payments" tabIndex={-1} className="order-section-card focus:outline-none">
+          <CardHeader className="order-section-header">
+            <CardTitle className="order-section-title">
+              <CreditCard className="h-5 w-5" />
+              Zahlungseingänge{adminBookingNumber ? ` der Buchung ${adminBookingNumber}` : ''}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-3">
+            {!customerBookingIdForPayments ? (
+              <p className="text-muted-foreground">Zahlungen werden je Buchung erfasst; dieser Auftrag hat keine Buchung. Zahlungen der Rechnungen siehe „Details ansehen“.</p>
+            ) : adminPaymentsState === 'loading' && !adminPayments ? (
+              <p className="text-muted-foreground" role="status">Zahlungen werden geladen …</p>
+            ) : adminPaymentsState === 'error' ? (
+              <p className="text-red-700">
+                Zahlungen konnten nicht geladen werden.{' '}
+                <Button size="sm" variant="outline" onClick={() => setAdminPaymentsReloadToken((value) => value + 1)}>Erneut versuchen</Button>
+              </p>
+            ) : payments.length === 0 ? (
+              <p className="text-muted-foreground">Noch keine Zahlung eingegangen.</p>
+            ) : (
+              <ul className="divide-y">
+                {payments.map((payment) => (
+                  <li key={payment._id} className="flex flex-wrap items-start justify-between gap-2 py-2">
+                    <span className="min-w-0 space-y-0.5">
+                      <span className="block font-medium">{PAYMENT_METHOD_LABELS_DE[payment.paymentMethod] || payment.paymentMethod} · {formatDateTimeDe(payment.paymentDate)}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {payment.allocations?.length
+                          ? payment.allocations.map((allocation) => `Rechnung ${allocation.invoiceNumber}: ${formatEUR(allocation.allocatedAmount)}`).join(' · ')
+                          : 'Vorauszahlung (noch keiner Rechnung zugeordnet)'}
+                        {payment.status && payment.status !== 'completed' ? ` · Status: ${payment.status === 'refunded' ? 'erstattet' : payment.status === 'pending' ? 'ausstehend' : payment.status}` : ''}
+                      </span>
+                    </span>
+                    <span className="text-right">
+                      <strong className="block">{formatEUR(payment.amount)}</strong>
+                      {safeToNumber(payment.refundAmount) > 0.009 && (
+                        <span className="block text-xs text-violet-700">davon erstattet {formatEUR(safeToNumber(payment.refundAmount))}</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const renderAdminShippingTab = () => {
+    const inboundSourceLabel = (() => {
+      switch (inboundShipment?.source) {
+        case 'booking':
+          return `Einsendelabel der Buchung${adminBookingNumber ? ` ${adminBookingNumber}` : ''} (ein Paket für alle Geräte der Buchung)`
+        case 'booking-retoure':
+          return `DHL-Retoure der Buchung${adminBookingNumber ? ` ${adminBookingNumber}` : ''}`
+        case 'order':
+          return 'DHL-Retoure am Auftrag'
+        default:
+          return ''
+      }
+    })()
+    // K11: Absender/Empfänger je Richtung - vom Server aus denselben Quellen wie die
+    // Label-Erstellung (Shop: DHL-Integration; Kunde: Liefer- bzw. Rechnungsadresse).
+    // Fehlt etwas, wird es benannt, nie geraten.
+    const ADDRESS_FIELDS = ['Straße', 'Hausnummer', 'PLZ', 'Ort', 'Lieferadresse', 'Packstationsnummer (3 Ziffern)', 'Postnummer (6 bis 10 Ziffern)', 'aktive DHL-Integration']
+    const renderParty = (party: ShipmentPartyView | undefined, slot: string, roleLabel: 'Absender' | 'Empfänger') => {
+      const who = party?.role === 'shop' ? 'McRepair' : 'Kunde'
+      const missing = Array.isArray(party?.missing) ? party.missing : []
+      const addressMissing = missing.some((field) => ADDRESS_FIELDS.includes(field))
+      const country = String(party?.country || '').trim()
+      const streetLine = party?.deliveryType === 'packstation'
+        ? [party.packstationNumber ? `Packstation ${party.packstationNumber}` : '', party.postNumber ? `Postnummer ${party.postNumber}` : ''].filter(Boolean).join(' · ')
+        : [party?.street, party?.house].filter(Boolean).join(' ')
+      const cityLine = [party?.postalCode, party?.city].filter(Boolean).join(' ')
+      return (
+        <div className="admin-od-party" data-party={slot}>
+          <span className="admin-od-party-role">{roleLabel}</span>
+          <div className="admin-od-party-body">
+            <span className="admin-od-party-name">
+              <span className="admin-od-party-who">{who}</span>
+              {party?.name ? ` ${party.name}` : ''}
+            </span>
+            {streetLine ? <span>{streetLine}</span> : null}
+            {cityLine ? <span>{cityLine}</span> : null}
+            {country && !['DE', 'DEU', 'Deutschland'].includes(country) ? <span>{country}</span> : null}
+            {!party ? (
+              <span className="admin-od-party-missing" role="note">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                Adresse fehlt – bitte prüfen
+              </span>
+            ) : missing.length > 0 ? (
+              <span className="admin-od-party-missing" role="note">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                {addressMissing ? 'Adresse fehlt – bitte prüfen' : 'Angabe fehlt – bitte prüfen'} (fehlt: {missing.join(', ')})
+                {party.role === 'shop' ? ' – Systemkonfiguration → Integrationen → DHL' : ''}
+              </span>
+            ) : null}
+            {party?.sourceLabel ? <span className="admin-od-party-source">Quelle: {party.sourceLabel}</span> : null}
+          </div>
+        </div>
+      )
+    }
+    const renderShipmentParties = (direction: 'inbound' | 'outbound') => {
+      if (!orderShipments) return null
+      const parties = orderShipments.parties?.[direction]
+      if (!parties) {
+        return <p className="text-xs text-muted-foreground" data-party={`${direction}-unavailable`}>Absender und Empfänger konnten nicht geladen werden.</p>
+      }
+      const labelExists = direction === 'outbound' ? outboundLabelExists : inboundLabelExists
+      return (
+        <div className="admin-od-parties" role="group" aria-label={`Absender und Empfänger – ${direction === 'outbound' ? 'Auslieferung (McRepair → Kunde)' : 'Einsendung (Kunde → McRepair)'}`}>
+          {renderParty(parties.sender, `${direction}-sender`, 'Absender')}
+          {renderParty(parties.recipient, `${direction}-recipient`, 'Empfänger')}
+          {labelExists ? (
+            <p className="admin-od-party-note">Anschriften aus den aktuellen Stammdaten – maßgeblich ist das bereits erstellte Label.</p>
+          ) : null}
+        </div>
+      )
+    }
+    return (
+      <div id="admin-od-shipping" tabIndex={-1} className="admin-od-tab-panel space-y-3 focus:outline-none">
+        {(inboundIsPlaceholder || outboundIsPlaceholder) && (
+          <div className="admin-od-banner is-warn" role="note">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>
+              <strong>Testmodus – Dummy-Label (kein echtes DHL-Label).</strong>{' '}
+              Dieses Label darf nicht für den Versand verwendet werden. Echte Labels entstehen erst mit dem
+              Buchungslabel-Modus „live“ (Systemkonfiguration → Integrationen → DHL).
+            </span>
+          </div>
+        )}
+        {shipmentsLoadError && (
+          <div className="admin-od-banner is-error" role="alert">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>Versandstand konnte nicht geladen werden.</span>
+            <Button size="sm" variant="outline" onClick={() => void loadOrderShipments(String(order._id))}>Erneut versuchen</Button>
+          </div>
+        )}
+        <div className="admin-od-shipping-grid">
+          <section className="admin-od-shipping-card" aria-labelledby="admin-od-inbound-title">
+            <h2 id="admin-od-inbound-title" className="admin-od-shipping-title">
+              <Send className="h-5 w-5" aria-hidden="true" />
+              Einsendung <span className="admin-od-direction">Kunde → McRepair</span>
+            </h2>
+            {renderShipmentParties('inbound')}
+            <dl className="admin-od-shipping-facts">
+              <div><dt>Status</dt><dd>{describeShipmentChip('inbound').text}</dd></div>
+              {inboundSourceLabel ? <div><dt>Label</dt><dd>{inboundSourceLabel}</dd></div> : null}
+              {inboundShipment?.trackingNumber ? (
+                <div>
+                  <dt>Sendungsnummer</dt>
+                  <dd>
+                    {inboundIsPlaceholder ? (
+                      <span>{inboundShipment.trackingNumber} <Badge variant="outline" className="ml-1 border-amber-400 text-amber-800">Testlabel</Badge></span>
+                    ) : (
+                      <a href={buildDhlTrackingUrl(inboundShipment.trackingNumber)} target="_blank" rel="noreferrer" className="underline">
+                        {inboundShipment.trackingNumber}
+                      </a>
+                    )}
+                  </dd>
+                </div>
+              ) : null}
+              {inboundShipment?.statusDescription ? <div><dt>DHL-Status</dt><dd>{inboundShipment.statusDescription}</dd></div> : null}
+            </dl>
+            <div className="flex flex-wrap gap-2">
+              {inboundDownloadable ? (
+                <Button size="sm" variant="outline" onClick={() => void handleDownloadInboundLabel()} disabled={downloadingOrderReturnLabel}>
+                  <Download className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                  {downloadingOrderReturnLabel
+                    ? 'Einsendelabel wird heruntergeladen…'
+                    : inboundIsPlaceholder ? 'Testlabel herunterladen (PDF)' : 'Einsendelabel herunterladen (PDF)'}
+                </Button>
+              ) : null}
+              {!inboundLabelExists && (
+                <Button
+                  size="sm"
+                  onClick={() => void handleCreateInboundLabel()}
+                  disabled={creatingOrderReturnLabel || !inboundAction?.allowed}
+                  className="admin-od-action-primary"
+                >
+                  <Send className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                  {creatingOrderReturnLabel ? 'Einsendelabel wird erstellt…' : 'DHL-Einsendelabel erstellen'}
+                </Button>
+              )}
+            </div>
+            {inboundAction?.reason ? <p className="text-xs text-muted-foreground">{inboundAction.reason}</p> : null}
+            {(inboundShipment as { lockScope?: string } | undefined)?.lockScope === 'booking' && (
+              <p className="text-xs text-muted-foreground">
+                Die Sperre liegt an der Buchung{adminBookingNumber ? ` ${adminBookingNumber}` : ''}: Sie gilt für alle Geräte dieser Buchung; der Abgleich wird an der Buchung gespeichert.
+              </p>
+            )}
+            {renderShipmentLockPanel('inbound')}
+            {orderShipments?.legacy?.inboundInOutboundSlot && (
+              <p className="text-xs text-amber-800">
+                <AlertTriangle className="inline h-3 w-3 mr-1" aria-hidden="true" />
+                Altbestand: Ein Einsendelabel steht im Versandfeld des Auftrags. Es wird hier als Einsendung gezeigt.
+              </p>
+            )}
+          </section>
+
+          <section className="admin-od-shipping-card" aria-labelledby="admin-od-outbound-title">
+            <h2 id="admin-od-outbound-title" className="admin-od-shipping-title">
+              <Truck className="h-5 w-5" aria-hidden="true" />
+              Auslieferung <span className="admin-od-direction">McRepair → Kunde</span>
+            </h2>
+            {renderShipmentParties('outbound')}
+            <dl className="admin-od-shipping-facts">
+              <div><dt>Status</dt><dd>{describeShipmentChip('outbound').text}</dd></div>
+              {outboundShipment?.trackingNumber ? (
+                <div>
+                  <dt>Sendungsnummer</dt>
+                  <dd>
+                    {outboundIsPlaceholder ? (
+                      <span>{outboundShipment.trackingNumber} <Badge variant="outline" className="ml-1 border-amber-400 text-amber-800">Testlabel</Badge></span>
+                    ) : (
+                      <a href={buildDhlTrackingUrl(outboundShipment.trackingNumber)} target="_blank" rel="noreferrer" className="underline">
+                        {outboundShipment.trackingNumber}
+                      </a>
+                    )}
+                  </dd>
+                </div>
+              ) : null}
+              {outboundShipment?.statusDescription ? <div><dt>DHL-Status</dt><dd>{outboundShipment.statusDescription}</dd></div> : null}
+              {outboundShipment?.actualDelivery ? <div><dt>Zugestellt am</dt><dd>{formatDateTimeDe(outboundShipment.actualDelivery)}</dd></div> : null}
+            </dl>
+            <div className="flex flex-wrap gap-2">
+              {outboundShipment?.hasLabel ? (
+                <Button size="sm" variant="outline" onClick={() => void handleDownloadOrderShippingLabel()} disabled={downloadingOrderShippingLabel}>
+                  <Download className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                  {downloadingOrderShippingLabel ? 'Versandlabel wird heruntergeladen…' : 'Versandlabel herunterladen (PDF)'}
+                </Button>
+              ) : null}
+              {!outboundLabelExists && (
+                <Button
+                  size="sm"
+                  onClick={() => void handleCreateOutboundLabel()}
+                  disabled={creatingOrderShippingLabel || !outboundAction?.allowed}
+                  className="admin-od-action-secondary"
+                >
+                  <Truck className="h-4 w-4 mr-1.5" aria-hidden="true" />
+                  {creatingOrderShippingLabel ? 'Versandlabel wird erstellt…' : 'An Kunden versenden'}
+                </Button>
+              )}
+            </div>
+            {outboundActionHint ? <p className="text-xs text-muted-foreground">{outboundActionHint}</p> : null}
+            {!outboundShipment?.hasLabel && outboundShipment?.trackingNumber ? (
+              <p className="text-xs text-muted-foreground">
+                Auslieferung angelegt (Sendungsnummer {outboundShipment.trackingNumber}), das PDF-Label bitte im DHL-Geschäftskundenportal abrufen.
+              </p>
+            ) : null}
+            {renderShipmentLockPanel('outbound')}
+            {orderShipments?.legacy?.bookingOutboundLabel && (
+              <p className="text-xs text-amber-800">
+                <AlertTriangle className="inline h-3 w-3 mr-1" aria-hidden="true" />
+                An der Buchung existiert bereits ein älteres Rückweg-Label (Sendungsnummer {orderShipments.legacy.bookingOutboundLabel.trackingNumber}). Bitte prüfen, ob dieses Gerät damit schon verschickt wurde.
+              </p>
+            )}
+          </section>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`order-details-container ${isStaffOrAdmin ? 'admin-order-workspace' : 'customer-order-workspace'}`}>
       <SEO
@@ -5972,6 +8078,7 @@ export function OrderDetails() {
       </button>
 
       {/* Order Header */}
+      {isStaffOrAdmin ? renderAdminHeader() : (
       <div className="order-details-header">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="order-header-title-block">
@@ -5980,17 +8087,6 @@ export function OrderDetails() {
                 Reklamationsauftrag
               </p>
             )}
-            {isStaffOrAdmin ? (
-              <>
-                <h1>
-                  <Package className="h-7 w-7" />
-                  Order #{order.orderNumber || order._id.slice(-6)}
-                </h1>
-                <p>
-                  {order.deviceBrand} {order.deviceModel} • {new Date(order.createdAt).toLocaleDateString()}
-                </p>
-              </>
-            ) : (
               <div className="customer-dashboard-device-head">
                 {getDeviceModelPreviewImage(order) ? (
                   <img
@@ -6009,10 +8105,13 @@ export function OrderDetails() {
                 </div>
                 <div className="customer-dashboard-device-copy">
                   <h2>{order.deviceBrand} {order.deviceModel}</h2>
-                  <p>Auftrag #{order.orderNumber || order._id.slice(-6)} • Erstellt am {orderCreatedText}</p>
+                  <p>
+                    Auftrag {customerOrderRef}
+                    {customerBookingNumber ? <> · Buchung {customerBookingNumber}</> : null}
+                    {' '}· Erstellt am {orderCreatedText}
+                  </p>
                 </div>
               </div>
-            )}
             {isComplaintFollowupOrder && (
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                 <Badge className="bg-rose-100 text-rose-800 border border-rose-300" variant="outline">
@@ -6051,104 +8150,19 @@ export function OrderDetails() {
             )}
           </div>
           <div className="flex items-center gap-3 flex-wrap order-header-meta-block">
-            {isStaffOrAdmin ? (
-              <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`${getStatusButtonClasses(order.status)} text-xs px-3 py-1.5 cursor-pointer font-semibold flex items-center gap-1.5 rounded-md`}
-                    disabled={updatingStatus}
-                  >
-                    {getStatusIcon(order.status)}
-                    <span>{translateOrderStatus(order.status)}</span>
-                    <ChevronDown className="h-3 w-3 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="text-xs font-semibold">Auftragsstatus ändern</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleStatusChange('pending')} disabled={updatingStatus || order.status === 'pending'} className="text-xs cursor-pointer">
-                    <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                    Ausstehend
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStatusChange('in-progress')} disabled={updatingStatus || order.status === 'in-progress'} className="text-xs cursor-pointer">
-                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                    In Bearbeitung
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStatusChange('paused')} disabled={updatingStatus || order.status === 'paused'} className="text-xs cursor-pointer">
-                    <span className="inline-block w-2 h-2 bg-slate-500 rounded-full mr-2"></span>
-                    Pausiert
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStatusChange('quality-check')} disabled={updatingStatus || order.status === 'quality-check'} className="text-xs cursor-pointer">
-                    <span className="inline-block w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
-                    Qualitätskontrolle
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStatusChange('ready-for-pickup')} disabled={updatingStatus || order.status === 'ready-for-pickup'} className="text-xs cursor-pointer">
-                    <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                    Abholbereit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleStatusChange('completed')} disabled={updatingStatus || order.status === 'completed'} className="text-xs cursor-pointer">
-                    <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    Abgeschlossen
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleStatusChange('cancelled')} disabled={updatingStatus || order.status === 'cancelled'} className="text-xs cursor-pointer text-destructive">
-                    <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                    Storniert
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
               <span className={`order-status-badge ${getStatusColor(order.status)} text-xs px-3 py-1`}>
                 {getStatusIcon(order.status)}
-                <span className="ml-1">{translateOrderStatus(order.status)}</span>
+                <span className="ml-1">{currentOrderStatusLabel}</span>
               </span>
-            )}
-            {canRunComplaintTechnicianActions && (
-              <div className="flex items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 dark:border-rose-800 dark:bg-rose-950/30">
-                <span className="text-xs font-semibold text-rose-800 dark:text-rose-200">Reklamation entscheiden</span>
-                <Button
-                  size="sm"
-                  onClick={() => setComplaintActionDialog('ack')}
-                  disabled={complaintActionLoading !== ''}
-                  className="h-7 bg-green-600 px-2 text-xs text-white hover:bg-green-700"
-                >
-                  <CheckCircle className="mr-1 h-3.5 w-3.5" />
-                  Anerkennen
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setComplaintActionDialog('deny')}
-                  disabled={complaintActionLoading !== ''}
-                  className="h-7 border-rose-300 px-2 text-xs text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:text-rose-200 dark:hover:bg-rose-900/40"
-                >
-                  <X className="mr-1 h-3.5 w-3.5" />
-                  Ablehnen
-                </Button>
-              </div>
-            )}
             {isComplaintFollowupOrder && complaintWorkflowStatus === 'pending_approval' && latestDenyEscalationLog && (
               <div className="flex max-w-xl flex-col gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
                 <span className="font-semibold">Reklamation abgelehnt · Admin-Freigabe ausstehend</span>
                 <span>
                   {escalationActorName ? `Von ${escalationActorName}` : 'Durch den Techniker'}
                   {escalationCreatedAt ? ` am ${new Date(escalationCreatedAt).toLocaleString('de-DE')}` : ''}
-                  {complaintWorkflow.technicianReason ? `: ${complaintWorkflow.technicianReason}` : ''}
+                  {complaintWorkflow?.technicianReason ? `: ${complaintWorkflow.technicianReason}` : ''}
                 </span>
               </div>
-            )}
-            {isStaffOrAdmin && order.status === 'ready-for-pickup' && !order.pickupConfirmation && (
-              <Button
-                size="sm"
-                onClick={handleConfirmPickup}
-                disabled={confirmingPickup}
-                className="text-xs bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm gap-1.5 font-medium"
-              >
-                <PackageCheck className="h-3.5 w-3.5" />
-                {confirmingPickup ? 'Wird bestätigt…' : 'Abholung bestätigen'}
-              </Button>
             )}
             {order.pickupConfirmation?.confirmedAt && (
               <div className="flex items-center gap-1.5 text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md px-2.5 py-1">
@@ -6165,24 +8179,6 @@ export function OrderDetails() {
                 </span>
               </div>
             )}
-            <span className={`payment-status-badge ${getPaymentStatusColor(order.paymentStatus)}`}>
-              <CreditCard className="h-3 w-3 mr-1" />
-              {translatePaymentStatus(order.paymentStatus)}
-            </span>
-            {orderRefundPendingTotal > 0.009 && (
-              <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${INVOICE_PAYMENT_TONE_CLASSES.overpaid}`}>
-                Überzahlt · Erstattung offen {formatEUR(orderRefundPendingTotal)}
-              </span>
-            )}
-            {orderRefundPendingScope.bookingLevel.map((entry) => (
-              <span
-                key={`refund-badge-${entry.invoiceId}`}
-                className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${INVOICE_PAYMENT_TONE_CLASSES.overpaid}`}
-                title="Die Rechnung umfasst mehrere Aufträge der Buchung; der Betrag gilt für die ganze Rechnung."
-              >
-                Rechnung {entry.invoiceNumber || '–'} (mehrere Aufträge) überzahlt · Erstattung offen {formatEUR(entry.amount)}
-              </span>
-            ))}
             {showOutboundFulfilmentBadge && (
               <span
                 className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200"
@@ -6191,18 +8187,6 @@ export function OrderDetails() {
                 <Truck className="h-3 w-3 mr-1" />
                 Auslieferung: {getShipmentStatusMeta(outboundFulfilmentStatus).label}
               </span>
-            )}
-            {guestTrackingUrl && (
-              <a
-                href={guestTrackingUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200 dark:hover:bg-blue-900/50"
-                title="Gast-Tracking-Link öffnen"
-              >
-                <ExternalLink className="h-3 w-3" />
-                Gast-Tracking
-              </a>
             )}
             {!isStaffOrAdmin && (order.hasComplaint || order.complaintId) && (
               order.complaintId ? (
@@ -6225,23 +8209,6 @@ export function OrderDetails() {
                 </Badge>
               )
             )}
-            {isStaffOrAdmin && (
-              // EIN BILDSCHIRM, EINE SUMME: dieser Kopfbereich zeigt exakt den Wert,
-              // den die Preisübersicht weiter unten als 'Gesamtbetrag (Brutto)' ausweist.
-              // Beide lesen orderPriceBreakdown, also OrderService.buildOrderPricingSummary.
-              // order.totalCost darf hier NICHT stehen - es enthält den Händlerrabatt noch.
-              <div className="order-total-cost">
-                <div className="amount">{formatEUR(orderPriceBreakdown.grossTotal)}</div>
-                <div className="label">Gesamt (Brutto)</div>
-                {orderDiscountTotal > 0 && (
-                  <div className="label text-green-600">
-                    inkl. −{formatEUR(orderDiscountTotal)} Rabatt
-                    {orderPriceBreakdown.groupDiscountPercent > 0 ? ` (${formatTaxRate(orderPriceBreakdown.groupDiscountPercent)} %)` : ''}
-                    {orderPriceBreakdown.dealerDiscountAmount === 0 && order.appliedPromoCode ? ` (${order.appliedPromoCode})` : ''}
-                  </div>
-                )}
-              </div>
-            )}
             {!isStaffOrAdmin && order.status === 'completed' && !order.hasComplaint && !order.complaintId && (
               <Button
                 size="sm"
@@ -6255,45 +8222,47 @@ export function OrderDetails() {
           </div>
         </div>
 
-        {isStaffOrAdmin && (
-          <div className="order-admin-kpi-grid">
-            <div className="order-admin-kpi-card">
-              <span>Fortschritt</span>
-              <strong>{calculatedProgressValue}%</strong>
-            </div>
-            <div className="order-admin-kpi-card">
-              <span>Status</span>
-              <strong>{translateOrderStatus(order.status)}</strong>
-            </div>
-            <div className="order-admin-kpi-card">
-              <span>Zugewiesenes Personal</span>
-              <strong>{staffCount}</strong>
-            </div>
-            <div className="order-admin-kpi-card">
-              <span>Leistungen</span>
-              <strong>{serviceCount}</strong>
-            </div>
-            <div className="order-admin-kpi-card">
-              <span>Letzte Aktualisierung</span>
-              <strong>{lastUpdate}</strong>
-            </div>
-          </div>
-        )}
       </div>
+      )}
 
       {!isStaffOrAdmin ? (
         renderCustomerLayout()
       ) : (
-        <>
-          <div className="order-grid">
-            {/* Main Content */}
-            <div className="order-main-content space-y-4">
-              <div className={`order-nested-block order-nested-top-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
+        <Tabs value={adminTab} onValueChange={(value) => setAdminTab(value as AdminOrderTab)} className="admin-od-tabs">
+          <TabsList className="admin-od-tablist" aria-label="Bereiche des Auftrags">
+            <TabsTrigger value="uebersicht" className="admin-od-tab">Übersicht</TabsTrigger>
+            <TabsTrigger value="kommunikation" className="admin-od-tab">
+              Kommunikation
+              {adminCommunicationCounts && adminCommunicationCounts.unread > 0 ? (
+                <span className="admin-od-tab-badge is-alert">{adminCommunicationCounts.unread} ungelesen</span>
+              ) : adminCommunicationCounts?.awaitingReply ? (
+                <span className="admin-od-tab-badge is-alert">Antwort ausstehend</span>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger value="verlauf" className="admin-od-tab">
+              Verlauf
+              {adminHistoryTotal !== null ? <span className="admin-od-tab-badge">{adminHistoryTotal}</span> : null}
+            </TabsTrigger>
+            <TabsTrigger value="rechnungen" className="admin-od-tab">
+              Rechnungen &amp; Zahlungen
+              {adminMoney && adminMoney.refundPending > 0.009 ? (
+                <span className="admin-od-tab-badge is-alert">Erstattung offen</span>
+              ) : adminMoney && adminMoney.open > 0.009 ? (
+                <span className="admin-od-tab-badge">Offen {formatEUR(adminMoney.open)}</span>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger value="versand" className="admin-od-tab">
+              Versand
+              {(inboundShipment?.reconciliationRequired || outboundShipment?.reconciliationRequired) ? (
+                <span className="admin-od-tab-badge is-alert">Abgleich nötig</span>
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="uebersicht" className="admin-od-tab-content">
+            <div className="admin-od-overview">
+              <div className="admin-od-overview-main">
               {renderDeviceInformationCard()}
-              {renderDeviceInspectionCard()}
-              {renderEPartsCard()}
-              {renderRepairProgressCard()}
-              {renderWorkflowsCard()}
 
               {/* Additional Repair Information - Always visible */}
               <Card id="order-repair-info" className="order-section-card border-2 border-amber-300 dark:border-amber-700 order-card-repair-info">
@@ -6320,459 +8289,12 @@ export function OrderDetails() {
                 </CardContent>
               </Card>
 
-              {/* Quick Actions */}
-              <Card id="order-quick-actions" className="order-section-card order-quick-actions-card">
-                <CardHeader className="order-section-header">
-                  <CardTitle className="order-section-title">
-                    <Zap className="h-5 w-5" />
-                    Schnellaktionen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-2">
-                  {isStaffOrAdmin ? (
-                    <>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <Button
-                          size="sm"
-                          onClick={handleCreateOrderInvoice}
-                          disabled={creatingOrderInvoice || user?.role !== 'admin'}
-                          className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
-                        >
-                          <FileText className="h-4 w-4 mr-1.5" />
-                          {creatingOrderInvoice ? 'Rechnung wird erstellt…' : 'Rechnung erstellen'}
-                        </Button>
-
-                        {/* Zwei getrennte Vorgänge, die sich nicht gegenseitig verdrängen:
-                            Einsendung  = Kunde -> McRepair (Einsendelabel)
-                            Auslieferung = McRepair -> Kunde ("An Kunden versenden").
-                            Ob ein Button aktiv ist, entscheidet der Server (identische Regel
-                            wie beim Erstellen); Admin und Staff sehen dieselben Bedingungen. */}
-                        <Button
-                          size="sm"
-                          onClick={handleCreateInboundLabel}
-                          disabled={creatingOrderReturnLabel || !inboundAction?.allowed}
-                          title={inboundAction?.reason || ''}
-                          className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
-                        >
-                          <Send className="h-4 w-4 mr-1.5" />
-                          {creatingOrderReturnLabel
-                            ? 'Einsendelabel wird erstellt…'
-                            : inboundLabelExists
-                              ? 'Einsendelabel bereits erstellt'
-                              : 'Einsendelabel erstellen'}
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          onClick={handleCreateOutboundLabel}
-                          disabled={creatingOrderShippingLabel || !outboundAction?.allowed}
-                          title={outboundActionHint}
-                          className="bg-[#1a2a5e] text-white hover:bg-[#0f1d45] font-semibold border-0"
-                        >
-                          <Truck className="h-4 w-4 mr-1.5" />
-                          {creatingOrderShippingLabel
-                            ? 'Versandlabel wird erstellt…'
-                            : outboundLabelExists
-                              ? 'Versandlabel bereits erstellt'
-                              : 'An Kunden versenden'}
-                        </Button>
-
-                        <p className="sm:col-span-2 text-xs text-muted-foreground -mt-1">
-                          <span className="font-medium">Einsendung (Kunde → McRepair):</span> {inboundAction?.reason || (orderShipments ? '' : 'Versandstand wird geladen…')}
-                          <br />
-                          <span className="font-medium">Auslieferung (McRepair → Kunde):</span> {outboundActionHint}
-                        </p>
-
-                        {orderShipments?.legacy?.bookingOutboundLabel && (
-                          <p className="sm:col-span-2 text-xs text-amber-800 dark:text-amber-300 -mt-1">
-                            <AlertTriangle className="inline h-3 w-3 mr-1" />
-                            An der Buchung existiert bereits ein älteres Rückweg-Label (Sendungsnummer {orderShipments.legacy.bookingOutboundLabel.trackingNumber}). Bitte prüfen, ob dieses Gerät damit schon verschickt wurde.
-                          </p>
-                        )}
-
-                        {renderShipmentLockPanel('inbound')}
-                        {renderShipmentLockPanel('outbound')}
-
-                        <div className="sm:col-span-2 rounded-md border bg-muted/20 p-3 space-y-3">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Erstellte Dokumente</p>
-                            {user?.role === 'admin' ? (
-                              loadingOrderInvoices ? (
-                                <p className="text-xs text-muted-foreground mt-1">Rechnungen werden geladen…</p>
-                              ) : orderInvoices.length > 0 ? (
-                                <div className="mt-2 space-y-1.5">
-                                  {orderInvoices.map((invoice) => (
-                                    <button
-                                      key={invoice._id}
-                                      type="button"
-                                      onClick={() => void openInvoiceDetailsDialog(invoice)}
-                                      className="flex w-full items-start justify-between rounded border bg-background px-2.5 py-1.5 text-left text-xs hover:bg-accent"
-                                    >
-                                      <span className="min-w-0">
-                                        <span className="flex items-center gap-1.5 min-w-0">
-                                          <FileText className="h-3.5 w-3.5 shrink-0" />
-                                          <span className="truncate font-medium">Rechnung {invoice.invoiceNumber || invoice._id}</span>
-                                        </span>
-                                        <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                                          <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium leading-none">
-                                            {getInvoiceScopeLabel(invoice)}
-                                          </Badge>
-                                          <Badge className={`h-5 px-1.5 text-[10px] font-medium leading-none ${getInvoiceStatusBadgeClass(invoice.status)}`}>
-                                            {translateInvoiceStatus(invoice.status)}
-                                          </Badge>
-                                          {(() => {
-                                            const payment = summarizeInvoicePayment(invoice)
-                                            return payment.known ? (
-                                              <Badge className={`h-5 px-1.5 text-[10px] font-medium leading-none ${INVOICE_PAYMENT_TONE_CLASSES[payment.tone]}`}>
-                                                {payment.label}
-                                              </Badge>
-                                            ) : null
-                                          })()}
-                                          <span>Datum: {formatInvoiceDate(invoice.createdAt)}</span>
-                                        </span>
-                                      </span>
-                                      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                    </button>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-xs text-muted-foreground mt-1">Noch keine Rechnung für diesen Auftrag bzw. die zugehörige Buchung erstellt.</p>
-                              )
-                            ) : (
-                              <p className="text-xs text-muted-foreground mt-1">Rechnungslinks sind nur für Administratoren sichtbar.</p>
-                            )}
-                          </div>
-
-                          <div className="border-t pt-2 space-y-2">
-                            {inboundDownloadable ? (
-                              <div className="space-y-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={handleDownloadInboundLabel}
-                                  disabled={downloadingOrderReturnLabel}
-                                >
-                                  <Download className="h-4 w-4 mr-1.5" />
-                                  {downloadingOrderReturnLabel ? 'Einsendelabel wird heruntergeladen…' : 'Einsendelabel herunterladen (Kunde → McRepair)'}
-                                </Button>
-                                {inboundShipment?.trackingNumber && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Einsendung, Sendungsnummer:{' '}
-                                    <a href={buildDhlTrackingUrl(inboundShipment.trackingNumber)} target="_blank" rel="noreferrer" className="underline">
-                                      {inboundShipment.trackingNumber}
-                                    </a>
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">Noch kein Einsendelabel verfügbar.</p>
-                            )}
-
-                            {outboundShipment?.hasLabel ? (
-                              <div className="space-y-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={handleDownloadOrderShippingLabel}
-                                  disabled={downloadingOrderShippingLabel}
-                                >
-                                  <Download className="h-4 w-4 mr-1.5" />
-                                  {downloadingOrderShippingLabel ? 'Versandlabel wird heruntergeladen…' : 'Versandlabel herunterladen (McRepair → Kunde)'}
-                                </Button>
-                                {outboundShipment.trackingNumber && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Auslieferung, Sendungsnummer:{' '}
-                                    <a href={buildDhlTrackingUrl(outboundShipment.trackingNumber)} target="_blank" rel="noreferrer" className="underline">
-                                      {outboundShipment.trackingNumber}
-                                    </a>
-                                  </p>
-                                )}
-                              </div>
-                            ) : outboundShipment?.trackingNumber ? (
-                              <p className="text-xs text-muted-foreground">
-                                Auslieferung angelegt (Sendungsnummer {outboundShipment.trackingNumber}), das PDF-Label bitte im DHL-Geschäftskundenportal abrufen.
-                              </p>
-                            ) : (
-                              <p className="text-xs text-muted-foreground">Noch kein Versandlabel an den Kunden erstellt.</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : null}
-
-                  <div className="border-t pt-3 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-blue-600" />
-                      <h4 className="font-medium text-sm">{t('orderDetails.customerInformation')}</h4>
-                    </div>
-
-                    <div className="p-3 rounded-lg border bg-muted/30">
-                      <div className="flex items-start gap-3">
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage src={customer.avatar} />
-                          <AvatarFallback className="text-xs">
-                            {customerInitials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">{customer.name}</p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 break-all">
-                            <Mail className="h-3 w-3" />
-                            {customer.email}
-                          </p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                            <Phone className="h-3 w-3" />
-                            {customer.phone || '-'}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {t('orderDetails.customerSince')} {customerSinceText}
-                          </p>
-                        </div>
-                      </div>
-
-                      {customer.address && (
-                        <div className="mt-3 pt-3 border-t">
-                          <p className="text-xs font-medium flex items-center gap-1">
-                            <Home className="h-3 w-3" />
-                            {t('orderDetails.address')}
-                          </p>
-                          <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                            <p>{customer.address.street}</p>
-                            <p>{customer.address.city}, {customer.address.state} {customer.address.zipCode}</p>
-                            <p>{customer.address.country}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {customer.paymentMethods && customer.paymentMethods.length > 0 && (
-                        <div className="mt-3 pt-3 border-t">
-                          <p className="text-xs font-medium flex items-center gap-1 mb-1">
-                            <CreditCard className="h-3 w-3" />
-                            {t('orderDetails.paymentMethods')}
-                          </p>
-                          <div className="space-y-1">
-                            {customer.paymentMethods.slice(0, 2).map((method) => (
-                              <div key={`${method.type}-${method.last4}`} className="flex items-center justify-between text-xs">
-                                <span className="capitalize">{method.type} ending in {method.last4}</span>
-                                {method.isDefault && (
-                                  <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{t('orderDetails.default')}</Badge>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div id="order-quick-actions-communication" className="border-t pt-3 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#1a2a5e]/10">
-                        <MessageSquare className="h-4 w-4 text-[#1a2a5e]" />
-                      </span>
-                      <h4 className="font-semibold text-sm text-[#1a2a5e]">Kundenkommunikation</h4>
-                    </div>
-                    {isStaffOrAdmin && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          className="flex-1 bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
-                          onClick={() => setCommFeedbackOpen(true)}
-                        >
-                          <HelpCircle className="h-4 w-4 mr-1.5" />
-                          Rückmeldung
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="flex-1 bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
-                          onClick={() => setCommQuickActionOpen(true)}
-                        >
-                          <Zap className="h-4 w-4 mr-1.5" />
-                          Aktion
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Repair Offer Card — shown when complaint is denied and offer is pending */}
-                    {isComplaintFollowupOrder && complaintWorkflow?.repairOffer && complaintWorkflow.repairOffer.status === 'pending' && (
-                      <div className="rounded-lg border-2 border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:border-rose-800 p-4 space-y-3">
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 flex-shrink-0 h-8 w-8 rounded-full bg-rose-100 dark:bg-rose-900 flex items-center justify-center">
-                            <FileText className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <p className="text-sm font-semibold text-rose-900 dark:text-rose-100">Neues Reparaturangebot</p>
-                              <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-xs">Ihre Entscheidung erforderlich</Badge>
-                            </div>
-                            <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed whitespace-pre-wrap">
-                              {complaintWorkflow.repairOffer.description}
-                            </p>
-                            {complaintWorkflow.repairOffer.createdAt && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Erstellt am {new Date(complaintWorkflow.repairOffer.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex-shrink-0 text-right">
-                            <p className="text-lg font-bold text-rose-900 dark:text-rose-100">
-                              {complaintWorkflow.repairOffer.amount.toFixed(2)} €
-                            </p>
-                            <p className="text-xs text-muted-foreground">Angebotspreis</p>
-                          </div>
-                        </div>
-
-                        {isCustomer && (
-                          <div className="flex gap-2 pt-1">
-                            <Button
-                              size="sm"
-                              className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs"
-                              onClick={handleAcceptRepairOffer}
-                              disabled={offerActionLoading !== ''}
-                            >
-                              {offerActionLoading === 'accept' ? 'Wird bearbeitet...' : '✓ Angebot annehmen'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="flex-1 border-rose-300 text-rose-700 hover:bg-rose-100 dark:hover:bg-rose-900 text-xs"
-                              onClick={handleRejectRepairOffer}
-                              disabled={offerActionLoading !== ''}
-                            >
-                              {offerActionLoading === 'reject' ? 'Wird bearbeitet...' : '✕ Angebot ablehnen'}
-                            </Button>
-                          </div>
-                        )}
-
-                        {!isCustomer && (
-                          <p className="text-xs text-muted-foreground italic">Warte auf Kundenentscheidung.</p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Offer decided — show result */}
-                    {isComplaintFollowupOrder && complaintWorkflow?.repairOffer && complaintWorkflow.repairOffer.status !== 'pending' && complaintWorkflow.repairOffer.status !== 'none' && (
-                      <div className={`rounded-lg border p-3 flex items-center gap-3 ${
-                        complaintWorkflow.repairOffer.status === 'accepted'
-                          ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800'
-                          : 'bg-slate-50 border-slate-200 dark:bg-slate-900/30 dark:border-slate-700'
-                      }`}>
-                        <div className={`h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          complaintWorkflow.repairOffer.status === 'accepted' ? 'bg-green-100' : 'bg-slate-200'
-                        }`}>
-                          <FileText className={`h-3.5 w-3.5 ${
-                            complaintWorkflow.repairOffer.status === 'accepted' ? 'text-green-700' : 'text-slate-500'
-                          }`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-semibold ${
-                            complaintWorkflow.repairOffer.status === 'accepted' ? 'text-green-800 dark:text-green-300' : 'text-slate-700 dark:text-slate-300'
-                          }`}>
-                            {complaintWorkflow.repairOffer.status === 'accepted'
-                              ? 'Reparaturangebot angenommen'
-                              : 'Reparaturangebot abgelehnt'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {complaintWorkflow.repairOffer.amount.toFixed(2)} € &bull;{' '}
-                            {complaintWorkflow.repairOffer.status === 'accepted' && complaintWorkflow.repairOffer.acceptedAt
-                              ? new Date(complaintWorkflow.repairOffer.acceptedAt).toLocaleDateString('de-DE')
-                              : complaintWorkflow.repairOffer.rejectedAt
-                              ? new Date(complaintWorkflow.repairOffer.rejectedAt).toLocaleDateString('de-DE')
-                              : ''}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {id && (
-                      <CommunicationPanel
-                        orderId={id}
-                        inspectionId={order?._id}
-                        variant="compact"
-                        feedbackOpen={commFeedbackOpen}
-                        onFeedbackOpenChange={setCommFeedbackOpen}
-                        quickActionOpen={commQuickActionOpen}
-                        onQuickActionOpenChange={setCommQuickActionOpen}
-                      />
-                    )}
-
-                    {hasDeviceHistoryTimeline && (
-                      <div className="border-t pt-3">
-                        <Collapsible open={deviceHistoryOpen} onOpenChange={setDeviceHistoryOpen}>
-                          <div className="device-history-collapsible">
-                            <CollapsibleTrigger asChild>
-                              <button type="button" className="device-history-trigger">
-                                <div className="device-history-trigger-copy">
-                                  <span className="device-history-trigger-title">Auftragsverlauf &amp; Historie</span>
-                                  <span className="device-history-trigger-summary">
-                                    {progressHistoryEntries.length} Meilensteine • {orderHistoryEntries.length} Historieneinträge
-                                  </span>
-                                </div>
-                                <ChevronDown className={`device-history-trigger-icon ${deviceHistoryOpen ? 'is-open' : ''}`} />
-                              </button>
-                            </CollapsibleTrigger>
-
-                            <CollapsibleContent className="device-history-content">
-                              <div className="device-history-section">
-                                <div className="device-history-section-heading">
-                                  <Calendar className="h-3.5 w-3.5" />
-                                  <span>Fortschritt</span>
-                                </div>
-                                {progressHistoryEntries.length > 0 ? (
-                                  <div className="device-history-list">
-                                    {progressHistoryEntries.map((entry) => (
-                                      <div key={entry.id} className="device-history-item">
-                                        <div className={`device-history-marker is-${entry.tone}`} />
-                                        <div className="device-history-item-body">
-                                          <div className="device-history-item-head">
-                                            <p className="device-history-item-title">{entry.title}</p>
-                                            <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
-                                          </div>
-                                          <p className="device-history-item-description">{entry.description}</p>
-                                          <p className="device-history-item-meta">{entry.meta}</p>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="device-history-empty-state">Keine Fortschrittsmeilensteine verfügbar.</div>
-                                )}
-                              </div>
-
-                              <div className="device-history-section">
-                                <div className="device-history-section-heading">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  <span>Historie</span>
-                                </div>
-                                {orderHistoryEntries.length > 0 ? (
-                                  <div className="device-history-list">
-                                    {orderHistoryEntries.map((entry) => (
-                                      <div key={entry.id} className="device-history-item">
-                                        <div className={`device-history-marker is-${entry.tone}`} />
-                                        <div className="device-history-item-body">
-                                          <div className="device-history-item-head">
-                                            <p className="device-history-item-title">{entry.title}</p>
-                                            <span className={`device-history-badge is-${entry.tone}`}>{entry.statusLabel}</span>
-                                          </div>
-                                          <p className="device-history-item-description">{entry.description}</p>
-                                          <p className="device-history-item-meta">{entry.meta}</p>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="device-history-empty-state">Keine Historieneinträge vorhanden.</div>
-                                )}
-                              </div>
-                            </CollapsibleContent>
-                          </div>
-                        </Collapsible>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              {renderEPartsCard()}
+              {renderWorkflowsCard()}
+              </div>
+              <div className="admin-od-overview-side">
+              {renderRepairProgressCard()}
+              {renderDeviceInspectionCard()}
 
               {/* Assigned Staff - Only visible to admin/staff */}
               {isStaffOrAdmin && (
@@ -6846,17 +8368,17 @@ export function OrderDetails() {
                                 {staff.currentWorkload && (
                                   <div className="mt-2 text-xs text-muted-foreground space-y-1">
                                     <div className="flex items-center justify-between gap-2">
-                                      <span>Active Orders: {staff.currentWorkload.assignedOrders}/{staff.currentWorkload.capacity}</span>
+                                      <span>Aktive Aufträge: {staff.currentWorkload.assignedOrders}/{staff.currentWorkload.capacity}</span>
                                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                                         staff.currentWorkload.utilizationRate > 80 ? 'bg-red-100 text-red-800' :
                                         staff.currentWorkload.utilizationRate > 60 ? 'bg-yellow-100 text-yellow-800' :
                                         'bg-green-100 text-green-800'
                                       }`}>
-                                        {staff.currentWorkload.utilizationRate}% utilized
+                                        {staff.currentWorkload.utilizationRate} % ausgelastet
                                       </span>
                                     </div>
                                     {staff.currentWorkload.assignedTasks !== undefined && (
-                                      <div>Active Tasks: {staff.currentWorkload.assignedTasks}</div>
+                                      <div>Aktive Aufgaben: {staff.currentWorkload.assignedTasks}</div>
                                     )}
                                   </div>
                                 )}
@@ -6872,7 +8394,7 @@ export function OrderDetails() {
                         disabled={selectedStaff.length === 0 || assigningStaff}
                         size="sm"
                       >
-                        {assigningStaff ? t('orderDetails.assigning') : t('orderDetails.assignStaff')}
+                        {assigningStaff ? t('orderDetails.assigning', 'Wird zugewiesen …') : t('orderDetails.assignStaff')}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -6936,8 +8458,8 @@ export function OrderDetails() {
                           <p className="text-xs text-muted-foreground">{t('orderDetails.repairTechnician')}</p>
                           {lastEntry ? (
                             <div className="mt-1 text-xs text-muted-foreground">
-                              <span className="font-medium text-foreground/70">{lastEntry.status}:</span>{' '}
-                              <span className="truncate">{lastEntry.description}</span>
+                              <span className="font-medium text-foreground/70">{translateOrderStatus(String(lastEntry.status || ''))}:</span>{' '}
+                              <span className="break-words">{lastEntry.description ? translateOrderDescription(lastEntry.description) : ''}</span>
                               <span className="ml-1 opacity-60">
                                 · {new Date(lastEntry.completedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                               </span>
@@ -6971,9 +8493,10 @@ export function OrderDetails() {
               </Card>
               )}
 
-              </div>
 
-              <div className={`order-nested-block order-nested-ops-grid ${isStaffOrAdmin ? 'is-admin-nested' : ''}`}>
+              {renderAdminCustomerCard()}
+              </div>
+            </div>
               {(order?.unlockPattern?.length > 0 || order?.unlockCode || order?.noLock || order?.unlockConfirmation?.confirmationStatus) && (
                 <ConfirmUnlockDialog
                   isOpen={unlockConfirmDialogOpen}
@@ -6987,11 +8510,73 @@ export function OrderDetails() {
                   orderId={id}
                 />
               )}
+          </TabsContent>
 
+          <TabsContent value="kommunikation" className="admin-od-tab-content">
+            {adminTab === 'kommunikation' ? renderAdminCommunicationTab() : null}
+          </TabsContent>
+
+          <TabsContent value="verlauf" className="admin-od-tab-content">
+            <div id="order-history" className="admin-od-tab-panel">
+              <div className="admin-od-tab-intro">
+                <div>
+                  <h2 className="admin-od-tab-title">Verlauf</h2>
+                  <p className="admin-od-tab-description">
+                    Alle Änderungen am Auftrag mit Zeitpunkt, Person, Quelle und Grund. Über den Filter grenzen Sie die
+                    Einträge ein; Verknüpfungen öffnen die zugehörige Rechnung, Zahlung, Prüfung oder Sendung.
+                  </p>
+                </div>
               </div>
+              <OrderHistoryPanel
+                orderId={String(order._id)}
+                refreshToken={order.updatedAt}
+                onOpenLink={handleAdminHistoryLink}
+                onTotalChange={setAdminHistoryTotal}
+              />
             </div>
-          </div>
-        </>
+          </TabsContent>
+
+          <TabsContent value="rechnungen" className="admin-od-tab-content">
+            {renderAdminFinanceTab()}
+          </TabsContent>
+
+          <TabsContent value="versand" className="admin-od-tab-content">
+            {renderAdminShippingTab()}
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {isStaffOrAdmin && (
+        <OrderCancelDialog
+          open={orderCancelDialogOpen}
+          onOpenChange={setOrderCancelDialogOpen}
+          orderId={String(order._id)}
+          orderNumber={order.orderNumber}
+          onCancelled={() => { void refreshOrder() }}
+        />
+      )}
+      {isStaffOrAdmin && user?.role === 'admin' && order.status === 'cancelled' && (
+        <OrderCancelDialog
+          mode="reopen"
+          open={orderReopenDialogOpen}
+          onOpenChange={setOrderReopenDialogOpen}
+          orderId={String(order._id)}
+          orderNumber={order.orderNumber}
+          onCancelled={() => { void refreshOrder() }}
+        />
+      )}
+
+      {isStaffOrAdmin && customerBookingIdForPayments && user?.role === 'admin' && (
+        <BookingPaymentsDialog
+          open={bookingPaymentsDialogOpen}
+          onOpenChange={setBookingPaymentsDialogOpen}
+          bookingId={customerBookingIdForPayments}
+          bookingNumber={adminBookingNumber || undefined}
+          onChanged={() => {
+            setAdminPaymentsReloadToken((value) => value + 1)
+            void loadOrderInvoices(String(order._id), customerBookingIdForPayments || null)
+          }}
+        />
       )}
 
       <Dialog open={invoiceDetailsDialogOpen} onOpenChange={(open) => {
@@ -7158,17 +8743,25 @@ export function OrderDetails() {
           </DialogHeader>
 
           <div className="space-y-3">
-            <Input
-              value={complaintReason}
-              onChange={(e) => setComplaintReason(e.target.value)}
-              placeholder="Reklamationsgrund"
-            />
-            <Textarea
-              value={complaintDescription}
-              onChange={(e) => setComplaintDescription(e.target.value)}
-              placeholder="Beschreibung des Problems"
-              rows={5}
-            />
+            <div className="space-y-1.5">
+              <Label htmlFor="order-complaint-reason">Reklamationsgrund</Label>
+              <Input
+                id="order-complaint-reason"
+                value={complaintReason}
+                onChange={(e) => setComplaintReason(e.target.value)}
+                placeholder="z. B. Display flackert wieder"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="order-complaint-description">Beschreibung</Label>
+              <Textarea
+                id="order-complaint-description"
+                value={complaintDescription}
+                onChange={(e) => setComplaintDescription(e.target.value)}
+                placeholder="Beschreibung des Problems"
+                rows={5}
+              />
+            </div>
           </div>
 
           <DialogFooter>
@@ -7248,7 +8841,7 @@ export function OrderDetails() {
                 <p className="text-amber-800 line-clamp-2">Angebot: {escalationOfferDescription}</p>
               )}
               {escalationOfferAmount != null && !Number.isNaN(Number(escalationOfferAmount)) && (
-                <p className="text-amber-800">Betrag: {Number(escalationOfferAmount).toFixed(2)} EUR</p>
+                <p className="text-amber-800">Betrag: {formatEUR(Number(escalationOfferAmount))}</p>
               )}
             </div>
           )}
@@ -7334,12 +8927,12 @@ export function OrderDetails() {
                   className="inspection-dialog-report-button"
                 >
                   <Download className="h-3.5 w-3.5 mr-1.5" />
-                  {generatingInspectionReport ? "Generating..." : "Report"}
+                  {generatingInspectionReport ? "Wird erstellt …" : "Prüfbericht"}
                 </Button>
               </div>
             </DialogHeader>
 
-            <div className="inspection-dialog-main">
+            <div className="inspection-dialog-main min-h-0 flex-1">
               <div className="inspection-dialog-guidance" aria-label="Empfohlener Inspektionsablauf">
                 <p className="inspection-dialog-guidance-title">Empfohlener Ablauf</p>
                 <ol className="inspection-dialog-guidance-list">
@@ -7501,7 +9094,7 @@ export function OrderDetails() {
                           >
                             <div className="flex items-center justify-between gap-2">
                               <p className="text-sm font-medium text-slate-900">{addon.name}</p>
-                              <span className="text-xs font-semibold text-slate-600">{safeToNumber(addon.price).toFixed(2)} €</span>
+                              <span className="text-xs font-semibold text-slate-600">{formatEUR(safeToNumber(addon.price))}</span>
                             </div>
                             {addon.description && (
                               <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{addon.description}</p>
@@ -7536,7 +9129,7 @@ export function OrderDetails() {
                       ) : (
                         filteredAvailableAddons.map((addon) => (
                           <SelectItem key={addon._id} value={addon._id}>
-                            {addon.name} - {safeToNumber(addon.price).toFixed(2)} €
+                            {addon.name} - {formatEUR(safeToNumber(addon.price))}
                           </SelectItem>
                         ))
                       )}
@@ -7549,7 +9142,7 @@ export function OrderDetails() {
                     <p className="text-sm font-semibold text-slate-900">{selectedAddonService.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">{selectedAddonService.description || 'Keine Beschreibung vorhanden.'}</p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                      <span className="rounded-full border bg-slate-50 px-2.5 py-1">{safeToNumber(selectedAddonService.price).toFixed(2)} €</span>
+                      <span className="rounded-full border bg-slate-50 px-2.5 py-1">{formatEUR(safeToNumber(selectedAddonService.price))}</span>
                       {selectedAddonService.estimatedTime && (
                         <span className="rounded-full border bg-slate-50 px-2.5 py-1">{selectedAddonService.estimatedTime}</span>
                       )}
@@ -7684,7 +9277,7 @@ export function OrderDetails() {
               Die Angaben der Zusatzleistung aktualisieren
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <DialogBody className="space-y-4">
             <div>
               <Label htmlFor="edit-name">Name</Label>
               <Input
@@ -7728,7 +9321,7 @@ export function OrderDetails() {
                 />
               </div>
             </div>
-          </div>
+          </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
               setEditAddonDialogOpen(false)
@@ -7756,7 +9349,7 @@ export function OrderDetails() {
               Mitarbeiter auswählen, der diese Zusatzleistung übernimmt
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <DialogBody className="space-y-4">
             {selectedAddonForStaff && (
               <div className="bg-muted p-3 rounded-lg">
                 <p className="font-medium">{selectedAddonForStaff.name}</p>
@@ -7786,7 +9379,7 @@ export function OrderDetails() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
               setAssignAddonStaffDialogOpen(false)
@@ -8266,6 +9859,7 @@ export function OrderDetails() {
           order={order}
           inspection={customerInspection}
           onWorkflowUpdated={handleRepairWorkflowUpdated}
+          shipments={orderShipments}
         />
       )}
 
@@ -8284,6 +9878,7 @@ export function OrderDetails() {
             }
           }}
           orderId={id}
+          source={returnToInspectionAfterDeviceDialog ? 'Inspektion Schritt 1' : 'Gerätekarte'}
           currentDevice={{
             brand: order.deviceBrand,
             model: order.deviceModel,

@@ -853,12 +853,26 @@ router.post('/:id/payments/confirm', requireUser, async (req, res) => {
       try {
         const customerId = invoice.customerId._id || invoice.customerId;
         if (customerId) {
-          await NotificationService.createPaymentNotification(
-            customerId,
-            numericAmount,
-            'completed',
-            result.invoice.orderId || null
-          );
+          // FIN-4: Zahlungseingang mit Rechnungsnummer und Restbetrag im deutschen
+          // Format (frueher "Ihre Zahlung ueber 47.40 EUR wurde erfolgreich verarbeitet.").
+          // Die MwSt. steht auf der verlinkten Rechnung - eine Zahlung ist kein Steuerbeleg.
+          const invoiceNumber = result.invoice.invoiceNumber || '';
+          const openAmount = Number(confirmedInvoice?.balance?.open || 0);
+          await NotificationService.createNotification({
+            userId: customerId,
+            title: 'Zahlung eingegangen',
+            message: `Ihre Zahlung über ${formatEuroDe(numericAmount)}${invoiceNumber ? ` zu Rechnung ${invoiceNumber}` : ''} ist eingegangen. `
+              + `Offener Restbetrag: ${formatEuroDe(openAmount)}.`,
+            type: 'payment',
+            orderId: result.invoice.orderId || undefined,
+            actionUrl: `/invoices?invoiceId=${result.invoice._id}`,
+            metadata: {
+              invoiceId: String(result.invoice._id),
+              invoiceNumber,
+              amount: numericAmount,
+              openAmount,
+            },
+          });
         }
       } catch (notifError) {
         console.error('Error creating payment notification:', notifError.message);

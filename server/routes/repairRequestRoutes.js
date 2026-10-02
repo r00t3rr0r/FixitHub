@@ -2,7 +2,48 @@ const express = require('express');
 const router = express.Router();
 const RepairRequestService = require('../services/repairRequestService');
 const RepairRequestCommunicationService = require('../services/repairRequestCommunicationService');
-const { requireUser, requireAdmin, requireStaff } = require('./middleware/auth');
+const { requireUser, requireStaff } = require('./middleware/auth');
+// Gast-Routen ohne Anmeldung: Anlegen (IP/E-Mail/gesamt) und Token-Zugriffe (Fehlversuche,
+// Lese-/Schreibvolumen) begrenzt - Werte und Begruendung in middleware/guestAccess.js.
+const { guestAccessLimits, guestCreateLimits } = require('./middleware/guestAccess');
+
+// Fehlerantwort: deutsche Meldung, passender Status, keine internen Fehlertexte bei 500.
+const sendError = (res, error, fallback) => {
+  const isValidation = error?.name === 'ValidationError' || error?.name === 'CastError';
+  const status = Number(error?.statusCode) || (isValidation ? 400 : 500);
+  const message = error?.statusCode
+    ? error.message
+    : (isValidation ? 'Ungültige Eingabe. Bitte prüfen Sie Ihre Angaben.' : fallback);
+  if (status >= 500) {
+    console.error(`RepairRequestRoutes: ${fallback}`, error);
+  }
+  return res.status(status).json({ success: false, message, error: message, ...(error?.code ? { code: error.code } : {}) });
+};
+
+const actorOf = (user) => ({
+  _id: user._id,
+  name: RepairRequestService.actorNameOf(user),
+  role: user.role,
+});
+
+// Gast: Token+E-Mail prüfen UND an die angefragte ID binden (sonst Zugriff auf fremde Anfragen).
+const resolveGuestRequest = async (req, source) => {
+  const { token, email } = source || {};
+  let repairRequest;
+  try {
+    repairRequest = await RepairRequestService.trackGuestRepairRequest(token, email);
+  } catch (error) {
+    const denied = new Error('Zugriff verweigert.');
+    denied.statusCode = 403;
+    throw denied;
+  }
+  if (String(repairRequest._id) !== String(req.params.id)) {
+    const denied = new Error('Zugriff verweigert.');
+    denied.statusCode = 403;
+    throw denied;
+  }
+  return repairRequest;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GUEST ROUTES (no auth required) — must be declared before /:id routes
@@ -10,11 +51,11 @@ const { requireUser, requireAdmin, requireStaff } = require('./middleware/auth')
 
 // Description: Create a repair request as a guest
 // Endpoint: POST /api/repair-requests/guest
-// Request: { guestInfo: { firstName, lastName, email, phone }, deviceType, … }
+// Request: { guestInfo: { firstName, lastName, email, phone }, deviceSource: 'catalog'|'manual', deviceModelId?, deviceType, deviceBrand, deviceModel, modelNumber?, issueDescription, … }
 // Response: { success: true, requestNumber, guestTrackingToken }
-router.post('/guest', async (req, res) => {
+router.post('/guest', ...guestCreateLimits, async (req, res) => {
   try {
-    const { guestInfo, ...data } = req.body;
+    const { guestInfo, ...data } = req.body || {};
     const result = await RepairRequestService.createGuestRepairRequest(guestInfo, data);
     res.status(201).json({
       success: true,
@@ -23,562 +64,444 @@ router.post('/guest', async (req, res) => {
       message: 'Reparaturanfrage erfolgreich übermittelt.',
     });
   } catch (error) {
-    console.error('Error creating guest repair request:', error);
-    if (error?.name === 'ValidationError') {
-      return res.status(400).json({ success: false, message: error.message });
-    }
-    res.status(500).json({ success: false, message: error.message || 'Fehler beim Erstellen der Anfrage.' });
+    sendError(res, error, 'Die Anfrage konnte nicht erstellt werden. Bitte später erneut versuchen.');
   }
 });
 
-// Description: Track a guest repair request
+// Description: Track a guest repair request (Kundensicht ohne interne Daten)
 // Endpoint: GET /api/repair-requests/guest/track?token=...&email=...
-// Response: { success: true, request: RepairRequest }
-router.get('/guest/track', async (req, res) => {
+// Response: { success: true, request: CustomerRepairRequestView }
+router.get('/guest/track', ...guestAccessLimits, async (req, res) => {
   try {
     const { token, email } = req.query;
-    const repairRequest = await RepairRequestService.trackGuestRepairRequest(token, email);
-    res.status(200).json({ success: true, request: repairRequest });
+    const request = await RepairRequestService.getGuestView(token, email);
+    res.status(200).json({ success: true, request });
   } catch (error) {
-    console.error('Error tracking guest repair request:', error);
-    res.status(404).json({ success: false, message: error.message || 'Nicht gefunden.' });
+    sendError(res, error, 'Die Anfrage konnte nicht geladen werden.');
   }
 });
 
 // Description: Get communication thread for a guest repair request
 // Endpoint: GET /api/repair-requests/guest/:id/communication?token=...&email=...
 // Response: { success: true, communication: Object | null }
-router.get('/guest/:id/communication', async (req, res) => {
+router.get('/guest/:id/communication', ...guestAccessLimits, async (req, res) => {
   try {
-    const { token, email } = req.query;
-    // Verify ownership first
-    await RepairRequestService.trackGuestRepairRequest(token, email);
-    const communication = await RepairRequestCommunicationService.getCommunicationThread(req.params.id);
+    const repairRequest = await resolveGuestRequest(req, req.query);
+    const communication = await RepairRequestCommunicationService.getCommunicationThread(repairRequest._id);
     res.status(200).json({ success: true, communication: communication || null });
   } catch (error) {
-    console.error('Error getting guest communication:', error);
-    res.status(403).json({ success: false, message: error.message || 'Zugriff verweigert.' });
+    sendError(res, error, 'Nachrichten konnten nicht geladen werden.');
   }
 });
 
 // Description: Send a message as a guest
 // Endpoint: POST /api/repair-requests/guest/:id/message
-// Request: { token, email, content }
-// Response: { success: true, communication: Object }
-router.post('/guest/:id/message', async (req, res) => {
+// Request: { token, email, content, clientMessageId? }
+// Response: { success: true, communication: Object, duplicate: boolean }
+router.post('/guest/:id/message', ...guestAccessLimits, async (req, res) => {
   try {
-    const { token, email, content } = req.body;
-    if (!content || !content.trim()) {
+    const { content, clientMessageId } = req.body || {};
+    if (!content || !String(content).trim()) {
       return res.status(400).json({ success: false, message: 'Nachrichteninhalt darf nicht leer sein.' });
     }
-    // Verify ownership
-    const repairRequest = await RepairRequestService.trackGuestRepairRequest(token, email);
+    const repairRequest = await resolveGuestRequest(req, req.body);
     const communication = await RepairRequestCommunicationService.sendMessage(
-      req.params.id,
+      repairRequest._id,
       null,
       repairRequest.customerName,
-      content.trim(),
+      String(content).trim(),
       'customer',
-      'customer'
+      'customer',
+      { clientMessageId }
     );
-    res.status(201).json({ success: true, communication });
+    const duplicate = Boolean(communication?.$locals?.duplicate);
+    res.status(duplicate ? 200 : 201).json({ success: true, communication, duplicate });
   } catch (error) {
-    console.error('Error sending guest message:', error);
-    res.status(403).json({ success: false, message: error.message || 'Fehler beim Senden.' });
+    sendError(res, error, 'Die Nachricht konnte nicht gesendet werden.');
+  }
+});
+
+// Description: Structured answer of a guest to a feedback request (incl. Kostenvoranschlag)
+// Endpoint: POST /api/repair-requests/guest/:id/feedback-response
+// Request: { token, email, messageId, response: { label?, value } }
+// Response: { success: true, communication: Object, request: CustomerRepairRequestView }
+router.post('/guest/:id/feedback-response', ...guestAccessLimits, async (req, res) => {
+  try {
+    const { messageId, response } = req.body || {};
+    if (!messageId || !response) {
+      return res.status(400).json({ success: false, message: 'Rückfrage und Antwort sind erforderlich.' });
+    }
+    const repairRequest = await resolveGuestRequest(req, req.body);
+    const communication = await RepairRequestCommunicationService.respondToFeedback(
+      repairRequest._id,
+      messageId,
+      response,
+      null,
+      repairRequest.customerName,
+      { channel: 'guest' }
+    );
+    const request = await RepairRequestService.getGuestView(req.body.token, req.body.email);
+    res.status(200).json({ success: true, communication, request });
+  } catch (error) {
+    sendError(res, error, 'Die Antwort konnte nicht gespeichert werden.');
+  }
+});
+
+// Description: Guest accepts/declines the published Kostenvoranschlag
+// Endpoint: POST /api/repair-requests/guest/:id/quote/respond
+// Request: { token, email, decision: 'accept' | 'decline', quoteVersion: number (Pflicht), amount?: number }
+// Response: { success: true, request: CustomerRepairRequestView }
+//           409 { code: 'QUOTE_CHANGED' } wenn der gesehene Stand nicht mehr aktuell ist.
+router.post('/guest/:id/quote/respond', ...guestAccessLimits, async (req, res) => {
+  try {
+    const repairRequest = await resolveGuestRequest(req, req.body);
+    await RepairRequestService.applyQuoteDecision(repairRequest._id, {
+      decision: req.body?.decision,
+      responderName: repairRequest.customerName,
+      channel: 'guest',
+      quoteVersion: req.body?.quoteVersion,
+      amount: req.body?.amount,
+    });
+    const request = await RepairRequestService.getGuestView(req.body.token, req.body.email);
+    res.status(200).json({ success: true, request });
+  } catch (error) {
+    sendError(res, error, 'Die Antwort konnte nicht gespeichert werden.');
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Endpoint: POST /api/repair-requests
-// Request: { deviceType, deviceBrand, deviceModel, deviceModelId, issueDescription, issueOccurredDate, modelNumber, images }
-// Response: { success: true, request: RepairRequest }
+// Request: { deviceSource: 'catalog'|'manual', deviceModelId?, deviceType, deviceBrand, deviceModel, modelNumber?, issueDescription, issueOccurredDate, images[] }
+// Response: { success: true, request: CustomerRepairRequestView }
 router.post('/', requireUser, async (req, res) => {
   try {
-    console.log('POST /api/repair-requests - Create repair request');
-    console.log('Request body:', req.body);
-
-    const customerId = req.user._id;
-    const request = await RepairRequestService.createRepairRequest(customerId, req.body);
-
+    const request = await RepairRequestService.createRepairRequest(req.user._id, req.body || {});
     res.status(201).json({
       success: true,
-      request,
-      message: 'Repair request submitted successfully',
+      request: RepairRequestService.toCustomerView(request),
+      message: 'Reparaturanfrage erfolgreich übermittelt.',
     });
   } catch (error) {
-    console.error('Error creating repair request:', error);
-
-    if (error?.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: error.message || 'Validation failed while creating repair request',
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to create repair request',
-    });
+    sendError(res, error, 'Die Anfrage konnte nicht erstellt werden. Bitte später erneut versuchen.');
   }
 });
 
-// Description: Get all repair requests with filtering and pagination
+// Description: Get all repair requests with filtering and pagination (staff/admin)
 // Endpoint: GET /api/repair-requests
-// Request: { status?, priority?, customerId?, assignedStaffId?, search?, page?, limit?, sortBy?, sortOrder? }
-// Response: { success: true, requests: RepairRequest[], pagination: Pagination }
+// Request: { status?, priority?, quoteStatus?, customerId?, assignedStaffId?, search?, page?, limit? (max 200), sortBy?, sortOrder? }
+// Response: { success: true, requests: StaffRepairRequestView[], pagination: { page, limit, total, pages } }
 router.get('/', requireStaff, async (req, res) => {
   try {
-    console.log('GET /api/repair-requests - Get all repair requests');
-    console.log('Query params:', req.query);
-
-    const filters = {
-      status: req.query.status,
-      priority: req.query.priority,
-      customerId: req.query.customerId,
-      assignedStaffId: req.query.assignedStaffId,
-      search: req.query.search,
-    };
-
-    const pagination = {
-      page: parseInt(req.query.page) || 1,
-      limit: parseInt(req.query.limit) || 20,
-      sortBy: req.query.sortBy || 'createdAt',
-      sortOrder: req.query.sortOrder || 'desc',
-    };
-
-    const result = await RepairRequestService.getRepairRequests(filters, pagination);
-
+    const result = await RepairRequestService.getRepairRequests(
+      {
+        status: req.query.status,
+        priority: req.query.priority,
+        quoteStatus: req.query.quoteStatus,
+        customerId: req.query.customerId,
+        assignedStaffId: req.query.assignedStaffId,
+        search: req.query.search,
+      },
+      {
+        page: req.query.page,
+        limit: req.query.limit,
+        sortBy: req.query.sortBy,
+        sortOrder: req.query.sortOrder,
+      },
+      { _id: req.user._id, role: req.user.role }
+    );
     res.status(200).json({
       success: true,
-      ...result,
+      requests: result.requests.map((item) => RepairRequestService.toStaffView(item)),
+      pagination: result.pagination,
     });
   } catch (error) {
-    console.error('Error getting repair requests:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to get repair requests',
-    });
+    sendError(res, error, 'Reparaturanfragen konnten nicht geladen werden.');
   }
 });
 
-// Description: Get customer's own repair requests
+// Description: Get customer's own repair requests (Kundensicht)
 // Endpoint: GET /api/repair-requests/my-requests
-// Request: {}
-// Response: { success: true, requests: RepairRequest[] }
+// Response: { success: true, requests: CustomerRepairRequestView[] }
 router.get('/my-requests', requireUser, async (req, res) => {
   try {
-    console.log('GET /api/repair-requests/my-requests - Get customer repair requests');
-
-    const customerId = req.user._id;
     const result = await RepairRequestService.getRepairRequests(
-      { customerId },
-      { page: 1, limit: 100, sortBy: 'createdAt', sortOrder: 'desc' }
+      { customerId: req.user._id },
+      { page: 1, limit: 100, sortBy: 'createdAt', sortOrder: 'desc' },
+      { _id: req.user._id, role: 'customer' }
     );
-
     res.status(200).json({
       success: true,
-      requests: result.requests,
+      requests: result.requests.map((item) => RepairRequestService.toCustomerView(item, {
+        includeImages: false,
+        communicationSummary: item.communicationSummary,
+      })),
+      total: result.pagination.total,
     });
   } catch (error) {
-    console.error('Error getting customer repair requests:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to get repair requests',
-    });
+    sendError(res, error, 'Reparaturanfragen konnten nicht geladen werden.');
   }
 });
 
 // Description: Get repair request statistics
 // Endpoint: GET /api/repair-requests/statistics
-// Request: {}
-// Response: { success: true, statistics: Statistics }
 router.get('/statistics', requireStaff, async (req, res) => {
   try {
-    console.log('GET /api/repair-requests/statistics - Get statistics');
-
     const statistics = await RepairRequestService.getStatistics();
-
-    res.status(200).json({
-      success: true,
-      statistics,
-    });
+    res.status(200).json({ success: true, statistics });
   } catch (error) {
-    console.error('Error getting statistics:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to get statistics',
-    });
+    sendError(res, error, 'Statistik konnte nicht geladen werden.');
   }
 });
 
 // Description: Get a single repair request by ID
 // Endpoint: GET /api/repair-requests/:id
-// Request: {}
-// Response: { success: true, request: RepairRequest }
+// Response: staff => { success, request: StaffRepairRequestView (inkl. adminNotes) };
+//           owner => { success, request: CustomerRepairRequestView (ohne interne Daten) }
 router.get('/:id', requireUser, async (req, res) => {
   try {
-    console.log(`GET /api/repair-requests/${req.params.id} - Get repair request`);
-
+    await RepairRequestService.assertAccess(req.user, req.params.id);
     const request = await RepairRequestService.getRepairRequestById(req.params.id);
-
-    // Check access permissions
-    const isCustomer = req.user._id.toString() === request.customerId._id.toString();
-    const isStaff = ['staff', 'admin'].includes(req.user.role);
-    const isAssignedStaff = request.assignedStaffId && req.user._id.toString() === request.assignedStaffId._id.toString();
-
-    if (!isCustomer && !isStaff && !isAssignedStaff) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied',
-      });
+    const summaries = await RepairRequestCommunicationService.getThreadSummaries([request._id], req.user);
+    const communicationSummary = summaries.get(String(request._id));
+    if (RepairRequestService.isStaffUser(req.user)) {
+      return res.status(200).json({ success: true, request: RepairRequestService.toStaffView(request, { communicationSummary }) });
     }
-
-    res.status(200).json({
+    const convertedOrder = request.status === 'converted' ? await RepairRequestService.resolveConvertedOrderLink(request) : undefined;
+    return res.status(200).json({
       success: true,
-      request,
+      request: RepairRequestService.toCustomerView(request, { convertedOrder, communicationSummary }),
     });
   } catch (error) {
-    console.error('Error getting repair request:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to get repair request',
-    });
+    sendError(res, error, 'Die Anfrage konnte nicht geladen werden.');
   }
 });
 
-// Description: Update repair request status
+// Description: Update repair request status ('converted' only via /convert)
 // Endpoint: PUT /api/repair-requests/:id/status
-// Request: { status: string }
-// Response: { success: true, request: RepairRequest }
+// Request: { status: 'pending'|'reviewing'|'approved'|'rejected' }
 router.put('/:id/status', requireStaff, async (req, res) => {
   try {
-    console.log(`PUT /api/repair-requests/${req.params.id}/status - Update status`);
-    console.log('Request body:', req.body);
-
-    const { status } = req.body;
-
-    if (!status) {
-      return res.status(400).json({
-        success: false,
-        message: 'Status is required',
-      });
-    }
-
-    const staffId = req.user._id;
-    const staffName = `${req.user.firstName} ${req.user.lastName}`;
-
-    const request = await RepairRequestService.updateStatus(
-      req.params.id,
-      status,
-      staffId,
-      staffName
-    );
-
+    const { status } = req.body || {};
+    if (!status) return res.status(400).json({ success: false, message: 'Bitte einen Status wählen.' });
+    const actor = actorOf(req.user);
+    const request = await RepairRequestService.updateStatus(req.params.id, status, actor._id, actor.name);
     res.status(200).json({
       success: true,
-      request,
-      message: 'Status updated successfully',
+      request: RepairRequestService.toStaffView(request),
+      changed: request.$locals?.statusChanged !== false,
+      message: request.$locals?.statusChanged === false ? 'Status unverändert.' : 'Status gespeichert.',
     });
   } catch (error) {
-    console.error('Error updating status:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to update status',
-    });
+    sendError(res, error, 'Der Status konnte nicht gespeichert werden.');
   }
 });
 
 // Description: Assign staff to repair request
 // Endpoint: PUT /api/repair-requests/:id/assign
 // Request: { staffId: string }
-// Response: { success: true, request: RepairRequest }
 router.put('/:id/assign', requireStaff, async (req, res) => {
   try {
-    console.log(`PUT /api/repair-requests/${req.params.id}/assign - Assign staff`);
-    console.log('Request body:', req.body);
+    const { staffId } = req.body || {};
+    if (!staffId) return res.status(400).json({ success: false, message: 'Bitte einen Mitarbeiter wählen.' });
+    const actor = actorOf(req.user);
+    const request = await RepairRequestService.assignStaff(req.params.id, staffId, actor._id, actor.name);
+    res.status(200).json({ success: true, request: RepairRequestService.toStaffView(request), message: 'Mitarbeiter zugewiesen.' });
+  } catch (error) {
+    sendError(res, error, 'Die Zuweisung konnte nicht gespeichert werden.');
+  }
+});
 
-    const { staffId } = req.body;
-
-    if (!staffId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Staff ID is required',
-      });
-    }
-
-    const assignedByStaffId = req.user._id;
-    const assignedByStaffName = `${req.user.firstName} ${req.user.lastName}`;
-
-    const request = await RepairRequestService.assignStaff(
-      req.params.id,
-      staffId,
-      assignedByStaffId,
-      assignedByStaffName
-    );
-
+// Description: Staff matches the device to a catalog model (or corrects the manual data).
+//              The customer's original declaration (reportedDevice) is never overwritten.
+// Endpoint: PUT /api/repair-requests/:id/device
+// Request: { deviceModelId } | { manual: { deviceType, deviceBrand, deviceModel, modelNumber? } }
+// Response: { success, request: StaffRepairRequestView, changed: boolean }
+router.put('/:id/device', requireStaff, async (req, res) => {
+  try {
+    const request = await RepairRequestService.updateDevice(req.params.id, req.body || {}, actorOf(req.user));
     res.status(200).json({
       success: true,
-      request,
-      message: 'Staff assigned successfully',
+      request: RepairRequestService.toStaffView(request),
+      changed: request.$locals?.deviceChanged === true,
+      message: request.$locals?.deviceChanged ? 'Gerät zugeordnet.' : 'Keine Änderung.',
     });
   } catch (error) {
-    console.error('Error assigning staff:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to assign staff',
-    });
+    sendError(res, error, 'Das Gerät konnte nicht zugeordnet werden.');
   }
 });
 
-// Description: Add a message to the communication thread
+// Description: Add a legacy message (RepairRequest.messages) – staff only. Kunden/Gäste sehen
+//              diesen Altbestand nicht; neue Nachrichten über /api/repair-request-communication.
 // Endpoint: POST /api/repair-requests/:id/messages
-// Request: { message: string }
-// Response: { success: true, request: RepairRequest }
-router.post('/:id/messages', requireUser, async (req, res) => {
+router.post('/:id/messages', requireStaff, async (req, res) => {
   try {
-    console.log(`POST /api/repair-requests/${req.params.id}/messages - Add message`);
-    console.log('Request body:', req.body);
-
-    const { message } = req.body;
-
-    if (!message) {
-      return res.status(400).json({
-        success: false,
-        message: 'Message is required',
-      });
+    const { message } = req.body || {};
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({ success: false, message: 'Bitte eine Nachricht eingeben.' });
     }
-
-    const senderId = req.user._id;
-    const senderName = `${req.user.firstName} ${req.user.lastName}`;
-    const senderRole = req.user.role;
-
-    const request = await RepairRequestService.addMessage(
-      req.params.id,
-      senderId,
-      senderName,
-      senderRole,
-      message
-    );
-
-    res.status(201).json({
-      success: true,
-      request,
-      message: 'Message added successfully',
-    });
+    const actor = actorOf(req.user);
+    const request = await RepairRequestService.addMessage(req.params.id, actor._id, actor.name, req.user.role, String(message).trim());
+    res.status(201).json({ success: true, request: RepairRequestService.toStaffView(request), message: 'Nachricht gespeichert.' });
   } catch (error) {
-    console.error('Error adding message:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to add message',
-    });
+    sendError(res, error, 'Die Nachricht konnte nicht gespeichert werden.');
   }
 });
 
-// Description: Mark messages as read
+// Description: Mark legacy messages as read (owner or staff)
 // Endpoint: PUT /api/repair-requests/:id/messages/read
-// Request: {}
-// Response: { success: true, request: RepairRequest }
 router.put('/:id/messages/read', requireUser, async (req, res) => {
   try {
-    console.log(`PUT /api/repair-requests/${req.params.id}/messages/read - Mark messages as read`);
-
-    const userId = req.user._id;
-    const request = await RepairRequestService.markMessagesAsRead(req.params.id, userId);
-
-    res.status(200).json({
-      success: true,
-      request,
-    });
+    await RepairRequestService.assertAccess(req.user, req.params.id);
+    await RepairRequestService.markMessagesAsRead(req.params.id, req.user._id);
+    res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Error marking messages as read:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to mark messages as read',
-    });
+    sendError(res, error, 'Nachrichten konnten nicht als gelesen markiert werden.');
   }
 });
 
-// Description: Add admin note
+// Description: Add internal note ("Intern – nur für das Team")
 // Endpoint: POST /api/repair-requests/:id/admin-notes
 // Request: { note: string }
-// Response: { success: true, request: RepairRequest }
 router.post('/:id/admin-notes', requireStaff, async (req, res) => {
   try {
-    console.log(`POST /api/repair-requests/${req.params.id}/admin-notes - Add admin note`);
-    console.log('Request body:', req.body);
-
-    const { note } = req.body;
-
-    if (!note) {
-      return res.status(400).json({
-        success: false,
-        message: 'Note is required',
-      });
-    }
-
-    const staffId = req.user._id;
-    const staffName = `${req.user.firstName} ${req.user.lastName}`;
-
-    const request = await RepairRequestService.addAdminNote(
-      req.params.id,
-      staffId,
-      staffName,
-      note
-    );
-
-    res.status(201).json({
-      success: true,
-      request,
-      message: 'Admin note added successfully',
-    });
+    const actor = actorOf(req.user);
+    const request = await RepairRequestService.addAdminNote(req.params.id, actor._id, actor.name, req.body?.note);
+    res.status(201).json({ success: true, request: RepairRequestService.toStaffView(request), message: 'Interne Notiz gespeichert.' });
   } catch (error) {
-    console.error('Error adding admin note:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to add admin note',
-    });
+    sendError(res, error, 'Die interne Notiz konnte nicht gespeichert werden.');
   }
 });
 
 // Description: Update priority
 // Endpoint: PUT /api/repair-requests/:id/priority
-// Request: { priority: string }
-// Response: { success: true, request: RepairRequest }
 router.put('/:id/priority', requireStaff, async (req, res) => {
   try {
-    console.log(`PUT /api/repair-requests/${req.params.id}/priority - Update priority`);
-    console.log('Request body:', req.body);
-
-    const { priority } = req.body;
-
-    if (!priority) {
-      return res.status(400).json({
-        success: false,
-        message: 'Priority is required',
-      });
-    }
-
-    const staffId = req.user._id;
-    const staffName = `${req.user.firstName} ${req.user.lastName}`;
-
-    const request = await RepairRequestService.updatePriority(
-      req.params.id,
-      priority,
-      staffId,
-      staffName
-    );
-
-    res.status(200).json({
-      success: true,
-      request,
-      message: 'Priority updated successfully',
-    });
+    const { priority } = req.body || {};
+    if (!priority) return res.status(400).json({ success: false, message: 'Bitte eine Priorität wählen.' });
+    const actor = actorOf(req.user);
+    const request = await RepairRequestService.updatePriority(req.params.id, priority, actor._id, actor.name);
+    res.status(200).json({ success: true, request: RepairRequestService.toStaffView(request), message: 'Priorität gespeichert.' });
   } catch (error) {
-    console.error('Error updating priority:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to update priority',
-    });
+    sendError(res, error, 'Die Priorität konnte nicht gespeichert werden.');
   }
 });
 
-// Description: Update estimated cost
+// Description: Kompatibilität – speichert den Kostenvoranschlag nur als ENTWURF (sendet nichts)
 // Endpoint: PUT /api/repair-requests/:id/estimated-cost
 // Request: { estimatedCost: number }
-// Response: { success: true, request: RepairRequest }
 router.put('/:id/estimated-cost', requireStaff, async (req, res) => {
   try {
-    console.log(`PUT /api/repair-requests/${req.params.id}/estimated-cost - Update estimated cost`);
-    console.log('Request body:', req.body);
-
-    const { estimatedCost } = req.body;
-
-    if (estimatedCost === undefined || estimatedCost === null) {
-      return res.status(400).json({
-        success: false,
-        message: 'Estimated cost is required',
-      });
-    }
-
-    const staffId = req.user._id;
-    const staffName = `${req.user.firstName} ${req.user.lastName}`;
-
-    const request = await RepairRequestService.updateEstimatedCost(
-      req.params.id,
-      estimatedCost,
-      staffId,
-      staffName
-    );
-
-    res.status(200).json({
-      success: true,
-      request,
-      message: 'Estimated cost updated successfully',
-    });
+    const request = await RepairRequestService.saveQuoteDraft(req.params.id, { amount: req.body?.estimatedCost }, actorOf(req.user));
+    res.status(200).json({ success: true, request: RepairRequestService.toStaffView(request), message: 'Entwurf gespeichert (nicht an den Kunden gesendet).' });
   } catch (error) {
-    console.error('Error updating estimated cost:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to update estimated cost',
-    });
+    sendError(res, error, 'Der Entwurf konnte nicht gespeichert werden.');
   }
 });
 
-// Description: Convert repair request to order
-// Endpoint: POST /api/repair-requests/:id/convert
-// Request: { services: string[], addOns: AddOn[], totalCost: number }
-// Response: { success: true, request: RepairRequest, order: Order }
-router.post('/:id/convert', requireStaff, async (req, res) => {
+// Description: Save Kostenvoranschlag draft (sends nothing)
+// Endpoint: PUT /api/repair-requests/:id/quote
+// Request: { amount: number (>= 0, brutto EUR), description?: string }
+// Response: { success, request: StaffRepairRequestView, changed }
+router.put('/:id/quote', requireStaff, async (req, res) => {
   try {
-    console.log(`POST /api/repair-requests/${req.params.id}/convert - Convert to order`);
-    console.log('Request body:', req.body);
-
-    const staffId = req.user._id;
-    const staffName = `${req.user.firstName} ${req.user.lastName}`;
-
-    const { request, order } = await RepairRequestService.convertToOrder(
-      req.params.id,
-      req.body,
-      staffId,
-      staffName
-    );
-
-    res.status(201).json({
+    const request = await RepairRequestService.saveQuoteDraft(req.params.id, req.body || {}, actorOf(req.user));
+    res.status(200).json({
       success: true,
-      request,
-      order,
-      message: 'Repair request converted to order successfully',
+      request: RepairRequestService.toStaffView(request),
+      changed: request.$locals?.quoteChanged === true,
+      message: 'Entwurf gespeichert (nicht an den Kunden gesendet).',
     });
   } catch (error) {
-    console.error('Error converting to order:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to convert to order',
+    sendError(res, error, 'Der Entwurf konnte nicht gespeichert werden.');
+  }
+});
+
+// Description: Publish Kostenvoranschlag to the customer (once per version) + notify once
+// Endpoint: POST /api/repair-requests/:id/quote/send
+// Request: { amount?: number, description?: string }  (with amount: saves the draft first)
+// Response: { success, request: StaffRepairRequestView, alreadySent: boolean,
+//             email: { status: 'accepted'|'failed'|null, error } }
+router.post('/:id/quote/send', requireStaff, async (req, res) => {
+  try {
+    const result = await RepairRequestService.sendQuote(req.params.id, req.body || {}, actorOf(req.user));
+    res.status(200).json({
+      success: true,
+      request: RepairRequestService.toStaffView(result.request),
+      alreadySent: result.alreadySent,
+      email: result.email,
+      message: result.alreadySent
+        ? 'Dieser Kostenvoranschlag wurde bereits gesendet – es wurde nichts erneut verschickt.'
+        : (result.email?.status === 'failed'
+          ? 'Kostenvoranschlag veröffentlicht, aber die E-Mail an den Kunden ist fehlgeschlagen.'
+          : 'Kostenvoranschlag gesendet.'),
     });
+  } catch (error) {
+    sendError(res, error, 'Der Kostenvoranschlag konnte nicht gesendet werden.');
+  }
+});
+
+// Description: Customer (owner) accepts/declines the Kostenvoranschlag. Staff may NOT answer
+//              on the customer's behalf.
+// Endpoint: POST /api/repair-requests/:id/quote/respond
+// Request: { decision: 'accept' | 'decline', quoteVersion: number (Pflicht), amount?: number }
+// Response: { success, request: CustomerRepairRequestView }
+//           409 { code: 'QUOTE_CHANGED' } wenn der gesehene Stand nicht mehr aktuell ist.
+router.post('/:id/quote/respond', requireUser, async (req, res) => {
+  try {
+    if (RepairRequestService.isStaffUser(req.user)) {
+      return res.status(403).json({ success: false, message: 'Mitarbeitende können den Kostenvoranschlag nicht im Namen des Kunden beantworten.' });
+    }
+    await RepairRequestService.assertAccess(req.user, req.params.id);
+    await RepairRequestService.applyQuoteDecision(req.params.id, {
+      decision: req.body?.decision,
+      responderName: RepairRequestService.actorNameOf(req.user),
+      responderId: req.user._id,
+      channel: 'customer',
+      quoteVersion: req.body?.quoteVersion,
+      amount: req.body?.amount,
+    });
+    const request = await RepairRequestService.getRepairRequestById(req.params.id);
+    res.status(200).json({ success: true, request: RepairRequestService.toCustomerView(request) });
+  } catch (error) {
+    sendError(res, error, 'Die Antwort konnte nicht gespeichert werden.');
+  }
+});
+
+// Description: Convert repair request to order (atomar; Katalogpreise; Gast bleibt Gast)
+// Endpoint: POST /api/repair-requests/:id/convert
+// Request: { services: string[], addOns?: AddOn[], shippingMode?: 'none' | 'inbound_label' }
+// Response: { success, request, order: { _id, orderNumber, totalCost, bookingId }, booking?: { _id, bookingNumber } }
+router.post('/:id/convert', requireStaff, async (req, res) => {
+  try {
+    const actor = actorOf(req.user);
+    const { request, order, booking, shippingMode } = await RepairRequestService.convertToOrder(
+      req.params.id,
+      req.body || {},
+      actor._id,
+      actor.name
+    );
+    res.status(201).json({
+      success: true,
+      request: RepairRequestService.toStaffView(request),
+      order: order ? { _id: order._id, orderNumber: order.orderNumber, totalCost: order.totalCost, bookingId: order.bookingId || null } : null,
+      booking: booking ? { _id: booking._id, bookingNumber: booking.bookingNumber } : null,
+      shippingMode,
+      message: `In Auftrag ${order?.orderNumber || ''} umgewandelt.`.replace('  ', ' '),
+    });
+  } catch (error) {
+    sendError(res, error, 'Die Anfrage konnte nicht umgewandelt werden.');
   }
 });
 
 // Description: Delete repair request
 // Endpoint: DELETE /api/repair-requests/:id
-// Request: {}
-// Response: { success: true }
 router.delete('/:id', requireStaff, async (req, res) => {
   try {
-    console.log(`DELETE /api/repair-requests/${req.params.id} - Delete repair request`);
-
     await RepairRequestService.deleteRepairRequest(req.params.id);
-
-    res.status(200).json({
-      success: true,
-      message: 'Repair request deleted successfully',
-    });
+    res.status(200).json({ success: true, message: 'Reparaturanfrage gelöscht.' });
   } catch (error) {
-    console.error('Error deleting repair request:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to delete repair request',
-    });
+    sendError(res, error, 'Die Anfrage konnte nicht gelöscht werden.');
   }
 });
 

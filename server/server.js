@@ -262,7 +262,9 @@ const isPrivateDevOrigin = (origin) => {
   }
 };
 
-app.set('trust proxy', 1);
+// X-Forwarded-For nur von vertrauenswuerdigen Proxys (Standard: nginx auf demselben Host,
+// abweichend per TRUST_PROXY) - sonst waeren Client-IP und alle Rate-Limits faelschbar.
+app.set('trust proxy', require('./routes/middleware/rateLimit').resolveTrustProxySetting(process.env.TRUST_PROXY));
 app.disable('x-powered-by');
 
 // Pretty-print JSON only in development to keep production payloads compact.
@@ -301,8 +303,14 @@ app.use(express.json({ limit: requestLimit }));
 app.use(express.urlencoded({ extended: true, limit: requestLimit }));
 app.use(requireCsrfProtection);
 
+// Pruefberichte der Geraeteinspektion (Kundenname, E-Mail, Telefon, interne Notiz) nur fuer
+// angemeldetes Personal - frueher ohne jede Anmeldung ueber die Datei-URL abrufbar (K04).
+// Der Bericht wird nur ueber die Personal-Route GET /api/device-inspections/:orderId/report
+// erzeugt; das Zugangs-Cookie (Pfad '/') wird beim Download mitgesendet.
+// serveUploads loest den Pfad wie express.static auf (dekodiert + normalisiert), damit
+// Umwege wie /uploads//reports, /uploads/%72eports oder /uploads/x/../reports nicht greifen.
 // Serve uploaded files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', ...require('./routes/middleware/uploadsAccess').serveUploads(path.join(__dirname, 'uploads')));
 
 // Serve public assets (including brand logos)
 app.use('/assets', express.static(path.join(__dirname, '../public/assets')));
@@ -485,6 +493,8 @@ app.use('/api/device-inspections', deviceInspectionRoutes);
 app.use('/api/inspection-communication', inspectionCommunicationRoutes);
 // Repair Request Communication Routes
 app.use('/api/repair-request-communication', repairRequestCommunicationRoutes);
+// Zentrales Postfach (lesender Adapter ueber alle Kundengespraeche)
+app.use('/api/communications', require("./routes/communicationInboxRoutes"));
 // Language Routes
 app.use('/api/languages', languageRoutes);
 // Checkout Routes

@@ -1,0 +1,2378 @@
+Client-API aus: /home/adar/Projects/FixitHub/client/src/api
+(node:1101220) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1101220) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1101220) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[A] Altauftrag: 409 mit code/details im Client, Bestaetigung ueber die echte Route
+  PASS orderServices.ts exportiert describeRepricingConsequence :: function
+RequireRole middleware: User or-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding service 6abf9342e958f5841facadcb to order 6abf9342e958f5841facadd6
+[OrderServiceManagement] Error adding service to order: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+[OrderServiceRoutes] Error adding service: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+Error adding service to order: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+  PASS Client-Fehler traegt code ORDER_VALUE_NOT_RECONCILED :: ORDER_VALUE_NOT_RECONCILED / Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+  PASS Client-Fehler traegt details (gespeichert 80,00, Differenz -20,00) :: {"storedTotal":80,"positionsGross":100,"discount":0,"expectedTotal":100,"difference":-20}
+  PASS deutsche Servermeldung bleibt erhalten :: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+  PASS Bestaetigungstext bei negativer Differenz: Wert steigt (nicht "nicht übernommen") :: Gespeicherter Auftragswert 80,00 €, Positionen 100,00 € abzüglich 0,00 € Rabatt = 100,00 €. Bei der Neuberechnung steigt der Auftragswert dadurch um 20,00 € (zusätzlich zu Ihrer Änderung) auf den Wert der Positionen abzüglich Rabatt. Der Auftragswert wird aus den Positionen und den Konditionen dieses Auftrags neu berechnet; die Abweichung wird in der Auftragshistorie festgehalten.
+  PASS ohne Bestaetigung nichts gespeichert :: 1 / 80
+RequireRole middleware: User or-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding service 6abf9342e958f5841facadcb to order 6abf9342e958f5841facadd6
+[OrderServiceManagement] Service 6abf9342e958f5841facadcb added to order 6abf9342e958f5841facadd6. List price: 50. Order value: 150
+[OrderServiceRoutes] Position added by user 6abf9342e958f5841facad9c to order 6abf9342e958f5841facadd6
+Service 6abf9342e958f5841facadcb added to order 6abf9342e958f5841facadd6
+  PASS Hinzufuegen MIT Bestaetigung ueber Client+Route erfolgreich :: ok
+  PASS nach Bestaetigung: 2 Positionen, Auftragswert 150,00 :: 2 / 150
+  PASS Historie: Bestaetigung und Grund festgehalten :: Position „Akkutausch“ hinzugefügt (Standardpreis 50,00 €) | Auftragswert 80,00 € → 150,00 € | Grund: Zusatzschaden | Neuberechnung trotz Abweichung bestätigt: gespeicherter Auftragswert 80,00 €, Positionen abzüglich Rabatt 100,00 €
+RequireRole middleware: User or-staff@test.invalid has required role staff
+[OrderServiceRoutes] PUT /:orderId/:serviceId - Updating service 6abf9342e958f5841facae28 in order 6abf9342e958f5841facae29
+[OrderServiceManagement] Error updating order service: Der gespeicherte Auftragswert (150,00 €) passt nicht zu den Positionen (150,00 € abzüglich 10,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 10,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+[OrderServiceRoutes] Error updating service: Der gespeicherte Auftragswert (150,00 €) passt nicht zu den Positionen (150,00 € abzüglich 10,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 10,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+Error updating order service: Der gespeicherte Auftragswert (150,00 €) passt nicht zu den Positionen (150,00 € abzüglich 10,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 10,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+  PASS Aendern: 409 mit code und Differenz +10,00 :: ORDER_VALUE_NOT_RECONCILED {"storedTotal":150,"positionsGross":150,"discount":10,"expectedTotal":140,"difference":10}
+  PASS Bestaetigungstext bei positiver Differenz: Wert sinkt :: Gespeicherter Auftragswert 150,00 €, Positionen 150,00 € abzüglich 10,00 € Rabatt = 140,00 €. Bei der Neuberechnung sinkt der Auftragswert dadurch um 10,00 € (zusätzlich zu Ihrer Änderung) - der bisher darüber hinaus gespeicherte Betrag entfällt. Der Auftragswert wird aus den Positionen und den Konditionen dieses Auftrags neu berechnet; die Abweichung wird in der Auftragshistorie festgehalten.
+RequireRole middleware: User or-staff@test.invalid has required role staff
+[OrderServiceRoutes] PUT /:orderId/:serviceId - Updating service 6abf9342e958f5841facae28 in order 6abf9342e958f5841facae29
+[OrderServiceManagement] Service 6abf9342e958f5841facae28 updated in order 6abf9342e958f5841facae29. List price: 60. Order value: 150
+[OrderServiceRoutes] Service 6abf9342e958f5841facae28 updated by user 6abf9342e958f5841facad9c in order 6abf9342e958f5841facae29
+Service 6abf9342e958f5841facae28 updated in order 6abf9342e958f5841facae29
+  PASS Aendern MIT Bestaetigung erfolgreich :: ok
+  PASS nach Bestaetigung: Position 60,00, Auftragswert 160,00 - 10,00 = 150,00 :: 60 / 150 / 10
+RequireRole middleware: User or-staff@test.invalid has required role staff
+[OrderServiceRoutes] DELETE /:orderId/:serviceId - Removing service 6abf9342e958f5841facae45 from order 6abf9342e958f5841facae46
+[OrderServiceManagement] Error removing service from order: Der gespeicherte Auftragswert (139,00 €) passt nicht zu den Positionen (170,00 € abzüglich 0,00 € Rabatt = 170,00 €). Eine automatische Neuberechnung würde die Differenz von 31,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+[OrderServiceRoutes] Error removing service: Der gespeicherte Auftragswert (139,00 €) passt nicht zu den Positionen (170,00 € abzüglich 0,00 € Rabatt = 170,00 €). Eine automatische Neuberechnung würde die Differenz von 31,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+Error removing service from order: Der gespeicherte Auftragswert (139,00 €) passt nicht zu den Positionen (170,00 € abzüglich 0,00 € Rabatt = 170,00 €). Eine automatische Neuberechnung würde die Differenz von 31,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+  PASS Entfernen: 409 mit code :: ORDER_VALUE_NOT_RECONCILED Der gespeicherte Auftragswert (139,00 €) passt nicht zu den Positionen (170,00 € abzüglich 0,00 € Rabatt = 170,00 €). Eine automatische Neuberechnung würde die Differenz von 31,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+RequireRole middleware: User or-staff@test.invalid has required role staff
+[OrderServiceRoutes] DELETE /:orderId/:serviceId - Removing service 6abf9342e958f5841facae45 from order 6abf9342e958f5841facae46
+[OrderServiceManagement] Service 6abf9342e958f5841facae45 removed from order 6abf9342e958f5841facae46. Order value: 100
+[OrderServiceRoutes] Service 6abf9342e958f5841facae45 removed by user 6abf9342e958f5841facad9c from order 6abf9342e958f5841facae46
+Service 6abf9342e958f5841facae45 removed from order 6abf9342e958f5841facae46
+  PASS Entfernen MIT Bestaetigung erfolgreich :: ok
+  PASS nach Bestaetigung: 1 Position, 100,00 :: 1 / 100
+RequireRole middleware: User or-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding service 6abf9342e958f5841facadcb to order 6abf9342e958f5841facae61
+[OrderServiceManagement] Error adding service to order: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+[OrderServiceRoutes] Error adding service: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+  PASS HTTP 409 enthaelt details (expectedTotal 100,00) :: 409 {"error":"Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.","code":"ORDER_VALUE_NOT_RECONCILED","details":{"storedTotal":80,"positionsGross":100,"discount":0,"expectedTotal":100,"difference":-20}}
+RequireRole middleware: User or-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding service 6abf9342e958f5841facadcb to order 6abf9342e958f5841facae61
+[OrderServiceManagement] Service 6abf9342e958f5841facadcb added to order 6abf9342e958f5841facae61. List price: 50. Order value: 150
+[OrderServiceRoutes] Position added by user 6abf9342e958f5841facad9c to order 6abf9342e958f5841facae61
+  PASS HTTP POST mit confirmRepricing: 201 :: 201 
+RequireRole middleware: User or-staff@test.invalid has required role staff
+[OrderServiceRoutes] DELETE /:orderId/:serviceId - Removing service 6abf9342e958f5841facae6c from order 6abf9342e958f5841facae61
+[OrderServiceManagement] Service 6abf9342e958f5841facae6c removed from order 6abf9342e958f5841facae61. Order value: 100
+[OrderServiceRoutes] Service 6abf9342e958f5841facae6c removed by user 6abf9342e958f5841facad9c from order 6abf9342e958f5841facae61
+  PASS HTTP DELETE ?confirmRepricing=true: 200 :: 200 
+RequireRole middleware: User or-privat@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde darf nicht bestaetigen (403) :: 403
+
+[B] Reklamation ablehnen: Wiederholung und parallele Anfragen
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9342e958f5841facae96')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf9342e958f5841facaeb9'),
+  customerId: '6abf9341e958f5841facad0a',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0001',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS mindestens eine Anfrage erfolgreich :: 200 / 409
+  PASS die andere: 200 (bereits erledigt) oder 409 :: 200  / 409 Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+  PASS keine rohe Mongo-Meldung :: - / Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+  PASS genau EIN Reklamationsauftrag angelegt :: 6abf9342e958f5841facaeb9
+  PASS genau EINE Pauschalenrechnung ueber 39,00 :: INV-2026-0001=39
+  PASS genau EINE Pauschalen-Position, Auftragswert 39,00 :: 1 / 39
+  PASS Reklamation: awaiting_payment / Angebot abgelehnt :: awaiting_payment / rejected
+  PASS genau EIN Protokolleintrag offer_rejected :: offer_rejected
+  PASS Mehrkosten nur einmal gebucht (39,00) :: 39
+  PASS Wiederholung: 200 mit alreadyProcessed :: 200  true
+  PASS Wiederholung liefert die BESTEHENDE Rechnung :: INV-2026-0001
+  PASS nach Wiederholung weiterhin genau EINE Rechnung :: 1
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9343e958f5841facaf30')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+ComplaintRoutes: Error rejecting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1073:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf9343e958f5841facaf3c'),
+  customerId: '6abf9341e958f5841facad0a',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0002',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS genau EINE Anfrage verarbeitet die Ablehnung :: 200 409 409
+  PASS parallel mit Reklamationsauftrag: genau EINE Rechnung :: INV-2026-0002
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9343e958f5841facafc7')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error accepting offer: Error: Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:870:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 409,
+  code: 'COMPLAINT_DECISION_IN_PROGRESS'
+}
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf9343e958f5841facafd3'),
+  customerId: '6abf9341e958f5841facad0a',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0003',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Annehmen + Ablehnen parallel: genau eine Entscheidung gilt :: accept 409 Über dieses Reparaturangebot wurde bereits entschieden oder die Entscheidung wird gerade verarbeitet. Bitte laden Sie die Seite neu. / reject 200 
+  PASS Ergebnis konsistent (Status, Angebot, Auftragswert, Rechnungen) :: awaiting_payment / rejected / 39 / 1 Rechnung(en)
+
+[C] Pauschale durch Personal: null/'' = nicht angegeben, negativ abgelehnt
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9343e958f5841facb04d')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf9343e958f5841facb059'),
+  customerId: '6abf9341e958f5841facad0a',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0004',
+      quantity: 1,
+      unitPrice: 25,
+      total: 25,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS serviceFee null -> gespeicherte Pauschale 25,00 :: 200  25
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9343e958f5841facb0b9')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf9343e958f5841facb0c5'),
+  customerId: '6abf9341e958f5841facad0a',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0005',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS serviceFee '' -> Standardpauschale 39,00 :: 200  39
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9343e958f5841facb125')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error rejecting offer: Error: Die Servicepauschale muss eine Zahl größer oder gleich 0 sein.
+    at buildComplaintError (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:137:17)
+    at parseStaffServiceFee (/home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:163:11)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1060:22
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 400,
+  code: 'INVALID_SERVICE_FEE'
+}
+  PASS negative Pauschale: 400 mit deutscher Meldung :: 400 Die Servicepauschale muss eine Zahl größer oder gleich 0 sein.
+  PASS nichts geaendert (Status denied, keine Rechnung) :: denied / 0
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9343e958f5841facb145')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf9344e958f5841facb151'),
+  customerId: '6abf9341e958f5841facad0a',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0007',
+      quantity: 1,
+      unitPrice: 45,
+      total: 45,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Personal setzt 45,00 ausdruecklich :: 200 45
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9344e958f5841facb1b1')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf9344e958f5841facb1bd'),
+  customerId: '6abf9341e958f5841facad0a',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0008',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Kunde kann die Pauschale nicht setzen (39,00) :: 200 39
+
+[D] Unerwartete Fehler der Reklamationsrouten: deutsch
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9344e958f5841facb21d')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error getting complaint: Error: E11000 duplicate key error collection: test.orders index: orderNumber_1 dup key
+    at Function.failing [as findById] (/home/adar/Projects/FixitHub/test-order-residual.js:531:15)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1649:39
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+ComplaintRoutes: Error rejecting offer: Error: E11000 duplicate key error collection: test.orders index: orderNumber_1 dup key
+    at Function.failing [as findById] (/home/adar/Projects/FixitHub/test-order-residual.js:531:15)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:976:39
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+ComplaintRoutes: Error getting customer complaints: Error: connection pool was cleared
+    at Function.failing [as find] (/home/adar/Projects/FixitHub/test-order-residual.js:543:51)
+    at /home/adar/Projects/FixitHub/server/routes/complaintRoutes.js:1635:40
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+  PASS GET /:id: deutsche Meldung statt Rohfehler :: 500 Die Reklamation konnte nicht geladen werden.
+  PASS POST /:id/reject-offer: deutsche Meldung statt Rohfehler :: 500 Die Ablehnung des Reparaturangebots konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.
+  PASS GET /my: deutsche Meldung statt Rohfehler :: 500 Ihre Reklamationen konnten nicht geladen werden.
+  PASS unbekannte Reklamation: 404 deutsch :: 404 Die Reklamation wurde nicht gefunden.
+
+[E] Mitarbeiterzuweisung an Zusatzleistung bei parallelem Entfernen
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9344e958f5841facb239')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+OrderService: Adding add-on to order: {
+  orderId: '6abf9344e958f5841facb239',
+  addonData: { name: 'Expressbearbeitung', price: 30 },
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Add-on added successfully
+OrderService: Adding add-on to order: {
+  orderId: '6abf9344e958f5841facb239',
+  addonData: { name: 'Datensicherung', price: 20 },
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Add-on added successfully
+OrderService: Assigning staff to add-on: {
+  orderId: '6abf9344e958f5841facb239',
+  addonId: '6abf9344e958f5841facb267',
+  staffId: '6abf9342e958f5841facadaa',
+  assigningStaffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Removing add-on from order: {
+  orderId: '6abf9344e958f5841facb239',
+  addonId: '6abf9344e958f5841facb248',
+  staffId: new ObjectId('6abf9342e958f5841facadaa')
+}
+OrderService: Add-on removed successfully
+OrderService: gleichzeitige Aenderung an Auftrag 6abf9344e958f5841facb239 erkannt (Versuch 1/6) - wird auf frischem Stand wiederholt.
+OrderService: Staff assigned to add-on successfully
+  PASS paralleles Entfernen wurde zwischen Laden und Speichern ausgefuehrt :: true
+  PASS Zuweisung erfolgreich :: null
+  PASS nur noch "Datensicherung", keine Geisterposition :: Datensicherung
+  PASS Verlauf: genau EINE Zuweisung, an "Datensicherung" :: Tom OR der Zusatzleistung „Datensicherung“ zugewiesen
+  PASS Mitarbeiter an der RICHTIGEN Zusatzleistung gespeichert :: [["Datensicherung",1]]
+  PASS Auftragswert nach Entfernen 108,00 :: 108
+
+[F] Auftragsdetail ohne Base64-Versandlabel
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9344e958f5841facb2c1')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+OrderService: Getting order by ID: 6abf9344e958f5841facb2c1
+  PASS getById (Standard) projiziert shippingLabelUrl nicht :: undefined
+  PASS hasShippingLabel weiterhin true :: true
+OrderService: Getting order by ID: 6abf9344e958f5841facb2c1
+  PASS includeLabelData liefert das Label :: data:application/pdf;base64,QU
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9344e958f5841facb2df')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+OrderService: Getting order by ID: 6abf9344e958f5841facb2df
+  PASS ohne Label: hasShippingLabel false :: false
+
+[G] Buchungsliste: Zahlungsstand unbekannt -> null statt 0,00
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0001
+Booking pre-save: Total orders: 1 Booking status: processing
+Booking pre-save: Adding initial timeline entry
+BookingService: Getting all bookings with filters: {}
+BookingService: Found 1 bookings on current page
+BookingService: Error computing payment balances: Error: Simulierter Ausfall der Saldenberechnung
+    at PaymentService.getBookingBalancesBulk (/home/adar/Projects/FixitHub/test-order-residual.js:643:67)
+    at BookingService.buildPaymentBalanceMap (/home/adar/Projects/FixitHub/server/services/bookingService.js:2331:45)
+    at BookingService.getAllBookings (/home/adar/Projects/FixitHub/server/services/bookingService.js:2514:55)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/test-order-residual.js:647:21
+    at async section (/home/adar/Projects/FixitHub/test-order-residual.js:141:5)
+    at async main (/home/adar/Projects/FixitHub/test-order-residual.js:639:5)
+BookingService: Calculated real-time progress for all bookings
+BookingService: Getting bookings for customer: 6abf9344e958f5841facb2f2
+BookingService: Error computing payment balances: Error: Simulierter Ausfall der Saldenberechnung
+    at PaymentService.getBookingBalancesBulk (/home/adar/Projects/FixitHub/test-order-residual.js:643:67)
+    at BookingService.buildPaymentBalanceMap (/home/adar/Projects/FixitHub/server/services/bookingService.js:2331:45)
+    at BookingService.getByCustomer (/home/adar/Projects/FixitHub/server/services/bookingService.js:2681:55)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/test-order-residual.js:648:24
+    at async section (/home/adar/Projects/FixitHub/test-order-residual.js:141:5)
+    at async main (/home/adar/Projects/FixitHub/test-order-residual.js:639:5)
+BookingService: Found 1 bookings for customer on current page
+  PASS Adminliste: paymentBalance null bei Ausfall :: null
+  PASS Kundenliste: paymentBalance null bei Ausfall :: null
+BookingService: Getting all bookings with filters: {}
+BookingService: Found 1 bookings on current page
+BookingService: Calculated real-time progress for all bookings
+  PASS ohne Ausfall: Saldo vorhanden (offen 50,00) :: {"total":50,"reference":50,"orderValue":50,"invoicedTotal":0,"allocated":0,"received":0,"unallocated":0,"open":50,"invoiceOpen":0,"overpaid":0}
+
+[H] Buchungsrechnung: Zahlungsziel bei Profilausfall normalisiert
+  PASS Einstellung: Standardfrist 30 Tage gespeichert :: 30
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0002
+Booking pre-save: Total orders: 1 Booking status: processing
+Booking pre-save: Adding initial timeline entry
+BookingService: Creating invoice for booking: 6abf9344e958f5841facb31f
+BookingService: Creating invoice with customer: N/A Email: or-frist@test.invalid
+BookingService: Created 1 invoice items, gross total: 40
+BookingService: Invoice created successfully: new ObjectId('6abf9344e958f5841facb339') Number: INV-2026-0008
+Booking pre-save: Total orders: 1 Booking status: processing
+Booking pre-save: Total orders: 1 Booking status: processing
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0003
+Booking pre-save: Total orders: 1 Booking status: processing
+Booking pre-save: Adding initial timeline entry
+BookingService: Creating invoice for booking: 6abf9345e958f5841facb3c1
+BookingService: Creating invoice with customer: N/A Email: or-frist2@test.invalid
+BookingService: payment terms profile could not be resolved: Simulierter Profilfehler
+BookingService: invoice tax profile could not be resolved: Simulierter Profilfehler
+BookingService: Created 1 invoice items, gross total: 40
+BookingService: Invoice created successfully: new ObjectId('6abf9345e958f5841facb3d8') Number: INV-2026-0009
+Booking pre-save: Total orders: 1 Booking status: processing
+Booking pre-save: Total orders: 1 Booking status: processing
+  PASS normaler Weg: 30 Tage -> normalisiert 14 :: 14
+  PASS Ausfallweg: dieselbe Frist wie der normale Weg (nicht roh 30, nicht fest 14 ohne Normalisierung) :: 14 / 14 Tage netto ohne Abzug
+
+[I] Buchungsbelege mit Zahlungsstand, kein Nachladen von /api/invoices?limit=500
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0004
+Booking pre-save: Total orders: 1 Booking status: processing
+Booking pre-save: Adding initial timeline entry
+BookingService: Creating invoice for booking: 6abf9345e958f5841facb460
+BookingService: Creating invoice with customer: N/A Email: or-beleg@test.invalid
+BookingService: Created 1 invoice items, gross total: 60
+BookingService: Invoice created successfully: new ObjectId('6abf9345e958f5841facb47a') Number: INV-2026-0010
+Booking pre-save: Total orders: 1 Booking status: processing
+Booking pre-save: Total orders: 1 Booking status: processing
+BookingService: Getting invoices for booking: 6abf9345e958f5841facb460
+BookingService: Found 1 invoices for booking
+  PASS getBookingInvoices: balance (offen 60,00) und paymentState :: {"balance":{"total":60,"credited":0,"receivable":60,"allocated":0,"open":60,"overpaid":0,"received":0,"refundPending":0,"refunded":0,"refundsInProgress":0},"paymentState":"open"}
+BookingRoutes: Getting invoices for booking: 6abf9345e958f5841facb460
+BookingService: Getting booking: 6abf9345e958f5841facb460
+BookingService: Booking retrieved successfully
+BookingService: Getting invoices for booking: 6abf9345e958f5841facb460
+BookingService: Found 1 invoices for booking
+BookingRoutes: Retrieved 1 invoices
+  PASS Client: Beleg mit Saldo :: {"total":60,"credited":0,"receivable":60,"allocated":0,"open":60,"overpaid":0,"received":0,"refundPending":0,"refunded":0,"refundsInProgress":0}
+  PASS Client: kein zusaetzliches /api/invoices?limit=500 :: GET /api/bookings/6abf9345e958f5841facb460/invoices
+
+[J] orders.ts: Abgleich-Fehlercode, Adresspruefung, Rueckerstattung je Auftrag
+  PASS Fehlercode bleibt erhalten :: NO_RECONCILIATION_PENDING Für die Einsendung dieses Auftrags ist kein Abgleich offen.
+  PASS Adresse mit '..' wird nicht verwendet :: /api/orders/6abf9345e958f5841facb539/return-label/reconcile
+  PASS orders.ts exportiert splitRefundPendingByScope :: function
+  PASS eigener Betrag des Auftrags: nur Einzelrechnung (5,00) :: {"orderAmount":5,"bookingLevel":[{"invoiceId":"a","invoiceNumber":"INV-2026-0001","amount":15}]}
+  PASS Buchungsrechnung separat ausgewiesen (INV-2026-0001, 15,00) :: [{"invoiceId":"a","invoiceNumber":"INV-2026-0001","amount":15}]
+
+[K] Zusatzleistungen: 409 mit code/details im Client, Bestaetigung ueber die echte Route
+addAddonToOrder called with orderId: 6abf9345e958f5841facb53c addonData: { name: 'Expressbearbeitung', price: 30 }
+Add add-on to order request received: 6abf9345e958f5841facb53c { name: 'Expressbearbeitung', price: 30 }
+OrderService: Adding add-on to order: {
+  orderId: '6abf9345e958f5841facb53c',
+  addonData: {
+    name: 'Expressbearbeitung',
+    description: undefined,
+    price: 30,
+    estimatedTime: undefined,
+    status: undefined,
+    confirmRepricing: false
+  },
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Error adding add-on: Error: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:2067:61
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.addAddonToOrder (/home/adar/Projects/FixitHub/server/services/orderService.js:2053:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:482:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 80,
+    positionsGross: 100,
+    discount: 0,
+    expectedTotal: 100,
+    difference: -20
+  }
+}
+Error adding add-on to order: Error: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:2067:61
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.addAddonToOrder (/home/adar/Projects/FixitHub/server/services/orderService.js:2053:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:482:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 80,
+    positionsGross: 100,
+    discount: 0,
+    expectedTotal: 100,
+    difference: -20
+  }
+}
+addAddonToOrder API error: Error [ApiError]: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at request (/home/adar/Projects/FixitHub/test-order-residual.js:172:21)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.addAddonToOrder (eval at loadClientModule (/home/adar/Projects/FixitHub/test-order-residual.js:206:3), <anonymous>:384:26)
+    at async expectReconcileError (/home/adar/Projects/FixitHub/test-order-residual.js:761:13)
+    at async /home/adar/Projects/FixitHub/test-order-residual.js:776:24
+    at async section (/home/adar/Projects/FixitHub/test-order-residual.js:141:5)
+    at async main (/home/adar/Projects/FixitHub/test-order-residual.js:773:5) {
+  status: 409,
+  data: {
+    error: 'Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+    code: 'ORDER_VALUE_NOT_RECONCILED',
+    details: {
+      storedTotal: 80,
+      positionsGross: 100,
+      discount: 0,
+      expectedTotal: 100,
+      difference: -20
+    }
+  },
+  response: {
+    status: 409,
+    data: {
+      error: 'Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+      code: 'ORDER_VALUE_NOT_RECONCILED',
+      details: [Object]
+    }
+  }
+}
+  PASS Hinzufuegen: Client-Fehler mit code ORDER_VALUE_NOT_RECONCILED und details :: ORDER_VALUE_NOT_RECONCILED {"storedTotal":80,"positionsGross":100,"discount":0,"expectedTotal":100,"difference":-20} Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+  PASS ohne Bestaetigung nichts gespeichert :: 0 / 80
+addAddonToOrder called with orderId: 6abf9345e958f5841facb53c addonData: { name: 'Expressbearbeitung', price: 30 }
+Add add-on to order request received: 6abf9345e958f5841facb53c {
+  name: 'Expressbearbeitung',
+  price: 30,
+  confirmRepricing: true,
+  repricingBasis: { storedTotal: 80, expectedTotal: 100 }
+}
+OrderService: Adding add-on to order: {
+  orderId: '6abf9345e958f5841facb53c',
+  addonData: {
+    name: 'Expressbearbeitung',
+    description: undefined,
+    price: 30,
+    estimatedTime: undefined,
+    status: undefined,
+    confirmRepricing: true,
+    repricingBasis: { storedTotal: 80, expectedTotal: 100 }
+  },
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Add-on added successfully
+addAddonToOrder API response: {
+  success: true,
+  message: 'Die Zusatzleistung wurde hinzugefügt.',
+  order: {
+    guestInfo: {
+      billingAddress: [Object],
+      shippingAddress: [Object],
+      email: '',
+      firstName: '',
+      lastName: '',
+      phone: '',
+      isGuest: false
+    },
+    shippingAddress: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: '',
+      deliveryType: '',
+      packstationNumber: '',
+      postNumber: ''
+    },
+    priority: 'normal',
+    dealerDiscountPercent: 0,
+    dealerDiscountAmount: 0,
+    appliedPromoCode: '',
+    taxRate: 19,
+    revisionCount: 1,
+    photos: [],
+    customerNotes: '',
+    progress: 0,
+    paymentStatus: 'pending',
+    paymentMethod: null,
+    paidAt: null,
+    unlockPattern: [],
+    unlockCode: '',
+    noLock: false,
+    errorDescription: '',
+    waterDamage: '',
+    previousRepairAttempts: '',
+    previousRepairDetails: '',
+    itemCondition: '',
+    imei: '',
+    serialNumber: '',
+    bookingId: null,
+    hasComplaint: false,
+    complaintReason: '',
+    parentOrderId: null,
+    sourceComplaintId: null,
+    isComplaintFollowup: false,
+    requiresPaymentBeforeCompletion: false,
+    trackingNumber: '',
+    carrier: 'DHL',
+    shippingStatus: 'pending',
+    shippingStatusDescription: '',
+    shippingLabelUrl: '',
+    shippingLabelCreationInProgress: false,
+    shippingCost: 0,
+    returnLabelUrl: '',
+    returnQRCodeUrl: '',
+    returnTrackingNumber: '',
+    returnShipmentId: '',
+    returnShipmentStatus: '',
+    returnShipmentStatusDescription: '',
+    guestTrackingToken: '',
+    _id: '6abf9345e958f5841facb53c',
+    orderNumber: 'ORD-LEGACY-OR-5',
+    customerId: '6abf9342e958f5841facad76',
+    deviceBrand: 'Apple',
+    deviceModel: 'iPhone 15',
+    deviceType: 'Smartphone',
+    services: [ [Object] ],
+    addOns: [ [Object] ],
+    shopProducts: [],
+    totalCost: 130,
+    discount: 0,
+    status: 'pending',
+    createdAt: '2025-05-01T00:00:00.000Z',
+    assignedStaff: [ [Object] ],
+    staffNotes: [],
+    eParts: [],
+    ePartNeedListEntries: [],
+    workflows: [],
+    timeline: [ [Object], [Object] ],
+    trackingEvents: [],
+    updatedAt: '2026-10-02T11:19:33.709Z',
+    pricingConditions: {
+      groupDiscountPercent: 0,
+      promoDiscountAmount: 0,
+      source: 'legacy',
+      customerGroupId: null,
+      customerGroupName: '',
+      appliedAt: '2025-05-01T00:00:00.000Z'
+    },
+    editRevision: 1,
+    netAmount: 109.24,
+    taxAmount: 20.76
+  },
+  warnings: []
+}
+  PASS Hinzufuegen: MIT Bestaetigung erfolgreich :: ok
+  PASS Zusatzleistung gespeichert, Auftragswert 100 + 30 = 130,00 :: 1 / 130
+updateOrderAddon called with orderId: 6abf9345e958f5841facb53c addonId: 6abf9345e958f5841facb545 updateData: { price: 40 }
+Update add-on in order request received: 6abf9345e958f5841facb53c 6abf9345e958f5841facb545 { price: 40 }
+OrderService: Updating add-on in order: {
+  orderId: '6abf9345e958f5841facb53c',
+  addonId: '6abf9345e958f5841facb545',
+  updateData: {
+    name: undefined,
+    description: undefined,
+    price: 40,
+    estimatedTime: undefined,
+    status: undefined,
+    progress: undefined,
+    confirmRepricing: false
+  },
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Error updating add-on: Error: Der gespeicherte Auftragswert (200,00 €) passt nicht zu den Positionen (130,00 € abzüglich 0,00 € Rabatt = 130,00 €). Eine automatische Neuberechnung würde die Differenz von 70,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:2136:50
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.updateOrderAddon (/home/adar/Projects/FixitHub/server/services/orderService.js:2121:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:524:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 200,
+    positionsGross: 130,
+    discount: 0,
+    expectedTotal: 130,
+    difference: 70
+  }
+}
+Error updating add-on in order: Error: Der gespeicherte Auftragswert (200,00 €) passt nicht zu den Positionen (130,00 € abzüglich 0,00 € Rabatt = 130,00 €). Eine automatische Neuberechnung würde die Differenz von 70,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:2136:50
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.updateOrderAddon (/home/adar/Projects/FixitHub/server/services/orderService.js:2121:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:524:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 200,
+    positionsGross: 130,
+    discount: 0,
+    expectedTotal: 130,
+    difference: 70
+  }
+}
+updateOrderAddon API error: Error [ApiError]: Der gespeicherte Auftragswert (200,00 €) passt nicht zu den Positionen (130,00 € abzüglich 0,00 € Rabatt = 130,00 €). Eine automatische Neuberechnung würde die Differenz von 70,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at request (/home/adar/Projects/FixitHub/test-order-residual.js:172:21)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.updateOrderAddon (eval at loadClientModule (/home/adar/Projects/FixitHub/test-order-residual.js:206:3), <anonymous>:403:26)
+    at async expectReconcileError (/home/adar/Projects/FixitHub/test-order-residual.js:761:13)
+    at async /home/adar/Projects/FixitHub/test-order-residual.js:785:24
+    at async section (/home/adar/Projects/FixitHub/test-order-residual.js:141:5)
+    at async main (/home/adar/Projects/FixitHub/test-order-residual.js:773:5) {
+  status: 409,
+  data: {
+    error: 'Der gespeicherte Auftragswert (200,00 €) passt nicht zu den Positionen (130,00 € abzüglich 0,00 € Rabatt = 130,00 €). Eine automatische Neuberechnung würde die Differenz von 70,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+    code: 'ORDER_VALUE_NOT_RECONCILED',
+    details: {
+      storedTotal: 200,
+      positionsGross: 130,
+      discount: 0,
+      expectedTotal: 130,
+      difference: 70
+    }
+  },
+  response: {
+    status: 409,
+    data: {
+      error: 'Der gespeicherte Auftragswert (200,00 €) passt nicht zu den Positionen (130,00 € abzüglich 0,00 € Rabatt = 130,00 €). Eine automatische Neuberechnung würde die Differenz von 70,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+      code: 'ORDER_VALUE_NOT_RECONCILED',
+      details: [Object]
+    }
+  }
+}
+  PASS Aendern: Client-Fehler mit code ORDER_VALUE_NOT_RECONCILED und details :: ORDER_VALUE_NOT_RECONCILED {"storedTotal":200,"positionsGross":130,"discount":0,"expectedTotal":130,"difference":70} Der gespeicherte Auftragswert (200,00 €) passt nicht zu den Positionen (130,00 € abzüglich 0,00 € Rabatt = 130,00 €). Eine automatische Neuberechnung würde die Differenz von 70,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+updateOrderAddon called with orderId: 6abf9345e958f5841facb53c addonId: 6abf9345e958f5841facb545 updateData: { price: 40 }
+Update add-on in order request received: 6abf9345e958f5841facb53c 6abf9345e958f5841facb545 {
+  price: 40,
+  confirmRepricing: true,
+  repricingBasis: { storedTotal: 200, expectedTotal: 130 }
+}
+OrderService: Updating add-on in order: {
+  orderId: '6abf9345e958f5841facb53c',
+  addonId: '6abf9345e958f5841facb545',
+  updateData: {
+    name: undefined,
+    description: undefined,
+    price: 40,
+    estimatedTime: undefined,
+    status: undefined,
+    progress: undefined,
+    confirmRepricing: true,
+    repricingBasis: { storedTotal: 200, expectedTotal: 130 }
+  },
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Add-on updated successfully
+updateOrderAddon API response: {
+  success: true,
+  message: 'Die Zusatzleistung wurde aktualisiert.',
+  order: {
+    guestInfo: {
+      billingAddress: [Object],
+      shippingAddress: [Object],
+      email: '',
+      firstName: '',
+      isGuest: false,
+      lastName: '',
+      phone: ''
+    },
+    shippingAddress: {
+      city: '',
+      country: '',
+      deliveryType: '',
+      packstationNumber: '',
+      postNumber: '',
+      state: '',
+      street: '',
+      zipCode: ''
+    },
+    paymentMethod: null,
+    paidAt: null,
+    bookingId: null,
+    parentOrderId: null,
+    sourceComplaintId: null,
+    _id: '6abf9345e958f5841facb53c',
+    orderNumber: 'ORD-LEGACY-OR-5',
+    customerId: '6abf9342e958f5841facad76',
+    deviceBrand: 'Apple',
+    deviceModel: 'iPhone 15',
+    deviceType: 'Smartphone',
+    services: [ [Object] ],
+    addOns: [ [Object] ],
+    shopProducts: [],
+    totalCost: 140,
+    discount: 0,
+    status: 'pending',
+    createdAt: '2025-05-01T00:00:00.000Z',
+    appliedPromoCode: '',
+    assignedStaff: [ [Object] ],
+    carrier: 'DHL',
+    complaintReason: '',
+    customerNotes: '',
+    dealerDiscountAmount: 0,
+    dealerDiscountPercent: 0,
+    ePartNeedListEntries: [],
+    eParts: [],
+    editRevision: 2,
+    errorDescription: '',
+    guestTrackingToken: '',
+    hasComplaint: false,
+    imei: '',
+    isComplaintFollowup: false,
+    itemCondition: '',
+    netAmount: 117.65,
+    noLock: false,
+    paymentStatus: 'pending',
+    photos: [],
+    previousRepairAttempts: '',
+    previousRepairDetails: '',
+    pricingConditions: {
+      groupDiscountPercent: 0,
+      promoDiscountAmount: 0,
+      source: 'legacy',
+      customerGroupId: null,
+      customerGroupName: '',
+      appliedAt: '2025-05-01T00:00:00.000Z'
+    },
+    priority: 'normal',
+    progress: 0,
+    requiresPaymentBeforeCompletion: false,
+    returnLabelUrl: '',
+    returnQRCodeUrl: '',
+    returnShipmentId: '',
+    returnShipmentStatus: '',
+    returnShipmentStatusDescription: '',
+    returnTrackingNumber: '',
+    revisionCount: 2,
+    serialNumber: '',
+    shippingCost: 0,
+    shippingLabelCreationInProgress: false,
+    shippingLabelUrl: '',
+    shippingStatus: 'pending',
+    shippingStatusDescription: '',
+    staffNotes: [],
+    taxAmount: 22.35,
+    taxRate: 19,
+    timeline: [ [Object], [Object], [Object] ],
+    trackingEvents: [],
+    trackingNumber: '',
+    unlockCode: '',
+    unlockPattern: [],
+    updatedAt: '2026-10-02T11:19:33.753Z',
+    waterDamage: '',
+    workflows: []
+  },
+  warnings: []
+}
+  PASS Aendern: MIT Bestaetigung erfolgreich :: ok
+  PASS Preis 40,00, Auftragswert 140,00 :: 40 / 140
+removeAddonFromOrder called with orderId: 6abf9345e958f5841facb53c addonId: 6abf9345e958f5841facb545
+Remove add-on from order request received: 6abf9345e958f5841facb53c 6abf9345e958f5841facb545
+OrderService: Removing add-on from order: {
+  orderId: '6abf9345e958f5841facb53c',
+  addonId: '6abf9345e958f5841facb545',
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Error removing add-on: Error: Der gespeicherte Auftragswert (10,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 130,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:2225:61
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.removeAddonFromOrder (/home/adar/Projects/FixitHub/server/services/orderService.js:2216:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:553:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 10,
+    positionsGross: 140,
+    discount: 0,
+    expectedTotal: 140,
+    difference: -130
+  }
+}
+Error removing add-on from order: Error: Der gespeicherte Auftragswert (10,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 130,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:2225:61
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.removeAddonFromOrder (/home/adar/Projects/FixitHub/server/services/orderService.js:2216:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:553:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 10,
+    positionsGross: 140,
+    discount: 0,
+    expectedTotal: 140,
+    difference: -130
+  }
+}
+removeAddonFromOrder API error: Error [ApiError]: Der gespeicherte Auftragswert (10,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 130,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at request (/home/adar/Projects/FixitHub/test-order-residual.js:172:21)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.removeAddonFromOrder (eval at loadClientModule (/home/adar/Projects/FixitHub/test-order-residual.js:206:3), <anonymous>:422:26)
+    at async expectReconcileError (/home/adar/Projects/FixitHub/test-order-residual.js:761:13)
+    at async /home/adar/Projects/FixitHub/test-order-residual.js:791:24
+    at async section (/home/adar/Projects/FixitHub/test-order-residual.js:141:5)
+    at async main (/home/adar/Projects/FixitHub/test-order-residual.js:773:5) {
+  status: 409,
+  data: {
+    error: 'Der gespeicherte Auftragswert (10,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 130,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+    code: 'ORDER_VALUE_NOT_RECONCILED',
+    details: {
+      storedTotal: 10,
+      positionsGross: 140,
+      discount: 0,
+      expectedTotal: 140,
+      difference: -130
+    }
+  },
+  response: {
+    status: 409,
+    data: {
+      error: 'Der gespeicherte Auftragswert (10,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 130,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+      code: 'ORDER_VALUE_NOT_RECONCILED',
+      details: [Object]
+    }
+  }
+}
+  PASS Entfernen: Client-Fehler mit code ORDER_VALUE_NOT_RECONCILED und details :: ORDER_VALUE_NOT_RECONCILED {"storedTotal":10,"positionsGross":140,"discount":0,"expectedTotal":140,"difference":-130} Der gespeicherte Auftragswert (10,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 130,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+  PASS Entfernen: negative Differenz -130,00 in details :: {"storedTotal":10,"positionsGross":140,"discount":0,"expectedTotal":140,"difference":-130}
+removeAddonFromOrder called with orderId: 6abf9345e958f5841facb53c addonId: 6abf9345e958f5841facb545
+Remove add-on from order request received: 6abf9345e958f5841facb53c 6abf9345e958f5841facb545
+OrderService: Removing add-on from order: {
+  orderId: '6abf9345e958f5841facb53c',
+  addonId: '6abf9345e958f5841facb545',
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Add-on removed successfully
+removeAddonFromOrder API response: {
+  success: true,
+  message: 'Die Zusatzleistung wurde entfernt.',
+  order: {
+    guestInfo: {
+      billingAddress: [Object],
+      shippingAddress: [Object],
+      email: '',
+      firstName: '',
+      isGuest: false,
+      lastName: '',
+      phone: ''
+    },
+    shippingAddress: {
+      city: '',
+      country: '',
+      deliveryType: '',
+      packstationNumber: '',
+      postNumber: '',
+      state: '',
+      street: '',
+      zipCode: ''
+    },
+    paymentMethod: null,
+    paidAt: null,
+    bookingId: null,
+    parentOrderId: null,
+    sourceComplaintId: null,
+    _id: '6abf9345e958f5841facb53c',
+    orderNumber: 'ORD-LEGACY-OR-5',
+    customerId: '6abf9342e958f5841facad76',
+    deviceBrand: 'Apple',
+    deviceModel: 'iPhone 15',
+    deviceType: 'Smartphone',
+    services: [ [Object] ],
+    addOns: [],
+    shopProducts: [],
+    totalCost: 100,
+    discount: 0,
+    status: 'pending',
+    createdAt: '2025-05-01T00:00:00.000Z',
+    appliedPromoCode: '',
+    assignedStaff: [ [Object] ],
+    carrier: 'DHL',
+    complaintReason: '',
+    customerNotes: '',
+    dealerDiscountAmount: 0,
+    dealerDiscountPercent: 0,
+    ePartNeedListEntries: [],
+    eParts: [],
+    editRevision: 3,
+    errorDescription: '',
+    guestTrackingToken: '',
+    hasComplaint: false,
+    imei: '',
+    isComplaintFollowup: false,
+    itemCondition: '',
+    netAmount: 84.03,
+    noLock: false,
+    paymentStatus: 'pending',
+    photos: [],
+    previousRepairAttempts: '',
+    previousRepairDetails: '',
+    pricingConditions: {
+      groupDiscountPercent: 0,
+      promoDiscountAmount: 0,
+      source: 'legacy',
+      customerGroupId: null,
+      customerGroupName: '',
+      appliedAt: '2025-05-01T00:00:00.000Z'
+    },
+    priority: 'normal',
+    progress: 0,
+    requiresPaymentBeforeCompletion: false,
+    returnLabelUrl: '',
+    returnQRCodeUrl: '',
+    returnShipmentId: '',
+    returnShipmentStatus: '',
+    returnShipmentStatusDescription: '',
+    returnTrackingNumber: '',
+    revisionCount: 3,
+    serialNumber: '',
+    shippingCost: 0,
+    shippingLabelCreationInProgress: false,
+    shippingLabelUrl: '',
+    shippingStatus: 'pending',
+    shippingStatusDescription: '',
+    staffNotes: [],
+    taxAmount: 15.97,
+    taxRate: 19,
+    timeline: [ [Object], [Object], [Object], [Object] ],
+    trackingEvents: [],
+    trackingNumber: '',
+    unlockCode: '',
+    unlockPattern: [],
+    updatedAt: '2026-10-02T11:19:33.800Z',
+    waterDamage: '',
+    workflows: []
+  },
+  warnings: []
+}
+  PASS Entfernen: MIT Bestaetigung erfolgreich :: ok
+  PASS entfernt, Auftragswert 100,00 :: 0 / 100
+
+[L] Shop-Produkte: 409 mit code/details im Client, Bestaetigung, Historie
+addShopProductToOrder called with: {
+  orderId: '6abf9345e958f5841facb5a6',
+  productId: '6abf9345e958f5841facb5a3',
+  quantity: 1
+}
+Add shop product to order request received: 6abf9345e958f5841facb5a6 { productId: '6abf9345e958f5841facb5a3', quantity: 1 }
+OrderService: Adding shop product to order: 6abf9345e958f5841facb5a6 Product: 6abf9345e958f5841facb5a3 Quantity: 1
+OrderService: Error adding shop product to order: Error: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:4026:81
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.addShopProduct (/home/adar/Projects/FixitHub/server/services/orderService.js:4024:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:1150:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 80,
+    positionsGross: 100,
+    discount: 0,
+    expectedTotal: 100,
+    difference: -20
+  }
+}
+Error adding shop product to order: Error: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:4026:81
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.addShopProduct (/home/adar/Projects/FixitHub/server/services/orderService.js:4024:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:1150:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 80,
+    positionsGross: 100,
+    discount: 0,
+    expectedTotal: 100,
+    difference: -20
+  }
+}
+addShopProductToOrder API error: Error [ApiError]: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at request (/home/adar/Projects/FixitHub/test-order-residual.js:172:21)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.addShopProductToOrder (eval at loadClientModule (/home/adar/Projects/FixitHub/test-order-residual.js:206:3), <anonymous>:429:26)
+    at async expectReconcileError (/home/adar/Projects/FixitHub/test-order-residual.js:761:13)
+    at async /home/adar/Projects/FixitHub/test-order-residual.js:807:24
+    at async section (/home/adar/Projects/FixitHub/test-order-residual.js:141:5)
+    at async main (/home/adar/Projects/FixitHub/test-order-residual.js:799:5) {
+  status: 409,
+  data: {
+    error: 'Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+    code: 'ORDER_VALUE_NOT_RECONCILED',
+    details: {
+      storedTotal: 80,
+      positionsGross: 100,
+      discount: 0,
+      expectedTotal: 100,
+      difference: -20
+    }
+  },
+  response: {
+    status: 409,
+    data: {
+      error: 'Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+      code: 'ORDER_VALUE_NOT_RECONCILED',
+      details: [Object]
+    }
+  }
+}
+  PASS Hinzufuegen: Client-Fehler mit code ORDER_VALUE_NOT_RECONCILED und details :: ORDER_VALUE_NOT_RECONCILED {"storedTotal":80,"positionsGross":100,"discount":0,"expectedTotal":100,"difference":-20} Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+  PASS ohne Bestaetigung nichts gespeichert :: 0 / 80
+addShopProductToOrder called with: {
+  orderId: '6abf9345e958f5841facb5a6',
+  productId: '6abf9345e958f5841facb5a3',
+  quantity: 1
+}
+Add shop product to order request received: 6abf9345e958f5841facb5a6 {
+  productId: '6abf9345e958f5841facb5a3',
+  quantity: 1,
+  confirmRepricing: true,
+  repricingBasis: { storedTotal: 80, expectedTotal: 100 }
+}
+OrderService: Adding shop product to order: 6abf9345e958f5841facb5a6 Product: 6abf9345e958f5841facb5a3 Quantity: 1
+OrderService: Added new product to order
+OrderService: Recalculating order total for order: new ObjectId('6abf9345e958f5841facb5a6')
+OrderService: Total cost recalculated: 120
+OrderService: Shop product added successfully to order: 6abf9345e958f5841facb5a6
+addShopProductToOrder API response: {
+  success: true,
+  message: 'Das Produkt wurde dem Auftrag hinzugefügt.',
+  order: {
+    guestInfo: {
+      billingAddress: [Object],
+      shippingAddress: [Object],
+      email: '',
+      firstName: '',
+      lastName: '',
+      phone: '',
+      isGuest: false
+    },
+    shippingAddress: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: '',
+      deliveryType: '',
+      packstationNumber: '',
+      postNumber: ''
+    },
+    priority: 'normal',
+    dealerDiscountPercent: 0,
+    dealerDiscountAmount: 0,
+    appliedPromoCode: '',
+    taxRate: 19,
+    revisionCount: 1,
+    photos: [],
+    customerNotes: '',
+    progress: 0,
+    paymentStatus: 'pending',
+    paymentMethod: null,
+    paidAt: null,
+    unlockPattern: [],
+    unlockCode: '',
+    noLock: false,
+    errorDescription: '',
+    waterDamage: '',
+    previousRepairAttempts: '',
+    previousRepairDetails: '',
+    itemCondition: '',
+    imei: '',
+    serialNumber: '',
+    bookingId: null,
+    hasComplaint: false,
+    complaintReason: '',
+    parentOrderId: null,
+    sourceComplaintId: null,
+    isComplaintFollowup: false,
+    requiresPaymentBeforeCompletion: false,
+    trackingNumber: '',
+    carrier: 'DHL',
+    shippingStatus: 'pending',
+    shippingStatusDescription: '',
+    shippingLabelUrl: '',
+    shippingLabelCreationInProgress: false,
+    shippingCost: 0,
+    returnLabelUrl: '',
+    returnQRCodeUrl: '',
+    returnTrackingNumber: '',
+    returnShipmentId: '',
+    returnShipmentStatus: '',
+    returnShipmentStatusDescription: '',
+    guestTrackingToken: '',
+    _id: '6abf9345e958f5841facb5a6',
+    orderNumber: 'ORD-LEGACY-OR-6',
+    customerId: '6abf9342e958f5841facad76',
+    deviceBrand: 'Apple',
+    deviceModel: 'iPhone 15',
+    deviceType: 'Smartphone',
+    services: [ [Object] ],
+    addOns: [],
+    shopProducts: [ [Object] ],
+    totalCost: 120,
+    discount: 0,
+    status: 'pending',
+    createdAt: '2025-05-01T00:00:00.000Z',
+    assignedStaff: [],
+    staffNotes: [],
+    eParts: [],
+    ePartNeedListEntries: [],
+    workflows: [],
+    timeline: [ [Object] ],
+    trackingEvents: [],
+    updatedAt: '2026-10-02T11:19:33.854Z',
+    pricingConditions: {
+      groupDiscountPercent: 0,
+      promoDiscountAmount: 0,
+      source: 'legacy',
+      customerGroupId: null,
+      customerGroupName: '',
+      appliedAt: '2025-05-01T00:00:00.000Z'
+    },
+    editRevision: 1,
+    netAmount: 100.84,
+    taxAmount: 19.16
+  }
+}
+  PASS Hinzufuegen: MIT Bestaetigung erfolgreich :: ok
+  PASS Produkt gespeichert, Auftragswert 120,00 :: 1 / 120
+  PASS Historie: bestaetigte Neuberechnung festgehalten :: Produkt „Panzerglas OR“ ×1 hinzugefügt (20,00 € je Stück) | Neuberechnung trotz Abweichung bestätigt: gespeicherter Auftragswert 80,00 €, Positionen abzüglich Rabatt 100,00 €
+updateShopProductQuantity called with: {
+  orderId: '6abf9345e958f5841facb5a6',
+  productItemId: '6abf9345e958f5841facb5af',
+  quantity: 2
+}
+Update shop product quantity in order request received: 6abf9345e958f5841facb5a6 6abf9345e958f5841facb5af { quantity: 2 }
+OrderService: Updating shop product quantity in order: 6abf9345e958f5841facb5a6 Product item: 6abf9345e958f5841facb5af New quantity: 2
+OrderService: Error updating shop product quantity: Error: Der gespeicherte Auftragswert (150,00 €) passt nicht zu den Positionen (120,00 € abzüglich 0,00 € Rabatt = 120,00 €). Eine automatische Neuberechnung würde die Differenz von 30,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:4204:81
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:23)
+    at async OrderService.updateShopProductQuantity (/home/adar/Projects/FixitHub/server/services/orderService.js:4177:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:1187:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 150,
+    positionsGross: 120,
+    discount: 0,
+    expectedTotal: 120,
+    difference: 30
+  }
+}
+Error updating shop product quantity: Error: Der gespeicherte Auftragswert (150,00 €) passt nicht zu den Positionen (120,00 € abzüglich 0,00 € Rabatt = 120,00 €). Eine automatische Neuberechnung würde die Differenz von 30,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:4204:81
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:23)
+    at async OrderService.updateShopProductQuantity (/home/adar/Projects/FixitHub/server/services/orderService.js:4177:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:1187:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 150,
+    positionsGross: 120,
+    discount: 0,
+    expectedTotal: 120,
+    difference: 30
+  }
+}
+updateShopProductQuantity API error: Error [ApiError]: Der gespeicherte Auftragswert (150,00 €) passt nicht zu den Positionen (120,00 € abzüglich 0,00 € Rabatt = 120,00 €). Eine automatische Neuberechnung würde die Differenz von 30,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at request (/home/adar/Projects/FixitHub/test-order-residual.js:172:21)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.updateShopProductQuantity (eval at loadClientModule (/home/adar/Projects/FixitHub/test-order-residual.js:206:3), <anonymous>:451:26)
+    at async expectReconcileError (/home/adar/Projects/FixitHub/test-order-residual.js:761:13)
+    at async /home/adar/Projects/FixitHub/test-order-residual.js:818:24
+    at async section (/home/adar/Projects/FixitHub/test-order-residual.js:141:5)
+    at async main (/home/adar/Projects/FixitHub/test-order-residual.js:799:5) {
+  status: 409,
+  data: {
+    error: 'Der gespeicherte Auftragswert (150,00 €) passt nicht zu den Positionen (120,00 € abzüglich 0,00 € Rabatt = 120,00 €). Eine automatische Neuberechnung würde die Differenz von 30,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+    code: 'ORDER_VALUE_NOT_RECONCILED',
+    details: {
+      storedTotal: 150,
+      positionsGross: 120,
+      discount: 0,
+      expectedTotal: 120,
+      difference: 30
+    }
+  },
+  response: {
+    status: 409,
+    data: {
+      error: 'Der gespeicherte Auftragswert (150,00 €) passt nicht zu den Positionen (120,00 € abzüglich 0,00 € Rabatt = 120,00 €). Eine automatische Neuberechnung würde die Differenz von 30,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+      code: 'ORDER_VALUE_NOT_RECONCILED',
+      details: [Object]
+    }
+  }
+}
+  PASS Menge: Client-Fehler mit code ORDER_VALUE_NOT_RECONCILED und details :: ORDER_VALUE_NOT_RECONCILED {"storedTotal":150,"positionsGross":120,"discount":0,"expectedTotal":120,"difference":30} Der gespeicherte Auftragswert (150,00 €) passt nicht zu den Positionen (120,00 € abzüglich 0,00 € Rabatt = 120,00 €). Eine automatische Neuberechnung würde die Differenz von 30,00 € verwerfen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+updateShopProductQuantity called with: {
+  orderId: '6abf9345e958f5841facb5a6',
+  productItemId: '6abf9345e958f5841facb5af',
+  quantity: 2
+}
+Update shop product quantity in order request received: 6abf9345e958f5841facb5a6 6abf9345e958f5841facb5af {
+  quantity: 2,
+  confirmRepricing: true,
+  repricingBasis: { storedTotal: 150, expectedTotal: 120 }
+}
+OrderService: Updating shop product quantity in order: 6abf9345e958f5841facb5a6 Product item: 6abf9345e958f5841facb5af New quantity: 2
+OrderService: Shop product quantity updated
+OrderService: Recalculating order total for order: new ObjectId('6abf9345e958f5841facb5a6')
+OrderService: Total cost recalculated: 140
+OrderService: Shop product quantity updated successfully in order: 6abf9345e958f5841facb5a6
+updateShopProductQuantity API response: {
+  success: true,
+  message: 'Die Produktmenge wurde aktualisiert.',
+  order: {
+    guestInfo: {
+      billingAddress: [Object],
+      shippingAddress: [Object],
+      email: '',
+      firstName: '',
+      isGuest: false,
+      lastName: '',
+      phone: ''
+    },
+    shippingAddress: {
+      city: '',
+      country: '',
+      deliveryType: '',
+      packstationNumber: '',
+      postNumber: '',
+      state: '',
+      street: '',
+      zipCode: ''
+    },
+    paymentMethod: null,
+    paidAt: null,
+    bookingId: null,
+    parentOrderId: null,
+    sourceComplaintId: null,
+    _id: '6abf9345e958f5841facb5a6',
+    orderNumber: 'ORD-LEGACY-OR-6',
+    customerId: '6abf9342e958f5841facad76',
+    deviceBrand: 'Apple',
+    deviceModel: 'iPhone 15',
+    deviceType: 'Smartphone',
+    services: [ [Object] ],
+    addOns: [],
+    shopProducts: [ [Object] ],
+    totalCost: 140,
+    discount: 0,
+    status: 'pending',
+    createdAt: '2025-05-01T00:00:00.000Z',
+    appliedPromoCode: '',
+    assignedStaff: [],
+    carrier: 'DHL',
+    complaintReason: '',
+    customerNotes: '',
+    dealerDiscountAmount: 0,
+    dealerDiscountPercent: 0,
+    ePartNeedListEntries: [],
+    eParts: [],
+    editRevision: 2,
+    errorDescription: '',
+    guestTrackingToken: '',
+    hasComplaint: false,
+    imei: '',
+    isComplaintFollowup: false,
+    itemCondition: '',
+    netAmount: 117.65,
+    noLock: false,
+    paymentStatus: 'pending',
+    photos: [],
+    previousRepairAttempts: '',
+    previousRepairDetails: '',
+    pricingConditions: {
+      groupDiscountPercent: 0,
+      promoDiscountAmount: 0,
+      source: 'legacy',
+      customerGroupId: null,
+      customerGroupName: '',
+      appliedAt: '2025-05-01T00:00:00.000Z'
+    },
+    priority: 'normal',
+    progress: 0,
+    requiresPaymentBeforeCompletion: false,
+    returnLabelUrl: '',
+    returnQRCodeUrl: '',
+    returnShipmentId: '',
+    returnShipmentStatus: '',
+    returnShipmentStatusDescription: '',
+    returnTrackingNumber: '',
+    revisionCount: 2,
+    serialNumber: '',
+    shippingCost: 0,
+    shippingLabelCreationInProgress: false,
+    shippingLabelUrl: '',
+    shippingStatus: 'pending',
+    shippingStatusDescription: '',
+    staffNotes: [],
+    taxAmount: 22.35,
+    taxRate: 19,
+    timeline: [ [Object], [Object] ],
+    trackingEvents: [],
+    trackingNumber: '',
+    unlockCode: '',
+    unlockPattern: [],
+    updatedAt: '2026-10-02T11:19:33.896Z',
+    waterDamage: '',
+    workflows: []
+  }
+}
+  PASS Menge: MIT Bestaetigung erfolgreich :: ok
+  PASS Menge 2, Auftragswert 140,00 :: 2 / 140
+removeShopProductFromOrder called with: {
+  orderId: '6abf9345e958f5841facb5a6',
+  productItemId: '6abf9345e958f5841facb5af'
+}
+Remove shop product from order request received: 6abf9345e958f5841facb5a6 6abf9345e958f5841facb5af
+OrderService: Removing shop product from order: 6abf9345e958f5841facb5a6 Product item: 6abf9345e958f5841facb5af
+OrderService: Error removing shop product from order: Error: Der gespeicherte Auftragswert (99,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 41,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:4122:81
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.removeShopProduct (/home/adar/Projects/FixitHub/server/services/orderService.js:4110:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:1215:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 99,
+    positionsGross: 140,
+    discount: 0,
+    expectedTotal: 140,
+    difference: -41
+  }
+}
+Error removing shop product from order: Error: Der gespeicherte Auftragswert (99,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 41,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:4122:81
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.removeShopProduct (/home/adar/Projects/FixitHub/server/services/orderService.js:4110:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:1215:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 99,
+    positionsGross: 140,
+    discount: 0,
+    expectedTotal: 140,
+    difference: -41
+  }
+}
+removeShopProductFromOrder API error: Error [ApiError]: Der gespeicherte Auftragswert (99,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 41,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at request (/home/adar/Projects/FixitHub/test-order-residual.js:172:21)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.removeShopProductFromOrder (eval at loadClientModule (/home/adar/Projects/FixitHub/test-order-residual.js:206:3), <anonymous>:473:26)
+    at async expectReconcileError (/home/adar/Projects/FixitHub/test-order-residual.js:761:13)
+    at async /home/adar/Projects/FixitHub/test-order-residual.js:824:24
+    at async section (/home/adar/Projects/FixitHub/test-order-residual.js:141:5)
+    at async main (/home/adar/Projects/FixitHub/test-order-residual.js:799:5) {
+  status: 409,
+  data: {
+    error: 'Der gespeicherte Auftragswert (99,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 41,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+    code: 'ORDER_VALUE_NOT_RECONCILED',
+    details: {
+      storedTotal: 99,
+      positionsGross: 140,
+      discount: 0,
+      expectedTotal: 140,
+      difference: -41
+    }
+  },
+  response: {
+    status: 409,
+    data: {
+      error: 'Der gespeicherte Auftragswert (99,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 41,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+      code: 'ORDER_VALUE_NOT_RECONCILED',
+      details: [Object]
+    }
+  }
+}
+  PASS Entfernen: Client-Fehler mit code ORDER_VALUE_NOT_RECONCILED und details :: ORDER_VALUE_NOT_RECONCILED {"storedTotal":99,"positionsGross":140,"discount":0,"expectedTotal":140,"difference":-41} Der gespeicherte Auftragswert (99,00 €) passt nicht zu den Positionen (140,00 € abzüglich 0,00 € Rabatt = 140,00 €). Eine automatische Neuberechnung würde die Differenz von 41,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+removeShopProductFromOrder called with: {
+  orderId: '6abf9345e958f5841facb5a6',
+  productItemId: '6abf9345e958f5841facb5af'
+}
+Remove shop product from order request received: 6abf9345e958f5841facb5a6 6abf9345e958f5841facb5af
+OrderService: Removing shop product from order: 6abf9345e958f5841facb5a6 Product item: 6abf9345e958f5841facb5af
+OrderService: Shop product removed from order
+OrderService: Recalculating order total for order: new ObjectId('6abf9345e958f5841facb5a6')
+OrderService: Total cost recalculated: 100
+OrderService: Shop product removed successfully from order: 6abf9345e958f5841facb5a6
+removeShopProductFromOrder API response: {
+  success: true,
+  message: 'Das Produkt wurde aus dem Auftrag entfernt.',
+  order: {
+    guestInfo: {
+      billingAddress: [Object],
+      shippingAddress: [Object],
+      email: '',
+      firstName: '',
+      isGuest: false,
+      lastName: '',
+      phone: ''
+    },
+    shippingAddress: {
+      city: '',
+      country: '',
+      deliveryType: '',
+      packstationNumber: '',
+      postNumber: '',
+      state: '',
+      street: '',
+      zipCode: ''
+    },
+    paymentMethod: null,
+    paidAt: null,
+    bookingId: null,
+    parentOrderId: null,
+    sourceComplaintId: null,
+    _id: '6abf9345e958f5841facb5a6',
+    orderNumber: 'ORD-LEGACY-OR-6',
+    customerId: '6abf9342e958f5841facad76',
+    deviceBrand: 'Apple',
+    deviceModel: 'iPhone 15',
+    deviceType: 'Smartphone',
+    services: [ [Object] ],
+    addOns: [],
+    shopProducts: [],
+    totalCost: 100,
+    discount: 0,
+    status: 'pending',
+    createdAt: '2025-05-01T00:00:00.000Z',
+    appliedPromoCode: '',
+    assignedStaff: [],
+    carrier: 'DHL',
+    complaintReason: '',
+    customerNotes: '',
+    dealerDiscountAmount: 0,
+    dealerDiscountPercent: 0,
+    ePartNeedListEntries: [],
+    eParts: [],
+    editRevision: 3,
+    errorDescription: '',
+    guestTrackingToken: '',
+    hasComplaint: false,
+    imei: '',
+    isComplaintFollowup: false,
+    itemCondition: '',
+    netAmount: 84.03,
+    noLock: false,
+    paymentStatus: 'pending',
+    photos: [],
+    previousRepairAttempts: '',
+    previousRepairDetails: '',
+    pricingConditions: {
+      groupDiscountPercent: 0,
+      promoDiscountAmount: 0,
+      source: 'legacy',
+      customerGroupId: null,
+      customerGroupName: '',
+      appliedAt: '2025-05-01T00:00:00.000Z'
+    },
+    priority: 'normal',
+    progress: 0,
+    requiresPaymentBeforeCompletion: false,
+    returnLabelUrl: '',
+    returnQRCodeUrl: '',
+    returnShipmentId: '',
+    returnShipmentStatus: '',
+    returnShipmentStatusDescription: '',
+    returnTrackingNumber: '',
+    revisionCount: 3,
+    serialNumber: '',
+    shippingCost: 0,
+    shippingLabelCreationInProgress: false,
+    shippingLabelUrl: '',
+    shippingStatus: 'pending',
+    shippingStatusDescription: '',
+    staffNotes: [],
+    taxAmount: 15.97,
+    taxRate: 19,
+    timeline: [ [Object], [Object], [Object] ],
+    trackingEvents: [],
+    trackingNumber: '',
+    unlockCode: '',
+    unlockPattern: [],
+    updatedAt: '2026-10-02T11:19:33.932Z',
+    waterDamage: '',
+    workflows: []
+  }
+}
+  PASS Entfernen: MIT Bestaetigung erfolgreich :: ok
+  PASS entfernt, Auftragswert 100,00 :: 0 / 100
+
+[M] Geraetewechsel: 409 mit code/details im Client, Bestaetigung
+changeDeviceAndRecalculateServices called with: {
+  orderId: '6abf9345e958f5841facb5eb',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 14',
+  deviceType: 'Smartphone',
+  serviceReplacement: undefined,
+  serviceReplacements: [
+    {
+      oldOrderServiceId: '6abf9345e958f5841facb5ea',
+      newServiceId: '6abf9345e958f5841facb5e8'
+    }
+  ]
+}
+[DeviceChange] Change device request received: 6abf9345e958f5841facb5eb {
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 14',
+  deviceType: 'Smartphone',
+  serviceReplacements: [
+    {
+      oldOrderServiceId: '6abf9345e958f5841facb5ea',
+      newServiceId: '6abf9345e958f5841facb5e8'
+    }
+  ]
+}
+[DeviceChange] Error changing device: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+[DeviceChange] Error changing device: Error: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/deviceChangeService.js:99:80
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async DeviceChangeService.changeDeviceAndRecalculateServices (/home/adar/Projects/FixitHub/server/services/deviceChangeService.js:96:34)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:1290:20 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 80,
+    positionsGross: 100,
+    discount: 0,
+    expectedTotal: 100,
+    difference: -20
+  }
+}
+changeDeviceAndRecalculateServices API error: Error [ApiError]: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at request (/home/adar/Projects/FixitHub/test-order-residual.js:172:21)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.changeDeviceAndRecalculateServices (eval at loadClientModule (/home/adar/Projects/FixitHub/test-order-residual.js:206:3), <anonymous>:523:26)
+    at async expectReconcileError (/home/adar/Projects/FixitHub/test-order-residual.js:761:13)
+    at async /home/adar/Projects/FixitHub/test-order-residual.js:837:27
+    at async section (/home/adar/Projects/FixitHub/test-order-residual.js:141:5)
+    at async main (/home/adar/Projects/FixitHub/test-order-residual.js:831:5) {
+  status: 409,
+  data: {
+    error: 'Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+    code: 'ORDER_VALUE_NOT_RECONCILED',
+    details: {
+      storedTotal: 80,
+      positionsGross: 100,
+      discount: 0,
+      expectedTotal: 100,
+      difference: -20
+    }
+  },
+  response: {
+    status: 409,
+    data: {
+      error: 'Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.',
+      code: 'ORDER_VALUE_NOT_RECONCILED',
+      details: [Object]
+    }
+  }
+}
+  PASS Geraetewechsel: Client-Fehler mit code ORDER_VALUE_NOT_RECONCILED und details :: ORDER_VALUE_NOT_RECONCILED {"storedTotal":80,"positionsGross":100,"discount":0,"expectedTotal":100,"difference":-20} Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+  PASS ohne Bestaetigung nichts gespeichert :: iPhone 15 / 80
+changeDeviceAndRecalculateServices called with: {
+  orderId: '6abf9345e958f5841facb5eb',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 14',
+  deviceType: 'Smartphone',
+  serviceReplacement: undefined,
+  serviceReplacements: [
+    {
+      oldOrderServiceId: '6abf9345e958f5841facb5ea',
+      newServiceId: '6abf9345e958f5841facb5e8'
+    }
+  ]
+}
+[DeviceChange] Change device request received: 6abf9345e958f5841facb5eb {
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 14',
+  deviceType: 'Smartphone',
+  serviceReplacements: [
+    {
+      oldOrderServiceId: '6abf9345e958f5841facb5ea',
+      newServiceId: '6abf9345e958f5841facb5e8'
+    }
+  ],
+  confirmRepricing: true,
+  repricingBasis: { storedTotal: 80, expectedTotal: 100 }
+}
+[DeviceChange] Starting device change for order 6abf9345e958f5841facb5eb. Old: Apple iPhone 15 (Smartphone), New: Apple iPhone 14 (Smartphone)
+[DeviceChange] Replaced service Displaytausch with Displaytausch 14 OR: 100 -> 90
+[DeviceChange] Total cost change: 80 -> 90 (+10)
+[DeviceChange] Device successfully changed for order 6abf9345e958f5841facb5eb. Requires confirmation: true
+changeDeviceAndRecalculateServices API response: {
+  success: true,
+  message: 'Gerätewechsel gespeichert, Reparaturservices und Auftragswert wurden neu berechnet.',
+  order: {
+    guestInfo: {
+      billingAddress: [Object],
+      shippingAddress: [Object],
+      email: '',
+      firstName: '',
+      lastName: '',
+      phone: '',
+      isGuest: false
+    },
+    reportedDevice: {
+      brand: 'Apple',
+      model: 'iPhone 15',
+      deviceType: 'Smartphone',
+      capturedAt: '2026-10-02T11:19:33.974Z'
+    },
+    shippingAddress: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: '',
+      deliveryType: '',
+      packstationNumber: '',
+      postNumber: ''
+    },
+    priority: 'normal',
+    dealerDiscountPercent: 0,
+    dealerDiscountAmount: 0,
+    appliedPromoCode: '',
+    taxRate: 19,
+    revisionCount: 1,
+    photos: [],
+    customerNotes: '',
+    progress: 0,
+    paymentStatus: 'pending',
+    paymentMethod: null,
+    paidAt: null,
+    unlockPattern: [],
+    unlockCode: '',
+    noLock: false,
+    errorDescription: '',
+    waterDamage: '',
+    previousRepairAttempts: '',
+    previousRepairDetails: '',
+    itemCondition: '',
+    imei: '',
+    serialNumber: '',
+    bookingId: null,
+    hasComplaint: false,
+    complaintReason: '',
+    parentOrderId: null,
+    sourceComplaintId: null,
+    isComplaintFollowup: false,
+    requiresPaymentBeforeCompletion: false,
+    trackingNumber: '',
+    carrier: 'DHL',
+    shippingStatus: 'pending',
+    shippingStatusDescription: '',
+    shippingLabelUrl: '',
+    shippingLabelCreationInProgress: false,
+    shippingCost: 0,
+    returnLabelUrl: '',
+    returnQRCodeUrl: '',
+    returnTrackingNumber: '',
+    returnShipmentId: '',
+    returnShipmentStatus: '',
+    returnShipmentStatusDescription: '',
+    guestTrackingToken: '',
+    _id: '6abf9345e958f5841facb5eb',
+    orderNumber: 'ORD-LEGACY-OR-7',
+    customerId: '6abf9342e958f5841facad76',
+    deviceBrand: 'Apple',
+    deviceModel: 'iPhone 14',
+    deviceType: 'Smartphone',
+    services: [ [Object] ],
+    addOns: [],
+    shopProducts: [],
+    totalCost: 90,
+    discount: 0,
+    status: 'pending',
+    createdAt: '2025-05-01T00:00:00.000Z',
+    assignedStaff: [],
+    staffNotes: [],
+    eParts: [],
+    ePartNeedListEntries: [],
+    workflows: [],
+    timeline: [ [Object] ],
+    trackingEvents: [],
+    updatedAt: '2026-10-02T11:19:33.981Z',
+    pricingConditions: {
+      groupDiscountPercent: 0,
+      promoDiscountAmount: 0,
+      source: 'legacy',
+      customerGroupId: null,
+      customerGroupName: '',
+      appliedAt: '2025-05-01T00:00:00.000Z'
+    },
+    editRevision: 1,
+    netAmount: 75.63,
+    taxAmount: 14.37
+  },
+  pricingChangesSummary: {
+    originalDevice: { brand: 'Apple', model: 'iPhone 15', type: 'Smartphone' },
+    bookedDevice: { brand: 'Apple', model: 'iPhone 15', type: 'Smartphone' },
+    newDevice: { brand: 'Apple', model: 'iPhone 14', type: 'Smartphone' },
+    serviceChanges: [ [Object] ],
+    totalCostBefore: 80,
+    totalCostAfter: 90,
+    totalCostDifference: 10,
+    totalCostStatus: 'increase',
+    selectedServiceSwap: {
+      previousServiceName: 'Displaytausch',
+      previousServicePrice: 100,
+      newServiceName: 'Displaytausch 14 OR',
+      newServicePrice: 90,
+      difference: -10,
+      status: 'decrease'
+    },
+    selectedServiceSwaps: [ [Object] ],
+    requiresConfirmation: true,
+    changedAt: '2026-10-02T11:19:33.979Z',
+    changedBy: '6abf9342e958f5841facad9c',
+    paymentAdjustment: {
+      scope: 'order',
+      orderValue: 90,
+      paidAmount: 0,
+      refundAmount: 0,
+      additionalPaymentAmount: 90
+    },
+    warnings: []
+  },
+  requiresConfirmation: true,
+  warnings: []
+}
+  PASS Geraetewechsel: MIT Bestaetigung erfolgreich :: ok
+  PASS Geraet iPhone 14, Auftragswert 90,00 :: iPhone 14 / 90
+
+[N] Bestaetigung an die gezeigte Abweichung gebunden
+Add add-on to order request received: 6abf9346e958f5841facb607 { name: 'Datensicherung', price: 25 }
+OrderService: Adding add-on to order: {
+  orderId: '6abf9346e958f5841facb607',
+  addonData: {
+    name: 'Datensicherung',
+    description: undefined,
+    price: 25,
+    estimatedTime: undefined,
+    status: undefined,
+    confirmRepricing: false
+  },
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Error adding add-on: Error: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:2067:61
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.addAddonToOrder (/home/adar/Projects/FixitHub/server/services/orderService.js:2053:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:482:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 80,
+    positionsGross: 100,
+    discount: 0,
+    expectedTotal: 100,
+    difference: -20
+  }
+}
+Error adding add-on to order: Error: Der gespeicherte Auftragswert (80,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 20,00 € aufschlagen. Bitte prüfen Sie den Auftrag und bestätigen Sie die Neuberechnung ausdrücklich.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:2067:61
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.addAddonToOrder (/home/adar/Projects/FixitHub/server/services/orderService.js:2053:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:482:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 80,
+    positionsGross: 100,
+    discount: 0,
+    expectedTotal: 100,
+    difference: -20
+  }
+}
+  PASS erste Anfrage: 409 mit gespeichertem Wert 80,00 :: 409 {"storedTotal":80,"positionsGross":100,"discount":0,"expectedTotal":100,"difference":-20}
+Add add-on to order request received: 6abf9346e958f5841facb607 {
+  name: 'Datensicherung',
+  price: 25,
+  confirmRepricing: true,
+  repricingBasis: { storedTotal: 80, expectedTotal: 100 }
+}
+OrderService: Adding add-on to order: {
+  orderId: '6abf9346e958f5841facb607',
+  addonData: {
+    name: 'Datensicherung',
+    description: undefined,
+    price: 25,
+    estimatedTime: undefined,
+    status: undefined,
+    confirmRepricing: true,
+    repricingBasis: { storedTotal: 80, expectedTotal: 100 }
+  },
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Error adding add-on: Error: Der Auftrag wurde seit Ihrer Prüfung geändert, die bestätigte Abweichung gilt nicht mehr. Der gespeicherte Auftragswert (60,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 40,00 € aufschlagen. Bitte prüfen Sie die neue Abweichung und bestätigen Sie die Neuberechnung erneut.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:2067:61
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.addAddonToOrder (/home/adar/Projects/FixitHub/server/services/orderService.js:2053:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:482:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 60,
+    positionsGross: 100,
+    discount: 0,
+    expectedTotal: 100,
+    difference: -40,
+    confirmationOutdated: true
+  }
+}
+Error adding add-on to order: Error: Der Auftrag wurde seit Ihrer Prüfung geändert, die bestätigte Abweichung gilt nicht mehr. Der gespeicherte Auftragswert (60,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 40,00 € aufschlagen. Bitte prüfen Sie die neue Abweichung und bestätigen Sie die Neuberechnung erneut.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.getPricingConditionsForEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:435:21)
+    at /home/adar/Projects/FixitHub/server/services/orderService.js:2067:61
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.addAddonToOrder (/home/adar/Projects/FixitHub/server/services/orderService.js:2053:48)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:482:19 {
+  statusCode: 409,
+  code: 'ORDER_VALUE_NOT_RECONCILED',
+  details: {
+    storedTotal: 60,
+    positionsGross: 100,
+    discount: 0,
+    expectedTotal: 100,
+    difference: -40,
+    confirmationOutdated: true
+  }
+}
+  PASS veraltete Bestaetigung: frische 409 mit confirmationOutdated :: 409 Der Auftrag wurde seit Ihrer Prüfung geändert, die bestätigte Abweichung gilt nicht mehr. Der gespeicherte Auftragswert (60,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 40,00 € aufschlagen. Bitte prüfen Sie die neue Abweichung und bestätigen Sie die Neuberechnung erneut. {"storedTotal":60,"positionsGross":100,"discount":0,"expectedTotal":100,"difference":-40,"confirmationOutdated":true}
+  PASS frische 409 zeigt die NEUE Abweichung (60,00) mit deutscher Meldung :: Der Auftrag wurde seit Ihrer Prüfung geändert, die bestätigte Abweichung gilt nicht mehr. Der gespeicherte Auftragswert (60,00 €) passt nicht zu den Positionen (100,00 € abzüglich 0,00 € Rabatt = 100,00 €). Eine automatische Neuberechnung würde die Differenz von 40,00 € aufschlagen. Bitte prüfen Sie die neue Abweichung und bestätigen Sie die Neuberechnung erneut.
+  PASS veraltete Bestaetigung: nichts gespeichert :: 0 / 60
+Add add-on to order request received: 6abf9346e958f5841facb607 {
+  name: 'Datensicherung',
+  price: 25,
+  confirmRepricing: true,
+  repricingBasis: { storedTotal: 60, expectedTotal: 100 }
+}
+OrderService: Adding add-on to order: {
+  orderId: '6abf9346e958f5841facb607',
+  addonData: {
+    name: 'Datensicherung',
+    description: undefined,
+    price: 25,
+    estimatedTime: undefined,
+    status: undefined,
+    confirmRepricing: true,
+    repricingBasis: { storedTotal: 60, expectedTotal: 100 }
+  },
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Add-on added successfully
+  PASS Bestaetigung der NEUEN Abweichung: 200 :: 200 
+  PASS gespeichert, Auftragswert 125,00 :: 1 / 125
+  PASS getPricingConditionsForEdit: abweichende Grundlage -> 409 confirmationOutdated :: ORDER_VALUE_NOT_RECONCILED {"storedTotal":80,"positionsGross":100,"discount":0,"expectedTotal":100,"difference":-20,"confirmationOutdated":true}
+  PASS passende Grundlage: Bestaetigung gilt :: ok
+  PASS unlesbare Grundlage gilt nicht als Bestaetigung :: ORDER_VALUE_NOT_RECONCILED
+
+[O] Reklamation ablehnen: fehlgeschlagene Pauschalenrechnung wird kontrolliert nachgeholt
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9346e958f5841facb63a')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error creating invoice for rejected offer: Simulierter Ausfall der Rechnungserstellung
+  PASS erster Lauf: Ablehnung gespeichert, Rechnung fehlgeschlagen (Warnung) :: 200 ["Die Servicepauschale wurde am Reklamationsauftrag gespeichert, die Rechnung konnte jedoch nicht erstellt werden. Ein erneuter Aufruf der Ablehnung holt sie nach; alternativ die Rechnung in der Finanzverwaltung manuell erstellen."]
+  PASS nach dem Ausfall: noch keine Rechnung :: 0
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: '6abf9346e958f5841facb646',
+  customerId: '6abf9341e958f5841facad0a',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0010',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Wiederholung erstellt die fehlende Rechnung (39,00) :: 200 INV-2026-0011 []
+  PASS genau EINE Pauschalenrechnung 39,00 ohne Rabatt :: INV-2026-0011=39
+  PASS weitere Wiederholung: dieselbe Rechnung, keine zweite :: 200 1
+  PASS Mehrkosten weiterhin nur einmal (39,00) :: 39
+  PASS Protokoll: nachgeholte Rechnung festgehalten :: offer_rejected,fee_invoice_created
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9346e958f5841facb6e6')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error creating invoice for rejected offer: Simulierter Ausfall der Rechnungserstellung
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: '6abf9346e958f5841facb6f2',
+  customerId: '6abf9341e958f5841facad0a',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0011',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS parallele Wiederholungen: alle 200 :: 200  | 200  | 200 
+  PASS parallele Wiederholungen: genau EINE Rechnung :: INV-2026-0012
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9346e958f5841facb795')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error creating invoice for rejected offer: Simulierter Ausfall der Rechnungserstellung
+ComplaintRoutes: Error re-creating invoice for rejected offer: Simulierter Ausfall der Rechnungserstellung
+  PASS gescheiterter Nachholversuch: Warnung statt Rechnung :: 200 ["Die Rechnung über die Servicepauschale konnte weiterhin nicht erstellt werden. Bitte später erneut versuchen oder die Rechnung in der Finanzverwaltung manuell erstellen."]
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: '6abf9346e958f5841facb7a1',
+  customerId: '6abf9341e958f5841facad0a',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0012',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS naechste Wiederholung holt die Rechnung nach :: 200 INV-2026-0013
+
+[P] Kundentexte der Reklamation deutsch formatiert
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9346e958f5841facb836')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf9346e958f5841facb842'),
+  customerId: '6abf9341e958f5841facad0a',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0013',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9347e958f5841facb8a2')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+  PASS Ablehnung: 'Rechnungsbetrag: 39,00 €' :: Die Reklamation und Reparatur werden nach Zahlungseingang versendet. Rechnungsbetrag: 39,00 €
+  PASS Annahme: 'eröffnet' mit Umlaut :: Der Reklamationsauftrag wurde als Reparaturauftrag eröffnet: ORD-2026-044
+
+[Q] Buchungsrechnung: auch das Standardprofil faellt aus
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0005
+Booking pre-save: Total orders: 1 Booking status: processing
+Booking pre-save: Adding initial timeline entry
+BookingService: Creating invoice for booking: 6abf9347e958f5841facb8e2
+BookingService: Creating invoice with customer: N/A Email: or-frist3@test.invalid
+BookingService: payment terms profile could not be resolved: Simulierter Ausfall der Finanzeinstellungen
+BookingService: default payment terms could not be resolved: Simulierter Ausfall der Finanzeinstellungen
+BookingService: invoice tax profile could not be resolved: Simulierter Ausfall der Finanzeinstellungen
+BookingService: Created 1 invoice items, gross total: 40
+BookingService: Invoice created successfully: new ObjectId('6abf9347e958f5841facb8f8') Number: INV-2026-0015
+Booking pre-save: Total orders: 1 Booking status: processing
+Booking pre-save: Total orders: 1 Booking status: processing
+  PASS Rechnung trotz doppeltem Profilausfall erstellt :: INV-2026-0015
+  PASS Zahlungsziel normalisiert (1-14 Tage) mit deutschem Text und Datum :: 7 / 7 Tage netto ohne Abzug / Fri Oct 09 2026 13:19:35 GMT+0200 (Central European Summer Time)
+
+[R] Versandlabel-Route akzeptiert das konfigurierte DHL-Produkt
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9347e958f5841facb97c')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+RequireRole middleware: User or-staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf9347e958f5841facb97c
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+Outbound shipping label created successfully
+  PASS konfiguriertes Produkt V62WP: an den Service weitergegeben (kein 400) :: 200  {"product":"V62WP"}
+RequireRole middleware: User or-staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf9347e958f5841facb97c
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+Outbound shipping label created successfully
+  PASS product gewinnt, serviceType wird dann nicht separat geprueft :: 200 
+RequireRole middleware: User or-staff@test.invalid has required role staff
+Create outbound shipping label request received for order: 6abf9347e958f5841facb97c
+DHLService: Retrieving DHL configuration
+DHLService: DHL configuration retrieved successfully
+  PASS unbekanntes Produkt weiterhin 400 vor dem Service :: 400 DHL_PRODUCT_NOT_OFFERED 2
+
+[S] Auftragsdetail fuer Kunden ohne interne Abgleich-Eintraege
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9342e958f5841facad76'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9347e958f5841facb992')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Get order by ID request received: 6abf9347e958f5841facb992
+OrderService: Getting order by ID: 6abf9347e958f5841facb992
+Access control check - Order customer ID: 6abf9342e958f5841facad76
+Access control check - Current user ID: 6abf9342e958f5841facad76
+Access control check - User role: customer
+Access granted - returning order details
+Get order by ID request received: 6abf9347e958f5841facb992
+OrderService: Getting order by ID: 6abf9347e958f5841facb992
+Access control check - Order customer ID: 6abf9342e958f5841facad76
+Access control check - Current user ID: 6abf9342e958f5841facadbf
+Access control check - User role: admin
+Access granted - returning order details
+  PASS Kunde: keine Abgleich-/Orphan-Eintraege im Verlauf :: 200 Order Received, Repair in Progress
+  PASS Kunde: kein interner Abgleich-Text, keine DHL-Referenz :: Versandlabel wird vorbereitet / Einsendelabel wird vorbereitet
+  PASS Admin: alle Eintraege und der interne Status sichtbar :: 200 4
+
+[T] Mitarbeiterzuweisung an Zusatzleistung: deutsche Antworten
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9341e958f5841facad0a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9342e958f5841facadc6' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9347e958f5841facb9bf')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+OrderService: Adding add-on to order: {
+  orderId: '6abf9347e958f5841facb9bf',
+  addonData: { name: 'Expressbearbeitung', price: 30 },
+  staffId: new ObjectId('6abf9342e958f5841facad9c')
+}
+OrderService: Add-on added successfully
+Assign staff to add-on request received: 6abf9347e958f5841facb9bf 6abf9347e958f5841facb9ce {}
+Assign staff to add-on request received: 6abf9347e958f5841facb9bf 6abf9347e958f5841facb9e6 { staffId: '6abf9342e958f5841facadaa' }
+OrderService: Assigning staff to add-on: {
+  orderId: '6abf9347e958f5841facb9bf',
+  addonId: '6abf9347e958f5841facb9e6',
+  staffId: '6abf9342e958f5841facadaa',
+  assigningStaffId: new ObjectId('6abf9342e958f5841facadbf')
+}
+OrderService: Error assigning staff to add-on: Error: Die Zusatzleistung wurde in diesem Auftrag nicht gefunden.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.runGuardedOrderEdit.load (/home/adar/Projects/FixitHub/server/services/orderService.js:2302:17)
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.assignStaffToAddon (/home/adar/Projects/FixitHub/server/services/orderService.js:2299:39)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:589:19 {
+  statusCode: 404,
+  code: 'ADDON_NOT_FOUND'
+}
+Error assigning staff to add-on: Error: Die Zusatzleistung wurde in diesem Auftrag nicht gefunden.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.runGuardedOrderEdit.load (/home/adar/Projects/FixitHub/server/services/orderService.js:2302:17)
+    at OrderService.runGuardedOrderEdit (/home/adar/Projects/FixitHub/server/services/orderService.js:541:29)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.assignStaffToAddon (/home/adar/Projects/FixitHub/server/services/orderService.js:2299:39)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:589:19 {
+  statusCode: 404,
+  code: 'ADDON_NOT_FOUND'
+}
+Assign staff to add-on request received: 6abf9347e958f5841facb9bf 6abf9347e958f5841facb9ce { staffId: '6abf9342e958f5841facad76' }
+OrderService: Assigning staff to add-on: {
+  orderId: '6abf9347e958f5841facb9bf',
+  addonId: '6abf9347e958f5841facb9ce',
+  staffId: '6abf9342e958f5841facad76',
+  assigningStaffId: new ObjectId('6abf9342e958f5841facadbf')
+}
+OrderService: Error assigning staff to add-on: Error: Der ausgewählte Mitarbeiter wurde nicht gefunden oder ist kein Mitarbeiterkonto.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.assignStaffToAddon (/home/adar/Projects/FixitHub/server/services/orderService.js:2285:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:589:19 {
+  statusCode: 400,
+  code: 'INVALID_STAFF'
+}
+Error assigning staff to add-on: Error: Der ausgewählte Mitarbeiter wurde nicht gefunden oder ist kein Mitarbeiterkonto.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.assignStaffToAddon (/home/adar/Projects/FixitHub/server/services/orderService.js:2285:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:589:19 {
+  statusCode: 400,
+  code: 'INVALID_STAFF'
+}
+Assign staff to add-on request received: 6abf9347e958f5841facb9bf 6abf9347e958f5841facb9ce { staffId: '6abf9342e958f5841facadaa' }
+OrderService: Assigning staff to add-on: {
+  orderId: '6abf9347e958f5841facb9bf',
+  addonId: '6abf9347e958f5841facb9ce',
+  staffId: '6abf9342e958f5841facadaa',
+  assigningStaffId: new ObjectId('6abf9342e958f5841facadbf')
+}
+OrderService: Staff assigned to add-on successfully
+  PASS ohne Mitarbeiter: 400 deutsch :: 400 Bitte wählen Sie einen Mitarbeiter aus.
+  PASS unbekannte Zusatzleistung: 404 deutsch :: 404 Die Zusatzleistung wurde in diesem Auftrag nicht gefunden.
+  PASS kein Mitarbeiterkonto: 400 deutsch :: 400 Der ausgewählte Mitarbeiter wurde nicht gefunden oder ist kein Mitarbeiterkonto.
+  PASS Zuweisung: 200 mit deutscher Meldung :: 200 Der Mitarbeiter wurde der Zusatzleistung zugewiesen.
+
+==== 130 bestanden, 0 fehlgeschlagen ====
+  server/logs: 0 Schreibzugriff(e) dieses Tests umgeleitet nach /tmp/order-residual-logs-3wOvtI

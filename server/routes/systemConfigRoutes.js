@@ -30,7 +30,10 @@ router.put('/', requireUser, requireRole(['admin']), async (req, res) => {
   console.log('Update system configuration request received');
 
   try {
-    const config = await SystemConfigService.updateSystemConfiguration(req.body);
+    // Abschnittsweises Speichern: nur gelieferte, editierbare Abschnitte werden in den
+    // gespeicherten Stand gemischt (kein Ueberschreiben anderer Seiten, SET-1).
+    const { config, updatedSections, ignoredSections } =
+      await SystemConfigService.updateSystemConfigurationSections(req.body);
 
     // Clear email link cache so template links use updated base URL settings immediately.
     EmailService.systemBaseUrlCache = { value: null, expiresAt: 0 };
@@ -38,14 +41,24 @@ router.put('/', requireUser, requireRole(['admin']), async (req, res) => {
     return res.status(200).json({
       success: true,
       config,
-      message: 'System configuration updated successfully'
+      updatedSections,
+      ignoredSections,
+      message: updatedSections.length > 0
+        ? 'Einstellungen gespeichert'
+        : 'Keine speicherbaren Einstellungen übermittelt'
     });
   } catch (error) {
     console.error('Error updating system configuration:', error);
-    const statusCode = /invalid production base url/i.test(error.message || '') ? 400 : 500;
-    return res.status(statusCode).json({
-      error: error.message || 'Failed to update system configuration'
-    });
+    let statusCode = Number(error.status) || 500;
+    let message = error.message || 'Einstellungen konnten nicht gespeichert werden';
+    if (/invalid production base url/i.test(error.message || '')) {
+      statusCode = 400;
+    } else if (!error.status && (error.name === 'ValidationError' || error.name === 'CastError')) {
+      statusCode = 400;
+      const field = error.path || Object.keys(error.errors || {})[0] || '';
+      message = `Ungültiger Wert${field ? ` für „${field}“` : ''}. Bitte Eingabe prüfen.`;
+    }
+    return res.status(statusCode).json({ error: message });
   }
 });
 

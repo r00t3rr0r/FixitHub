@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const User = require('../models/User');
 const { BlogPost, BlogCategory, BlogTag } = require('../models/BlogPost');
 const FAQ = require('../models/FAQ');
@@ -15,6 +16,8 @@ const {
   DEFAULT_NOTIFICATION_TEMPLATE_VERSION,
   getDefaultNotificationTemplates
 } = require('./defaultNotificationTemplates');
+
+const SEED_ADMIN_EMAIL = 'admin@example.com';
 
 /**
  * SeedService — focused seeding for McRepair.de.
@@ -38,21 +41,42 @@ class SeedService {
   // -----------------------------------------------------------------------
   // Admin user
   // -----------------------------------------------------------------------
+  // CREATE-ONLY. This runs on every server boot (seedAll) and via the public
+  // POST /api/seed/admin + /api/seed/all bootstrap routes, so it must never
+  // touch an existing user - otherwise every restart/request would reset the
+  // admin to a password known from the source code.
+  //
+  // The initial password comes from SEED_ADMIN_PASSWORD. If it is not set, a
+  // random password is generated and logged exactly once, on the boot that
+  // creates the admin. The password is never part of the return value (the
+  // public /api/seed/all route sends that to the caller).
   static async seedAdminUser() {
     try {
       console.log('SeedService.seedAdminUser: Starting admin user seeding...');
 
-      const existingAdmin = await User.findOne({ email: 'admin@example.com' });
-      if (existingAdmin) {
-        existingAdmin.password = await generatePasswordHash('admin123');
-        await existingAdmin.save();
-        console.log('SeedService.seedAdminUser: Admin user already exists, password refreshed');
-        return { message: 'Admin user already exists', user: existingAdmin };
+      const existingUser = await User.findOne({
+        $or: [{ role: 'admin' }, { email: SEED_ADMIN_EMAIL }]
+      });
+      if (existingUser) {
+        console.log('SeedService.seedAdminUser: Admin user already exists, not modified');
+        return { message: 'Admin user already exists', user: existingUser };
       }
 
+      const envPassword = process.env.SEED_ADMIN_PASSWORD;
+      // Produktion: ohne SEED_ADMIN_PASSWORD wird KEIN Admin angelegt (kein Standard- und kein
+      // Zufallspasswort im Serverprotokoll, das in Log-Sammlungen landen koennte).
+      if (!envPassword && String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
+        console.warn(
+          `SeedService.seedAdminUser: no admin exists and SEED_ADMIN_PASSWORD is not set - ${SEED_ADMIN_EMAIL} was NOT created. ` +
+          'Set SEED_ADMIN_PASSWORD and restart (or run scripts/seed-admin.js with it set).'
+        );
+        return { message: 'Admin user not created: SEED_ADMIN_PASSWORD is required in production', user: null };
+      }
+      const initialPassword = envPassword || crypto.randomBytes(18).toString('base64url');
+
       const adminUser = new User({
-        email: 'admin@example.com',
-        password: await generatePasswordHash('admin123'),
+        email: SEED_ADMIN_EMAIL,
+        password: await generatePasswordHash(initialPassword),
         firstName: 'Admin',
         lastName: 'User',
         name: 'Admin User',
@@ -64,6 +88,15 @@ class SeedService {
 
       await adminUser.save();
       console.log('SeedService.seedAdminUser: Admin user created successfully:', adminUser._id);
+      if (envPassword) {
+        console.log(`SeedService.seedAdminUser: Initial password for ${SEED_ADMIN_EMAIL} taken from SEED_ADMIN_PASSWORD`);
+      } else {
+        console.log(
+          `SeedService.seedAdminUser: SEED_ADMIN_PASSWORD is not set - generated initial password for ${SEED_ADMIN_EMAIL}: ` +
+          `${initialPassword}\n` +
+          'SeedService.seedAdminUser: This password is shown ONLY ONCE. Log in and change it immediately.'
+        );
+      }
       return { message: 'Admin user created successfully', user: adminUser };
     } catch (error) {
       console.error('SeedService.seedAdminUser: Error creating admin user:', error);
@@ -500,6 +533,11 @@ class SeedService {
       }
 
       const admin = await this.getAdminUser();
+      if (!admin) {
+        // Produktion ohne SEED_ADMIN_PASSWORD: kein Admin angelegt -> Inhalte ohne Autor nicht seeden (Start laeuft weiter).
+        console.warn('SeedService: kein Admin vorhanden - Seed-Inhalte mit Autor werden uebersprungen.');
+        return { skipped: true, reason: 'no admin user' };
+      }
 
       // Categories
       const categoryDefs = [
@@ -588,6 +626,11 @@ class SeedService {
       }
 
       const admin = await this.getAdminUser();
+      if (!admin) {
+        // Produktion ohne SEED_ADMIN_PASSWORD: kein Admin angelegt -> Inhalte ohne Autor nicht seeden (Start laeuft weiter).
+        console.warn('SeedService: kein Admin vorhanden - Seed-Inhalte mit Autor werden uebersprungen.');
+        return { skipped: true, reason: 'no admin user' };
+      }
 
       const faqs = [
         {
@@ -664,6 +707,11 @@ class SeedService {
       }
 
       const admin = await this.getAdminUser();
+      if (!admin) {
+        // Produktion ohne SEED_ADMIN_PASSWORD: kein Admin angelegt -> Inhalte ohne Autor nicht seeden (Start laeuft weiter).
+        console.warn('SeedService: kein Admin vorhanden - Seed-Inhalte mit Autor werden uebersprungen.');
+        return { skipped: true, reason: 'no admin user' };
+      }
 
       const settings = [
         {

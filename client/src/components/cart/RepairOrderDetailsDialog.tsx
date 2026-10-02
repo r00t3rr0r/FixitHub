@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -18,6 +19,7 @@ import {
   Wrench,
   Zap,
 } from "lucide-react"
+import { formatEUR } from '@/lib/utils'
 
 type RepairOrderLike = {
   _id: string
@@ -149,7 +151,7 @@ export function RepairOrderDetailsDialog({
               </div>
             </DialogHeader>
 
-            <div className="max-h-[calc(92dvh-120px)] overflow-y-auto bg-[linear-gradient(180deg,#f7f9fd_0%,#ffffff_42%)]">
+            <DialogBody className="bg-[linear-gradient(180deg,#f7f9fd_0%,#ffffff_42%)]">
               <div className="grid gap-3 p-2 sm:p-4">
                 {/* Information */}
                 <div className="space-y-2">
@@ -164,7 +166,7 @@ export function RepairOrderDetailsDialog({
                         <div>
                           <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[#63708a]">Gesamt</p>
                           <span className="text-lg font-bold text-[#1a2a5e]">
-                            {((order.totalCost || 0) * quantity).toFixed(2)} €
+                            {formatEUR((order.totalCost || 0) * quantity)}
                           </span>
                         </div>
                         <Badge className="border-0 px-2 py-0.5 text-[8px] font-semibold shadow-none bg-[#e8f6ee] text-[#2f855a]">
@@ -175,7 +177,7 @@ export function RepairOrderDetailsDialog({
 
                       {quantity > 1 && (
                         <div className="text-[11px] text-[#636e85] border-t border-[#e4e8f0] pt-1">
-                          <p>{(order.totalCost || 0).toFixed(2)} € × {quantity}</p>
+                          <p>{formatEUR(order.totalCost || 0)} × {quantity}</p>
                         </div>
                       )}
 
@@ -238,7 +240,7 @@ export function RepairOrderDetailsDialog({
                                 </div>
                               </div>
                               {addOn.price !== null && (
-                                <span className="text-[10px] font-semibold text-[#636e85] flex-shrink-0">+{addOn.price.toFixed(2)} €</span>
+                                <span className="text-[10px] font-semibold text-[#636e85] flex-shrink-0">+{formatEUR(addOn.price)}</span>
                               )}
                             </div>
                           </div>
@@ -301,13 +303,13 @@ export function RepairOrderDetailsDialog({
                       )}
                       <div className="flex items-center justify-between text-xs border-t border-[#e4e8f0] pt-1 mt-1">
                         <span className="font-semibold text-[#1a2a5e]">Gesamt:</span>
-                        <span className="font-bold text-[#f5b800]">{((order.totalCost || 0) * quantity).toFixed(2)} €</span>
+                        <span className="font-bold text-[#f5b800]">{formatEUR((order.totalCost || 0) * quantity)}</span>
                       </div>
                     </div>
                   </section>
                 </div>
               </div>
-            </div>
+            </DialogBody>
           </>
         )}
       </DialogContent>

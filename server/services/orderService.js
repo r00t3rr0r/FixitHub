@@ -13,6 +13,7 @@ const FinancialService = require('./financialService');
 const CalculationHelper = require('./calculationHelper');
 const AddOnService = require('../models/AddOnService');
 const mongoose = require('mongoose');
+const OrderHistory = require('../utils/orderHistory');
 
 // Projection used by OrderService.getById. This is an explicit ALLOW list on a
 // customer-reachable route (GET /api/orders/:id), so it must never become an
@@ -179,7 +180,10 @@ const ORDER_VALUE_TOLERANCE = 0.02;
 // noch auf den Cent den bei der Bestaetigung gezeigten Werten entsprechen.
 const REPRICING_BASIS_TOLERANCE = 0.005;
 
-const formatEuroDe = (value) => `${CalculationHelper.round(Number(value) || 0).toFixed(2).replace('.', ',')} €`;
+// Ein Geldformat fuer alle Servertexte (utils/money: "1.234,50 €"; nicht endliche Werte -> "0,00 €").
+const { formatEuroDe } = require('../utils/money');
+// Deutsche Anzeige der E-Teil-Status (Order.eParts.status) fuer Verlaufstexte.
+const E_PART_STATUS_LABELS = { pending: 'Ausstehend', allocated: 'Zugewiesen', used: 'Verbaut' };
 
 class OrderService {
   static getStatusLabel(status) {
@@ -192,13 +196,68 @@ class OrderService {
       'in-progress': 'Reparatur in Bearbeitung',
       paused: 'Pausiert',
       'on-hold': 'Angehalten',
-      'quality-check': 'Qualitaetskontrolle',
-      'ready-for-pickup': 'Abholbereit',
+      'quality-check': 'Qualitätskontrolle',
+      // Reparatur fertig - Rueckgabe per Versand ODER Abholung (HIST-17: nie pauschal "Abholung").
+      'ready-for-pickup': 'Reparatur abgeschlossen',
       completed: 'Abgeschlossen',
       cancelled: 'Storniert'
     };
 
     return labels[normalized] || status;
+  }
+
+  /**
+   * Ein stornierter Auftrag wird nicht weiter bearbeitet (HIST-14): Template-Workflow zuweisen,
+   * Schritt abschliessen/ueberspringen und Schritt-Personal zuweisen -> 409 WORKFLOW_ORDER_CLOSED.
+   * includeCompleted: auch ein abgeschlossener Auftrag ist geschlossen (wie beim Starten).
+   * Hinweis: Pausieren und Entfernen bleiben erlaubt (beendet nur Arbeit).
+   */
+  static _assertOrderOpenForWorkflow(order, actionText, { includeCompleted = false } = {}) {
+    const status = String(order?.status || '');
+    if (status === 'cancelled' || (includeCompleted && status === 'completed')) {
+      throw buildOrderValueError(
+        `Der Auftrag ist ${status === 'cancelled' ? 'storniert' : 'abgeschlossen'} – ${actionText}`,
+        409,
+        'WORKFLOW_ORDER_CLOSED'
+      );
+    }
+  }
+
+  /**
+   * Einen laufenden Template-Workflow anhalten (Workflow- und Schrittpause mit Grund).
+   * EINE Regel fuer "Workflow pausieren" (updateWorkflowStatus) und den Storno (HIST-14).
+   * Mutiert nur das Unterdokument; der Aufrufer speichert.
+   */
+  static _pauseTemplateWorkflow(workflow, pauseReason, pauseStartedAt = new Date()) {
+    workflow.status = 'on-hold';
+    if (pauseReason) {
+      workflow.pauseReason = pauseReason;
+    }
+    workflow.pausedAt = pauseStartedAt;
+
+    const activeStepIndex = Number(workflow.currentStepIndex || 0);
+    const activeStep = workflow.steps[activeStepIndex] || workflow.steps.find((stepItem) => stepItem.status === 'in-progress');
+
+    if (activeStep && activeStep.status === 'in-progress') {
+      if (!activeStep.currentPauseStartedAt) {
+        activeStep.currentPauseStartedAt = pauseStartedAt;
+      }
+      const pauseEntry = {
+        pausedAt: pauseStartedAt,
+        reason: pauseReason || 'Kein Grund angegeben',
+        stepId: activeStep.stepId,
+        stepName: activeStep.stepName,
+        stepIndex: activeStepIndex,
+      };
+      if (!Array.isArray(activeStep.pauseHistory)) {
+        activeStep.pauseHistory = [];
+      }
+      activeStep.pauseHistory.push({ ...pauseEntry });
+      if (!Array.isArray(workflow.pauseHistory)) {
+        workflow.pauseHistory = [];
+      }
+      workflow.pauseHistory.push({ ...pauseEntry });
+    }
   }
 
   static async notifyCustomerOrderUpdate(order, message, statusOverride = null) {
@@ -531,7 +590,12 @@ class OrderService {
       positionsGross: OrderService.calculatePositionsGross(order),
       groupDiscountPercent: conditions?.groupDiscountPercent,
       promoDiscountAmount: conditions?.promoDiscountAmount,
-      taxRatePercent: Number.isFinite(Number(order?.taxRate)) ? Number(order.taxRate) : CalculationHelper.DEFAULT_TAX_RATE,
+      // FIN-13: gespeicherter Satz (auch 0); null/leer = nicht gespeichert -> Standardsatz.
+      // Netto/MwSt. dieses Rueckgabewerts sind vorlaeufig: verbindlich rechnet der Order-pre('save')-Hook
+      // mit dem konfigurierten Standardsatz aus den Finanzeinstellungen.
+      taxRatePercent: conditions?.defaultTaxRate !== undefined && !CalculationHelper.hasStoredTaxRate(order?.taxRate)
+        ? CalculationHelper.resolveTaxRate(null, conditions.defaultTaxRate).taxRate
+        : CalculationHelper.resolveTaxRate(order?.taxRate).taxRate,
     });
 
     order.pricingConditions = {
@@ -729,8 +793,8 @@ class OrderService {
         await OrderRevisionService.recordRevision(savedOrder, {
           triggerReason: 'initial_creation',
           previousGrossAmount: 0,
-          notes: `Auftrag angelegt: Positionen ${OrderService.calculatePositionsGross(savedOrder).toFixed(2)} EUR, `
-            + `Rabatt ${Number(savedOrder.discount || 0).toFixed(2)} EUR, Auftragswert ${Number(savedOrder.totalCost || 0).toFixed(2)} EUR (brutto)`
+          notes: `Auftrag angelegt: Positionen ${formatEuroDe(OrderService.calculatePositionsGross(savedOrder))}, `
+            + `Rabatt ${formatEuroDe(savedOrder.discount)}, Auftragswert ${formatEuroDe(savedOrder.totalCost)} (brutto)`
         });
       } catch (revError) {
         console.warn('OrderService: Warning recording initial revision:', revError.message);
@@ -833,8 +897,21 @@ class OrderService {
         query.status = filters.status;
       }
 
-      if (filters.priority) {
+      if (filters.priority === 'high-urgent') {
+        // Liste "Reparaturaufträge" / Dashboard-Link "Prioritätsaufträge": Hoch und Dringend.
+        query.priority = { $in: ['high', 'urgent'] };
+      } else if (filters.priority) {
         query.priority = filters.priority;
+      }
+
+      // Nur diese Auftrags-IDs (z. B. Filter "Warten auf Kundenrückmeldung"); ungueltige IDs fallen weg.
+      if (filters.ids !== undefined) {
+        const rawIds = Array.isArray(filters.ids) ? filters.ids : String(filters.ids || '').split(',');
+        const validIds = rawIds
+          .map((id) => String(id || '').trim())
+          .filter((id) => mongoose.Types.ObjectId.isValid(id))
+          .slice(0, 500);
+        andFilters.push({ _id: { $in: validIds } });
       }
 
       if (filters.deviceType) {
@@ -854,12 +931,24 @@ class OrderService {
         });
       }
 
-      if (filters.search) {
+      if (filters.search && String(filters.search).trim()) {
+        // Eingabe woertlich suchen (kein Regex vom Client). Auch Kundenname/-E-Mail (registriert
+        // oder Gast), damit die Suche der Admin-Liste nicht nur die geladenen Auftraege trifft.
+        const term = String(filters.search).trim().slice(0, 100).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = { $regex: term, $options: 'i' };
+        const matchingCustomers = await User.find({ $or: [{ name: regex }, { email: regex }] })
+          .select('_id')
+          .limit(200)
+          .lean();
         andFilters.push({
           $or: [
-          { orderNumber: { $regex: filters.search, $options: 'i' } },
-          { deviceBrand: { $regex: filters.search, $options: 'i' } },
-          { deviceModel: { $regex: filters.search, $options: 'i' } }
+            { orderNumber: regex },
+            { deviceBrand: regex },
+            { deviceModel: regex },
+            { 'guestInfo.email': regex },
+            { 'guestInfo.firstName': regex },
+            { 'guestInfo.lastName': regex },
+            ...(matchingCustomers.length > 0 ? [{ customerId: { $in: matchingCustomers.map((user) => user._id) } }] : []),
           ],
         });
       }
@@ -956,7 +1045,12 @@ class OrderService {
   //   taxAmount            = grossTotal - netTotal
   // Every discount is subtracted from the GROSS exactly once and never again from
   // the net. taxRate is a PERCENT (19), never a fraction.
-  static buildOrderPricingSummary(order) {
+  //
+  // FIN-13: taxRate is the rate STORED on the order - an explicit 0 stays 0. A missing /
+  // null / empty / non-numeric rate is "not stored": the configured default rate
+  // (options.defaultTaxRate, from the financial settings; otherwise 19) is used and
+  // `taxRateSource` says 'default' instead of 'stored', so the screen can label it.
+  static buildOrderPricingSummary(order, options = {}) {
     const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
     const sum = (list, pick) => (Array.isArray(list) ? list : []).reduce(
       (acc, entry) => acc + (Number(pick(entry)) || 0),
@@ -985,7 +1079,7 @@ class OrderService {
     // totalCost still carries the Haendlerrabatt; the stored netAmount/taxAmount do
     // not. Subtract it here or the screen overstates a Haendler order.
     const grossTotal = round2(round2(order?.totalCost) - dealerDiscountAmount);
-    const taxRate = Number.isFinite(Number(order?.taxRate)) ? Number(order.taxRate) : 19;
+    const { taxRate, taxRateSource } = CalculationHelper.resolveTaxRate(order?.taxRate, options.defaultTaxRate);
     const netTotal = round2(grossTotal / (1 + taxRate / 100));
     const taxAmount = round2(grossTotal - netTotal);
 
@@ -1007,10 +1101,29 @@ class OrderService {
       netTotal,
       taxAmount,
       taxRate,
+      taxRateSource,
       // false when the stored positions no longer add up to the order total
       // (legacy orders, or positions edited without recalculating the order).
       positionsReconcile: Math.abs(positionsGross - discount - dealerDiscountAmount - grossTotal) <= 0.02
     };
+  }
+
+  // FIN-13: konfigurierter Standardsatz (Finanzeinstellungen, normalerweise 19) - nur
+  // fuer Auftraege OHNE gespeicherten Satz. Liest die Einstellungen nur, wenn einer der
+  // uebergebenen Auftraege keinen Satz gespeichert hat (sonst keine zusaetzliche Abfrage).
+  static async resolveDefaultTaxRate(orders = null) {
+    const list = orders === null ? null : (Array.isArray(orders) ? orders : [orders]);
+    if (list && list.filter(Boolean).every((entry) => CalculationHelper.hasStoredTaxRate(entry.taxRate))) {
+      return undefined;
+    }
+    try {
+      // Lazy: FinancialService <-> OrderService laden sich gegenseitig.
+      const settings = await require('./financialService').getFinancialSettings(); // eslint-disable-line global-require
+      return CalculationHelper.resolveTaxRate(settings?.defaults?.taxRate).taxRate;
+    } catch (error) {
+      console.error('OrderService: default tax rate could not be read:', error.message);
+      return CalculationHelper.DEFAULT_TAX_RATE;
+    }
   }
 
   // Get order by ID
@@ -1028,7 +1141,9 @@ class OrderService {
     try {
       const includeLabelData = options.includeLabelData === true;
       const staffAudience = options.audience === 'staff';
-      const selectFields = `${ORDER_DETAIL_SELECT_FIELDS}${includeLabelData ? ` ${LABEL_DATA_FIELDS}` : ''}`;
+      // HIST-9: das urspruenglich gebuchte Geraet (reportedDevice, unveraenderlich) nur fuer die
+      // Personalansicht - die Geraetekarte zeigt "Vom Kunden gemeldet" neben dem korrigierten Geraet.
+      const selectFields = `${ORDER_DETAIL_SELECT_FIELDS}${includeLabelData ? ` ${LABEL_DATA_FIELDS}` : ''}${staffAudience ? ' reportedDevice' : ''}`;
 
       const order = await Order.findById(orderId)
         .select(selectFields)
@@ -1118,7 +1233,9 @@ class OrderService {
 
       // Authoritative, self-consistent money breakdown for the order detail screen.
       // Gross-first: totalCost is the GROSS after discount, net is derived from it.
-      plain.pricing = OrderService.buildOrderPricingSummary(order);
+      plain.pricing = OrderService.buildOrderPricingSummary(order, {
+        defaultTaxRate: await OrderService.resolveDefaultTaxRate(order),
+      });
 
       plain.services = Array.isArray(order.services)
         ? order.services.map((service) => {
@@ -1156,33 +1273,108 @@ class OrderService {
     const staff = await User.findById(staffId);
     if (!staff || !['staff', 'admin'].includes(staff.role)) return;
 
+    const previousNames = (order.assignedStaff || []).map((assignment) => assignment.name).filter(Boolean);
     order.assignedStaff.push({
       staffId: staff._id,
       name: staff.name,
       avatar: staff.avatar || '',
       assignedAt: new Date()
     });
+    // Implizite Zuweisung (wer am Auftrag arbeitet, wird zugewiesen) im SELBEN Schreibvorgang
+    // wie die ausloesende Aenderung protokollieren (HIST-8) - der Aufrufer speichert.
+    OrderHistory.push(order, OrderHistory.entry({
+      key: 'Staff Assigned',
+      type: 'staff',
+      description: `${staff.name} automatisch zugewiesen (bei Bearbeitung des Auftrags)`,
+      actor: { id: String(staff._id), name: staff.name },
+      source: 'automatisch bei Bearbeitung',
+      changes: [{
+        field: 'assignedStaff',
+        label: 'Zugewiesenes Personal',
+        from: previousNames,
+        to: [...previousNames, staff.name],
+      }],
+    }));
   }
 
-  // Update order status
-  static async updateStatus(orderId, status, note = null, staffId = null) {
+  /**
+   * Auftragsstatus aendern (Statusmenue, Workflows, Inspektion, Entsperrdaten).
+   *
+   * @param {string} orderId
+   * @param {string} status   ein Wert aus Order.ORDER_STATUSES (sonst 400 'Unbekannter Auftragsstatus.')
+   * @param {string|null} note Grund/Notiz des Personals - NUR im Verlauf (reason), nie an Kunden
+   * @param {string|null} staffId Akteur
+   * @param {Object} [options]
+   * @param {string} [options.reason]          Grund (hat Vorrang vor note)
+   * @param {string} [options.customerMessage] ausdruecklich kundenseitiger Hinweis (Benachrichtigung)
+   * @param {boolean} [options.notifyCustomer=true]
+   * @param {string} [options.key='Order Status Updated'] Verlaufsschluessel
+   * @param {string} [options.source='Statusmenü']
+   * @param {Object} [options.refs]
+   * @param {string} [options.eventKey]        Idempotenzschluessel
+   * Gleicher Status oder bereits gespeicherter eventKey: keine Aenderung, kein Eintrag, keine
+   * Benachrichtigung; Rueckgabe des unveraenderten Auftrags mit order.$locals.unchanged = true.
+   */
+  static async updateStatus(orderId, status, note = null, staffId = null, options = {}) {
     console.log('OrderService: Updating order status:', orderId, 'to', status);
 
+    if (!Order.ORDER_STATUSES.includes(status)) {
+      throw buildOrderValueError('Unbekannter Auftragsstatus.', 400, 'INVALID_ORDER_STATUS');
+    }
+    // Stornieren nur mit Grund (HIST-14). Der Grund steht nur im Verlauf (intern), nie beim Kunden.
+    if (status === 'cancelled' && !String(options.reason || note || '').trim()) {
+      throw buildOrderValueError('Bitte einen Grund für die Stornierung angeben.', 400, 'CANCEL_REASON_REQUIRED');
+    }
+    // Bedingt speichern (nur wenn der gelesene Status noch gilt). Hat ein paralleler Vorgang
+    // den Status inzwischen geaendert, wird auf dem FRISCHEN Stand neu entschieden: gleicher
+    // Zielstatus -> unveraendert (kein zweiter Eintrag, keine zweite Benachrichtigung), sonst
+    // Wechsel vom tatsaechlichen Status (der Eintrag nennt das echte "von") - HIST-6.
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const result = await OrderService._updateStatusAttempt(orderId, status, note, staffId, options);
+      if (result) return result;
+    }
+    throw buildOrderValueError('Der Auftragsstatus wurde gleichzeitig geändert. Bitte die Seite neu laden und erneut versuchen.', 409, 'ORDER_STATUS_CONFLICT');
+  }
+
+  // Ein Versuch von updateStatus; null = Status wurde parallel geaendert (erneut versuchen).
+  static async _updateStatusAttempt(orderId, status, note, staffId, options = {}) {
     try {
       const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
 
       if (!order) {
-        throw new Error('Order not found');
-      }
-
-      if (status === 'completed' && order.requiresPaymentBeforeCompletion && order.paymentStatus !== 'paid') {
-        throw new Error('Zahlung erforderlich, bevor der Reklamationsauftrag abgeschlossen und versendet werden kann');
+        throw buildOrderValueError('Auftrag wurde nicht gefunden.', 404, 'ORDER_NOT_FOUND');
       }
 
       const oldStatus = order.status;
+      // Wiederholte Anfrage / gleicher Status: kein zweiter Eintrag, keine Benachrichtigung (HIST-6).
+      if (oldStatus === status || (options.eventKey && OrderHistory.hasEventKey(order, options.eventKey))) {
+        order.$locals.unchanged = true;
+        return order;
+      }
+
+      // Storno ist kein gewoehnlicher Zwischenstatus: ein stornierter Auftrag wird weder ueber das
+      // Statusmenue noch ueber Workflow-Wege fortgesetzt. Wieder oeffnen geht nur ausdruecklich
+      // ("Storno aufheben", options.reopen) mit Begruendung - und immer nach "Ausstehend". Angehaltene
+      // Workflows bleiben angehalten und werden bewusst fortgesetzt.
+      if (oldStatus === 'cancelled' && status !== 'cancelled') {
+        if (!options.reopen) {
+          throw buildOrderValueError('Der Auftrag ist storniert. Er kann nur über „Storno aufheben“ mit Begründung wieder geöffnet werden.', 409, 'ORDER_CANCELLED');
+        }
+        if (!String(options.reason || note || '').trim()) {
+          throw buildOrderValueError('Bitte einen Grund für das Aufheben der Stornierung angeben.', 400, 'REOPEN_REASON_REQUIRED');
+        }
+        if (status !== 'pending') {
+          throw buildOrderValueError('Ein stornierter Auftrag wird immer als „Ausstehend“ wieder geöffnet.', 400, 'REOPEN_TARGET_INVALID');
+        }
+      }
+
+      if (status === 'completed' && order.requiresPaymentBeforeCompletion && order.paymentStatus !== 'paid') {
+        throw buildOrderValueError('Zahlung erforderlich, bevor der Reklamationsauftrag abgeschlossen und versendet werden kann', 409, 'PAYMENT_REQUIRED');
+      }
+
       const previousProgress = Number(order.progress || 0);
       order.status = status;
-      
+
       // Update progress based on status
       const progressMap = {
         'pending': 0,
@@ -1192,8 +1384,9 @@ class OrderService {
         'completed': 100,
         'cancelled': 0
       };
-      
-      order.progress = progressMap[status] || order.progress;
+
+      // ?? statt ||: 0 (pending/cancelled) ist ein gueltiger Wert (HIST-7).
+      order.progress = progressMap[status] ?? order.progress;
 
       if (status === 'completed') {
         order.actualCompletion = new Date();
@@ -1201,36 +1394,94 @@ class OrderService {
 
       await OrderService._autoAssignStaff(order, staffId);
 
-      // Add timeline entry
-      let staffName = 'System';
-      if (staffId) {
-        const staff = await User.findById(staffId);
-        staffName = staff ? staff.name : 'Staff Member';
+      const actor = await OrderHistory.resolveActor(staffId);
+      const reason = String(options.reason || note || '').trim();
+      const isReopen = oldStatus === 'cancelled' && status !== 'cancelled';
+      OrderHistory.push(order, OrderHistory.entry({
+        key: options.key || (isReopen ? 'Order Reopened' : 'Order Status Updated'),
+        type: 'status',
+        description: isReopen
+          ? `Stornierung aufgehoben: ${OrderHistory.statusLabelDe(oldStatus)} → ${OrderHistory.statusLabelDe(status)}`
+          : `Status geändert: ${OrderHistory.statusLabelDe(oldStatus)} → ${OrderHistory.statusLabelDe(status)}`,
+        actor,
+        source: options.source || 'Statusmenü',
+        changes: [{ field: 'status', label: 'Auftragsstatus', from: oldStatus, to: status }],
+        reason,
+        refs: options.refs,
+        visibility: 'customer',
+        eventKey: options.eventKey,
+      }));
+
+      // Storno (HIST-14): laufende Template-Workflows im SELBEN Speichervorgang anhalten (Zeiterfassung
+      // stoppt). Nichts wird abgeschlossen oder geloescht; Rechnungen/Zahlungen bleiben unberuehrt.
+      const pausedTemplateWorkflows = [];
+      if (status === 'cancelled') {
+        const pausedAt = new Date();
+        (Array.isArray(order.workflows) ? order.workflows : []).forEach((workflowItem) => {
+          if (workflowItem && workflowItem.status === 'in-progress') {
+            OrderService._pauseTemplateWorkflow(workflowItem, 'Auftrag storniert', pausedAt);
+            pausedTemplateWorkflows.push(workflowItem.workflowName || 'Workflow');
+          }
+        });
+        if (pausedTemplateWorkflows.length) {
+          OrderHistory.push(order, OrderHistory.entry({
+            key: 'Workflow Paused',
+            type: 'workflow',
+            description: `Workflow angehalten (Auftrag storniert): ${pausedTemplateWorkflows.map((name) => `„${name}“`).join(', ')}`,
+            actor,
+            source: options.source || 'Statusmenü',
+            reason,
+          }));
+        }
       }
 
-      if (!Array.isArray(order.timeline)) {
-        order.timeline = [];
+      order.$where = oldStatus == null ? { status: { $in: [null] } } : { status: oldStatus };
+      if (options.eventKey) order.$where['timeline.eventKey'] = { $ne: String(options.eventKey) };
+      let updatedOrder;
+      try {
+        updatedOrder = await order.save();
+      } catch (saveError) {
+        if (saveError && (saveError.name === 'DocumentNotFoundError' || saveError.name === 'VersionError')) {
+          return null; // paralleler Statuswechsel - auf frischem Stand neu entscheiden
+        }
+        throw saveError;
+      } finally {
+        order.$where = undefined;
       }
 
-      order.timeline.push({
-        status: status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' '),
-        description: note || `Status changed from ${oldStatus} to ${status}`,
-        completedAt: new Date(),
-        staffId: staffId || 'system',
-        staffName
-      });
+      // Storno: eine laufende Techniker-Reparatur (RepairWorkflow) pausieren. Ein Fehler hier macht
+      // den gespeicherten Storno nicht rueckgaengig, wird aber gemeldet ($locals.warnings).
+      if (status === 'cancelled') {
+        updatedOrder.$locals.cancelEffects = { templateWorkflowsPaused: pausedTemplateWorkflows, repairWorkflowPaused: false };
+        updatedOrder.$locals.warnings = [];
+        try {
+          // eslint-disable-next-line global-require
+          const RepairWorkflowService = require('./repairWorkflowService');
+          const { paused } = await RepairWorkflowService.pauseForOrderCancellation(updatedOrder._id, actor);
+          updatedOrder.$locals.cancelEffects.repairWorkflowPaused = paused;
+        } catch (cancelPauseError) {
+          console.error('OrderService: Could not pause repair workflow after cancellation:', cancelPauseError);
+          updatedOrder.$locals.warnings.push('Auftrag storniert, aber die laufende Reparatur konnte nicht pausiert werden. Bitte im Reparatur-Workflow pausieren.');
+        }
+      }
 
-      const updatedOrder = await order.save();
-
-      if (oldStatus !== status || previousProgress !== Number(updatedOrder.progress || 0)) {
+      // Benachrichtigung erst NACH dem erfolgreichen bedingten Speichern.
+      if (options.notifyCustomer !== false
+        && (oldStatus !== status || previousProgress !== Number(updatedOrder.progress || 0))) {
         const statusLabel = this.getStatusLabel(status);
-        const updateMessage = note
-          ? `Ihr Auftrag ${updatedOrder.orderNumber} wurde aktualisiert: ${statusLabel}. Hinweis: ${note}`
+        // Interne Notizen/Gruende gehen NIE an Kunden - nur ein ausdruecklicher Kundenhinweis.
+        const customerMessage = String(options.customerMessage || '').trim();
+        // Storno: keine Aussage ueber eine automatische Erstattung (es gibt keine).
+        const defaultMessage = status === 'cancelled'
+          ? `Ihr Auftrag ${updatedOrder.orderNumber} wurde storniert. Bereits geleistete Zahlungen prüfen wir und melden uns bei Ihnen.`
           : `Ihr Auftrag ${updatedOrder.orderNumber} wurde aktualisiert: ${statusLabel}. Aktueller Fortschritt: ${updatedOrder.progress || 0}%.`;
+        const updateMessage = customerMessage
+          ? `Ihr Auftrag ${updatedOrder.orderNumber} wurde aktualisiert: ${statusLabel}. Hinweis: ${customerMessage}`
+          : defaultMessage;
 
         await this.notifyCustomerOrderUpdate(updatedOrder, updateMessage, status);
       }
-      
+
       console.log('OrderService: Order status updated successfully');
       return updatedOrder;
     } catch (error) {
@@ -1239,10 +1490,95 @@ class OrderService {
     }
   }
 
+  /**
+   * Abholung bestaetigen (HIST-13): Status 'completed', pickupConfirmation, Verlaufseintrag
+   * 'Pickup Confirmed' - alles in EINEM bedingten Schreibvorgang. Idempotent: ist die Abholung
+   * bereits bestaetigt, wird nichts geaendert ({ alreadyConfirmed: true }).
+   */
+  static async confirmPickup(orderId, actorUser) {
+    const actor = OrderHistory.normalizeActor(actorUser);
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
+      if (!order) {
+        throw buildOrderValueError('Auftrag wurde nicht gefunden.', 404, 'ORDER_NOT_FOUND');
+      }
+      if (order.pickupConfirmation?.confirmedAt) {
+        order.$locals.alreadyConfirmed = true;
+        return { order, alreadyConfirmed: true };
+      }
+      if (order.status === 'cancelled') {
+        throw buildOrderValueError('Ein stornierter Auftrag kann nicht als abgeholt bestätigt werden.', 409, 'ORDER_CANCELLED');
+      }
+      if (order.requiresPaymentBeforeCompletion && order.paymentStatus !== 'paid') {
+        throw buildOrderValueError('Zahlung erforderlich, bevor der Reklamationsauftrag abgeschlossen und versendet werden kann', 409, 'PAYMENT_REQUIRED');
+      }
+
+      const now = new Date();
+      const oldStatus = order.status;
+      order.status = 'completed';
+      order.progress = 100;
+      if (!order.actualCompletion) order.actualCompletion = now;
+      order.pickupConfirmation = {
+        confirmedBy: actor.id !== 'system' ? actor.id : undefined,
+        confirmedByName: actor.name,
+        confirmedAt: now,
+      };
+      OrderHistory.push(order, OrderHistory.entry({
+        key: 'Pickup Confirmed',
+        type: 'shipping',
+        description: `Abholung durch den Kunden bestätigt von ${actor.name}`,
+        actor,
+        source: 'Abholung',
+        changes: [{ field: 'status', label: 'Auftragsstatus', from: oldStatus, to: 'completed' }],
+        visibility: 'customer',
+        eventKey: 'pickup-confirmed',
+        at: now,
+        force: true,
+      }));
+
+      order.$where = { 'pickupConfirmation.confirmedAt': { $exists: false } };
+      try {
+        const saved = await order.save();
+        return { order: saved, alreadyConfirmed: false };
+      } catch (error) {
+        if (error && error.name === 'DocumentNotFoundError') {
+          continue; // paralleler Klick hat gewonnen -> frisch laden, dann alreadyConfirmed
+        }
+        throw error;
+      } finally {
+        order.$where = undefined;
+      }
+    }
+    throw buildOrderValueError('Die Abholung konnte gerade nicht gespeichert werden. Bitte erneut versuchen.', 409, 'ORDER_EDIT_CONFLICT');
+  }
+
   // Assign staff to order
-  static async assignStaff(orderId, staffIds) {
+  // actor: req.user (wer die Zuweisung vornimmt) - frueher stand hier immer 'System' (HIST-8).
+  static async assignStaff(orderId, staffIds, actorUser = null) {
     console.log('OrderService: Assigning staff to order:', orderId, 'staff:', staffIds);
 
+    // Get staff details (einmal, vor den Speicherversuchen)
+    const uniqueStaffIds = getUniqueStaffIds(staffIds);
+    const staffMembers = await User.find({
+      _id: { $in: uniqueStaffIds },
+      role: { $in: ['staff', 'admin'] }
+    });
+
+    if (staffMembers.length !== uniqueStaffIds.length) {
+      throw new Error('One or more staff members not found');
+    }
+
+    // Bedingt speichern auf der gelesenen Zuweisung; paralleler Doppelklick -> frisch laden,
+    // dann ist die Zuweisung gleich und es entsteht kein zweiter Eintrag (HIST-6).
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const result = await OrderService._assignStaffAttempt(orderId, staffMembers, actorUser);
+      if (result) return result;
+    }
+    throw buildOrderValueError('Die Zuweisung wurde gleichzeitig geändert. Bitte die Seite neu laden und erneut versuchen.', 409, 'ORDER_ASSIGNMENT_CONFLICT');
+  }
+
+  // Ein Versuch von assignStaff; null = Zuweisung wurde parallel geaendert.
+  static async _assignStaffAttempt(orderId, staffMembers, actorUser) {
     try {
       const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
 
@@ -1250,15 +1586,14 @@ class OrderService {
         throw new Error('Order not found');
       }
 
-      // Get staff details
-      const staffMembers = await User.find({ 
-        _id: { $in: staffIds },
-        role: { $in: ['staff', 'admin'] }
-      });
-
-      if (staffMembers.length !== staffIds.length) {
-        throw new Error('One or more staff members not found');
+      const previousIds = (order.assignedStaff || []).map((assignment) => toIdString(assignment.staffId)).sort();
+      const nextIds = staffMembers.map((staff) => toIdString(staff._id)).sort();
+      if (previousIds.length === nextIds.length && previousIds.every((id, index) => id === nextIds[index])) {
+        // Gleiche Zuweisung erneut gesendet: nichts aendern, kein Eintrag (HIST-6).
+        order.$locals.unchanged = true;
+        return order;
       }
+      const previousNames = (order.assignedStaff || []).map((assignment) => assignment.name).filter(Boolean);
 
       // Update assigned staff
       order.assignedStaff = staffMembers.map(staff => ({
@@ -1268,17 +1603,36 @@ class OrderService {
         assignedAt: new Date()
       }));
 
-      // Add timeline entry
-      order.timeline.push({
-        status: 'Staff Assigned',
-        description: `Assigned to: ${staffMembers.map(s => s.name).join(', ')}`,
-        completedAt: new Date(),
-        staffId: 'system',
-        staffName: 'System'
-      });
+      const actor = actorUser ? OrderHistory.normalizeActor(actorUser) : { id: 'system', name: 'System' };
+      const nextNames = staffMembers.map((s) => s.name);
+      OrderHistory.push(order, OrderHistory.entry({
+        key: 'Staff Assigned',
+        type: 'staff',
+        description: `Zugewiesen an: ${nextNames.join(', ')}`,
+        actor,
+        source: 'Personalzuweisung',
+        changes: [{ field: 'assignedStaff', label: 'Zugewiesenes Personal', from: previousNames, to: nextNames }],
+        force: true,
+      }));
 
-      const updatedOrder = await order.save();
-      
+      const previousObjectIds = previousIds
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+      order.$where = previousObjectIds.length
+        ? { 'assignedStaff.staffId': { $all: previousObjectIds }, assignedStaff: { $size: previousIds.length } }
+        : { $or: [{ assignedStaff: { $exists: false } }, { assignedStaff: { $size: 0 } }] };
+      let updatedOrder;
+      try {
+        updatedOrder = await order.save();
+      } catch (saveError) {
+        if (saveError && (saveError.name === 'DocumentNotFoundError' || saveError.name === 'VersionError')) {
+          return null;
+        }
+        throw saveError;
+      } finally {
+        order.$where = undefined;
+      }
+
       console.log('OrderService: Staff assigned successfully');
       return updatedOrder;
     } catch (error) {
@@ -1346,6 +1700,11 @@ class OrderService {
         averageCompletionTime: '2.5 days' // This would need more complex calculation
       };
 
+      // Additiv fuer die Admin-Liste "Reparaturaufträge": Gesamtzahl und Hoch/Dringend (alle
+      // Auftraege, gleiche Regel wie der Filter priority=high-urgent in getAll).
+      result.total = stats.reduce((sum, stat) => sum + Number(stat.count || 0), 0);
+      result.highOrUrgent = await Order.countDocuments({ priority: { $in: ['high', 'urgent'] } });
+
       stats.forEach(stat => {
         switch (stat._id) {
           case 'pending':
@@ -1409,6 +1768,15 @@ class OrderService {
       // Reduce inventory stock
       version.quantity -= quantity;
       await part.save();
+      // HIST-5 (e): scheitert danach das Speichern des Auftrags, wird der Bestand wieder gutgeschrieben -
+      // sonst waere das Teil vom Lager abgebucht, aber keinem Auftrag zugeordnet.
+      const restoreStock = async () => {
+        try {
+          await Inventory.updateOne({ _id: part._id, 'versions._id': version._id }, { $inc: { 'versions.$.quantity': quantity } });
+        } catch (restoreError) {
+          console.error('OrderService: Bestand konnte nach fehlgeschlagener Zuordnung nicht zurueckgebucht werden:', restoreError.message);
+        }
+      };
 
       // Add EPart to order
       order.eParts.push({
@@ -1425,13 +1793,20 @@ class OrderService {
       await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'EPart Assigned',
-        description: `${part.itemName} (${version.versionType}) x${quantity} assigned to order`,
+        description: `${part.itemName} (${version.versionType}) ×${quantity} dem Auftrag zugewiesen`,
         completedAt: new Date(),
         staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member'
+        staffName: staff ? staff.name : 'Mitarbeiter',
+        type: 'parts',
       });
 
-      const updatedOrder = await order.save();
+      let updatedOrder;
+      try {
+        updatedOrder = await order.save();
+      } catch (saveError) {
+        await restoreStock();
+        throw saveError;
+      }
 
       console.log('OrderService: EPart assigned successfully');
       return updatedOrder;
@@ -1467,10 +1842,10 @@ class OrderService {
       }
 
       // Get part info for timeline before removing
-      const partName = part ? part.itemName : 'Unknown Part';
+      const partName = part ? part.itemName : 'Unbekanntes Ersatzteil';
       const versionType = part && part.versions.id(ePart.versionId)
         ? part.versions.id(ePart.versionId).versionType
-        : 'Unknown';
+        : 'unbekannte Version';
 
       // Remove EPart from order
       order.eParts.pull(ePartId);
@@ -1480,10 +1855,11 @@ class OrderService {
       await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'EPart Removed',
-        description: `${partName} (${versionType}) x${ePart.quantity} removed from order`,
+        description: `${partName} (${versionType}) ×${ePart.quantity} vom Auftrag entfernt`,
         completedAt: new Date(),
         staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member'
+        staffName: staff ? staff.name : 'Mitarbeiter',
+        type: 'parts',
       });
 
       const updatedOrder = await order.save();
@@ -1517,15 +1893,16 @@ class OrderService {
       // Add timeline entry
       const staff = await User.findById(staffId);
       const part = await Inventory.findById(ePart.partId);
-      const partName = part ? part.itemName : 'Unknown Part';
+      const partName = part ? part.itemName : 'Unbekanntes Ersatzteil';
 
       await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'EPart Status Updated',
-        description: `${partName} status changed from ${oldStatus} to ${status}`,
+        description: `Status von ${partName}: ${E_PART_STATUS_LABELS[oldStatus] || oldStatus} → ${E_PART_STATUS_LABELS[status] || status}`,
         completedAt: new Date(),
         staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member'
+        staffName: staff ? staff.name : 'Mitarbeiter',
+        type: 'parts',
       });
 
       const updatedOrder = await order.save();
@@ -1582,10 +1959,11 @@ class OrderService {
       await OrderService._autoAssignStaff(order, staffId);
       order.timeline.push({
         status: 'EPart Need List Added',
-        description: `${part.itemName} x${entryData.quantity} added to need list "${resolvedNeedListName}"`,
+        description: `${part.itemName} ×${entryData.quantity} auf Bedarfsliste „${resolvedNeedListName}“ gesetzt`,
         completedAt: new Date(),
         staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member'
+        staffName: staff ? staff.name : 'Mitarbeiter',
+        type: 'parts',
       });
 
       const updatedOrder = await order.save();
@@ -1596,6 +1974,67 @@ class OrderService {
       console.error('OrderService: Error recording EPart need list entry:', error);
       throw error;
     }
+  }
+
+  // Eindeutiger eventKey fuer einen Verlaufseintrag einer Positionsaenderung - verknuepft den
+  // Eintrag nach dem Speichern mit seiner Revision (refs.revisionId), damit
+  // GET /api/orders/:id/history die Revision nicht ein zweites Mal anzeigt.
+  static newEditEventKey() {
+    return `edit:${new mongoose.Types.ObjectId().toHexString()}`;
+  }
+
+  // Revision dem Verlaufseintrag zuordnen (Folge-Schreibvorgang; schlaegt er fehl, bleibt der
+  // Eintrag erhalten und die Revision erscheint im Verlauf als eigener Eintrag).
+  static async linkRevisionToHistory(orderId, eventKey, revision) {
+    if (!eventKey || !revision || !revision._id) return false;
+    try {
+      const result = await Order.updateOne(
+        { _id: orderId, 'timeline.eventKey': eventKey },
+        { $set: { 'timeline.$.refs.revisionId': revision._id, 'timeline.$.refs.revisionNumber': revision.revisionNumber } }
+      );
+      return Number(result?.modifiedCount || 0) > 0;
+    } catch (error) {
+      console.warn('OrderService: Revision konnte nicht mit dem Verlaufseintrag verknuepft werden:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Abschluss einer Positionsaenderung NACH dem atomaren Speichern (Verlaufseintrag ist bereits
+   * im selben Speichervorgang wie die Aenderung): Revision (Finanz-Snapshot) schreiben und
+   * verknuepfen, Finanzabgleich ausfuehren. Fehler werden NICHT verschluckt, sondern als
+   * deutsche Warnungen in order.$locals.warnings abgelegt (die Routen geben sie als
+   * `warnings` zurueck).
+   */
+  static async finishOrderEdit(order, { eventKey = null, revision = null, syncFinancials = false } = {}) {
+    const warnings = [];
+    if (revision) {
+      let recorded = null;
+      try {
+        recorded = await OrderRevisionService.recordRevision(order, revision);
+      } catch (error) {
+        recorded = null;
+      }
+      if (!recorded) {
+        warnings.push('Die Änderung wurde gespeichert, der Änderungsbeleg (Revision) konnte jedoch nicht angelegt werden.');
+      } else {
+        await OrderService.linkRevisionToHistory(order._id, eventKey, recorded);
+      }
+    }
+    if (syncFinancials) {
+      try {
+        const result = await FinancialService.syncOrderAndBookingValue(order._id, 'order');
+        if (result && result.ok === false) {
+          throw new Error(result.error || result.message || 'unbekannter Fehler');
+        }
+      } catch (error) {
+        console.error(`OrderService: Financial sync failed for order ${order._id}: ${error.message}`);
+        warnings.push('Die Änderung wurde gespeichert, der Abgleich mit Buchung/Rechnung ist jedoch fehlgeschlagen. '
+          + 'Bitte den Finanzabgleich für diesen Auftrag erneut ausführen.');
+      }
+    }
+    if (order && order.$locals) order.$locals.warnings = warnings;
+    return warnings;
   }
 
   // Add add-on service to order
@@ -1630,21 +2069,27 @@ class OrderService {
         OrderService.applyOrderPricing(order, conditions);
 
         await OrderService._autoAssignStaff(order, staffId);
-        order.timeline.push({
-          status: 'Add-on Service Added',
+        const eventKey = OrderService.newEditEventKey();
+        OrderHistory.push(order, OrderHistory.entry({
+          key: 'Add-on Service Added',
+          type: 'services',
           description: `Zusatzleistung „${addonData.name}“ hinzugefügt (${formatEuroDe(addonData.price)})`,
-          completedAt: new Date(),
-          staffId: staffId || 'system',
-          staffName
-        });
+          actor: { id: toIdString(staffId), name: staffName },
+          source: 'Zusatzleistungen',
+          changes: [{ field: 'totalCost', label: 'Auftragswert', from: prevGrossAmount, to: order.totalCost }],
+          eventKey,
+          force: true,
+        }));
 
         // validateModifiedOnly: bestehende unvollstaendige Altpositionen nicht erneut validieren
-        return { prevGrossAmount, reconciliation, saveOptions: { validateModifiedOnly: true } };
+        return { prevGrossAmount, reconciliation, eventKey, saveOptions: { validateModifiedOnly: true } };
       });
 
-      // Historize order change
-      try {
-        await OrderRevisionService.recordRevision(updatedOrder, {
+      // Revision (Finanz-Snapshot) und Finanzabgleich NACH dem atomaren Speichern; Fehler
+      // werden als Warnung an die Oberflaeche gegeben statt nur geloggt (HIST-5b).
+      await OrderService.finishOrderEdit(updatedOrder, {
+        eventKey: context.eventKey,
+        revision: {
           triggerReason: 'addon_added',
           previousGrossAmount: context.prevGrossAmount,
           changedBy: staffId || undefined,
@@ -1653,11 +2098,9 @@ class OrderService {
             `Zusatzleistung „${addonData.name}“ hinzugefügt (${formatEuroDe(addonData.price)})`,
             OrderService.describeConfirmedRepricing(context.reconciliation),
           ].filter(Boolean).join(' | ')
-        });
-        await FinancialService.syncOrderAndBookingValue(updatedOrder._id, 'order');
-      } catch (revErr) {
-        console.warn('OrderService: Warning recording revision on addon add:', revErr.message);
-      }
+        },
+        syncFinancials: true,
+      });
 
       console.log('OrderService: Add-on added successfully');
       return updatedOrder;
@@ -1683,6 +2126,10 @@ class OrderService {
 
         const oldPrice = addon.price;
         const prevTotalCost = order.totalCost;
+        const before = {
+          name: addon.name, price: addon.price, status: addon.status, progress: addon.progress,
+          estimatedTime: addon.estimatedTime, description: addon.description,
+        };
         const priceChanged = updateData.price !== undefined && Number(updateData.price) !== Number(oldPrice);
         // Nur bei einer Preisaenderung neu rechnen (Status-/Fortschrittsupdates duerfen
         // den Auftragswert nicht anfassen) - dann mit DER Preisregel, Rabatt bleibt.
@@ -1700,32 +2147,53 @@ class OrderService {
         }
 
         await OrderService._autoAssignStaff(order, staffId);
-        order.timeline.push({
-          status: 'Add-on Service Updated',
+        // Nur echte Feldaenderungen protokollieren (HIST-6): ein Fortschritts-/Status-Tick ohne
+        // Aenderung erzeugt keinen Eintrag und keine Revision.
+        const addonChanges = [
+          { field: 'addOns.name', label: 'Name', from: before.name, to: addon.name },
+          { field: 'addOns.price', label: `Preis „${addon.name}“`, from: Number(before.price), to: Number(addon.price) },
+          { field: 'addOns.status', label: 'Status', from: before.status, to: addon.status },
+          { field: 'addOns.progress', label: 'Fortschritt (%)', from: before.progress, to: addon.progress },
+          { field: 'addOns.estimatedTime', label: 'Geschätzte Zeit', from: before.estimatedTime, to: addon.estimatedTime },
+          { field: 'addOns.description', label: 'Beschreibung', from: before.description, to: addon.description },
+          { field: 'totalCost', label: 'Auftragswert', from: prevTotalCost, to: order.totalCost },
+        ];
+        const eventKey = OrderService.newEditEventKey();
+        const historyEntry = OrderHistory.entry({
+          key: 'Add-on Service Updated',
+          type: priceChanged ? 'pricing' : 'services',
           description: `Zusatzleistung „${addon.name}“ geändert`,
-          completedAt: new Date(),
-          staffId: staffId || 'system',
-          staffName
+          actor: { id: toIdString(staffId), name: staffName },
+          source: 'Zusatzleistungen',
+          changes: addonChanges,
+          eventKey,
         });
+        const recorded = OrderHistory.push(order, historyEntry);
 
-        return { oldPrice, newPrice: addon.price, addonName: addon.name, prevTotalCost, reconciliation: edit?.reconciliation };
+        return {
+          oldPrice, newPrice: addon.price, addonName: addon.name, prevTotalCost, reconciliation: edit?.reconciliation,
+          priceChanged, recorded, eventKey,
+        };
       });
 
-      // Historize order change if price changed or data updated
-      try {
-        await OrderRevisionService.recordRevision(updatedOrder, {
-          triggerReason: 'addon_updated',
-          previousGrossAmount: context.prevTotalCost,
-          changedBy: staffId || undefined,
-          changedByName: staffName,
-          notes: [
-            `Zusatzleistung „${context.addonName}“ geändert (${formatEuroDe(context.oldPrice)} → ${formatEuroDe(context.newPrice)})`,
-            OrderService.describeConfirmedRepricing(context.reconciliation),
-          ].filter(Boolean).join(' | ')
+      // Revision nur bei einer Preisaenderung; Finanzabgleich ebenfalls nur dann (HIST-5b/HIST-6).
+      if (context.priceChanged) {
+        await OrderService.finishOrderEdit(updatedOrder, {
+          eventKey: context.recorded ? context.eventKey : null,
+          revision: {
+            triggerReason: 'addon_updated',
+            previousGrossAmount: context.prevTotalCost,
+            changedBy: staffId || undefined,
+            changedByName: staffName,
+            notes: [
+              `Zusatzleistung „${context.addonName}“ geändert (${formatEuroDe(context.oldPrice)} → ${formatEuroDe(context.newPrice)})`,
+              OrderService.describeConfirmedRepricing(context.reconciliation),
+            ].filter(Boolean).join(' | ')
+          },
+          syncFinancials: true,
         });
-        await FinancialService.syncOrderAndBookingValue(updatedOrder._id, 'order');
-      } catch (revErr) {
-        console.warn('OrderService: Warning recording revision on addon update:', revErr.message);
+      } else {
+        updatedOrder.$locals.warnings = [];
       }
 
       console.log('OrderService: Add-on updated successfully');
@@ -1762,20 +2230,24 @@ class OrderService {
         OrderService.applyOrderPricing(order, conditions);
 
         await OrderService._autoAssignStaff(order, staffId);
-        order.timeline.push({
-          status: 'Add-on Service Removed',
+        const eventKey = OrderService.newEditEventKey();
+        OrderHistory.push(order, OrderHistory.entry({
+          key: 'Add-on Service Removed',
+          type: 'services',
           description: `Zusatzleistung „${addonName}“ entfernt (${formatEuroDe(addonPrice)})`,
-          completedAt: new Date(),
-          staffId: staffId || 'system',
-          staffName
-        });
+          actor: { id: toIdString(staffId), name: staffName },
+          source: 'Zusatzleistungen',
+          changes: [{ field: 'totalCost', label: 'Auftragswert', from: prevTotalCost, to: order.totalCost }],
+          eventKey,
+          force: true,
+        }));
 
-        return { addonName, addonPrice, prevTotalCost, reconciliation };
+        return { addonName, addonPrice, prevTotalCost, reconciliation, eventKey };
       });
 
-      // Historize order change
-      try {
-        await OrderRevisionService.recordRevision(updatedOrder, {
+      await OrderService.finishOrderEdit(updatedOrder, {
+        eventKey: context.eventKey,
+        revision: {
           triggerReason: 'addon_removed',
           previousGrossAmount: context.prevTotalCost,
           changedBy: staffId || undefined,
@@ -1784,11 +2256,9 @@ class OrderService {
             `Zusatzleistung „${context.addonName}“ entfernt (${formatEuroDe(context.addonPrice)})`,
             OrderService.describeConfirmedRepricing(context.reconciliation),
           ].filter(Boolean).join(' | ')
-        });
-        await FinancialService.syncOrderAndBookingValue(updatedOrder._id, 'order');
-      } catch (revErr) {
-        console.warn('OrderService: Warning recording revision on addon removal:', revErr.message);
-      }
+        },
+        syncFinancials: true,
+      });
 
       console.log('OrderService: Add-on removed successfully');
       return updatedOrder;
@@ -1881,6 +2351,7 @@ class OrderService {
         throw new Error('Order not found');
       }
       console.log('OrderService: Order found:', { orderId, orderNumber: order.orderNumber });
+      OrderService._assertOrderOpenForWorkflow(order, 'es kann kein Workflow mehr zugewiesen werden.', { includeCompleted: true });
 
       const workflowTemplate = await WorkflowTemplate.findById(workflowTemplateId);
       if (!workflowTemplate) {
@@ -1943,15 +2414,15 @@ class OrderService {
 
       // Add timeline entry
       const staff = await User.findById(staffId);
-      order.timeline.push({
-        status: 'Workflow Assigned',
+      OrderHistory.push(order, OrderHistory.entry({
+        key: 'Workflow Assigned',
+        type: 'workflow',
         description: workflowAssignedStaffMembers.length > 0
-          ? `Workflow "${workflowTemplate.name}" assigned to order and ${workflowAssignedStaffMembers[0].name}`
-          : `Workflow "${workflowTemplate.name}" assigned to order`,
-        completedAt: new Date(),
-        staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'System'
-      });
+          ? `Workflow „${workflowTemplate.name}“ zugewiesen (bearbeitet von ${workflowAssignedStaffMembers[0].name})`
+          : `Workflow „${workflowTemplate.name}“ zugewiesen`,
+        actor: staff ? OrderHistory.normalizeActor(staff) : { id: toIdString(staffId) || 'system', name: 'System' },
+        source: 'Workflow',
+      }));
 
       const updatedOrder = await order.save();
 
@@ -1982,6 +2453,15 @@ class OrderService {
         throw new Error('Workflow has already been started');
       }
 
+      // Ein Workflow-Start wirft einen stornierten/abgeschlossenen Auftrag nicht zurueck (HIST-12).
+      if (order.status === 'cancelled' || order.status === 'completed') {
+        throw buildOrderValueError(
+          `Der Auftrag ist ${order.status === 'cancelled' ? 'storniert' : 'abgeschlossen'} – der Workflow kann nicht gestartet werden.`,
+          409,
+          'WORKFLOW_ORDER_CLOSED'
+        );
+      }
+
       // Get staff details for assignment
       const staff = await User.findById(staffId);
       if (!staff) {
@@ -2004,11 +2484,21 @@ class OrderService {
 
       if (!staffAssignmentExists) {
         console.log('OrderService: Assigning staff to order:', staff.name);
+        const previousNames = (order.assignedStaff || []).map((assignment) => assignment.name).filter(Boolean);
         order.assignedStaff.push({
           staffId: staffId,
           name: staff.name,
           avatar: staff.avatar || ''
         });
+        // Implizite Zuweisung beim Workflow-Start im selben Speichervorgang protokollieren (HIST-8).
+        OrderHistory.push(order, OrderHistory.entry({
+          key: 'Staff Assigned',
+          type: 'staff',
+          description: `${staff.name} automatisch zugewiesen (Workflow „${workflow.workflowName}“ gestartet)`,
+          actor: { id: String(staff._id), name: staff.name },
+          source: 'automatisch bei Workflow-Start',
+          changes: [{ field: 'assignedStaff', label: 'Zugewiesenes Personal', from: previousNames, to: [...previousNames, staff.name] }],
+        }));
       } else {
         console.log('OrderService: Staff already assigned to order');
       }
@@ -2026,25 +2516,31 @@ class OrderService {
 
       // Add timeline entries
       // First entry for order status change
+      // Deutsch mit Typ/Bezug (HIST-2); Schluessel 'Repair in Progress' bleibt stabil (Meilenstein "Reparatur").
+      const startActor = OrderHistory.normalizeActor(staff);
       if (previousStatus !== 'in-progress') {
-        order.timeline.push({
-          status: 'Repair in Progress',
-          description: `Order status updated to "Repair in Progress" and assigned to ${staff.name} upon workflow initiation`,
-          completedAt: new Date(),
-          staffId: staffId,
-          staffName: staff.name
-        });
+        OrderHistory.push(order, OrderHistory.entry({
+          key: 'Repair in Progress',
+          type: 'status',
+          description: `Reparatur begonnen (Workflow „${workflow.workflowName}“ gestartet), zugewiesen an ${staff.name}`,
+          actor: startActor,
+          source: 'Workflow',
+          changes: [{ field: 'status', label: 'Auftragsstatus', from: previousStatus, to: 'in-progress' }],
+          refs: { workflowId: workflow._id },
+          visibility: 'customer',
+        }));
         console.log('OrderService: Added timeline entry for order status change');
       }
 
       // Second entry for workflow start
-      order.timeline.push({
-        status: 'Workflow Started',
-        description: `Workflow "${workflow.workflowName}" started by ${staff.name}`,
-        completedAt: new Date(),
-        staffId: staffId,
-        staffName: staff.name
-      });
+      OrderHistory.push(order, OrderHistory.entry({
+        key: 'Workflow Started',
+        type: 'workflow',
+        description: `Workflow „${workflow.workflowName}“ gestartet von ${staff.name}`,
+        actor: startActor,
+        source: 'Workflow',
+        refs: { workflowId: workflow._id },
+      }));
       console.log('OrderService: Added timeline entry for workflow start');
 
       const updatedOrder = await order.save();
@@ -2096,6 +2592,7 @@ class OrderService {
       if (!step) {
         throw new Error('Step not found in workflow');
       }
+      OrderService._assertOrderOpenForWorkflow(order, 'Schritte können nicht mehr zugewiesen werden.');
 
       const staffMembers = await User.find({
         _id: { $in: uniqueStaffIds },
@@ -2121,13 +2618,14 @@ class OrderService {
       }
 
       const assigningStaff = assigningStaffId ? await User.findById(assigningStaffId) : null;
-      order.timeline.push({
-        status: 'Workflow Task Assigned',
-        description: `Step "${step.stepName}" in workflow "${workflow.workflowName}" assigned to: ${staffMembers.map((staff) => staff.name).join(', ')}`,
-        completedAt: new Date(),
-        staffId: assigningStaffId || 'system',
-        staffName: assigningStaff ? assigningStaff.name : 'System',
-      });
+      OrderHistory.push(order, OrderHistory.entry({
+        key: 'Workflow Task Assigned',
+        type: 'workflow',
+        description: `Schritt „${step.stepName}“ im Workflow „${workflow.workflowName}“ zugewiesen an: ${staffMembers.map((staff) => staff.name).join(', ')}`,
+        actor: assigningStaff ? OrderHistory.normalizeActor(assigningStaff) : { id: toIdString(assigningStaffId) || 'system', name: 'System' },
+        source: 'Workflow',
+        refs: { workflowId: workflow._id, workflowStepId: step._id },
+      }));
 
       const updatedOrder = await order.save();
 
@@ -2136,6 +2634,38 @@ class OrderService {
     } catch (error) {
       console.error('OrderService: Error assigning workflow step staff:', error);
       throw error;
+    }
+  }
+
+  // Speichert einen Workflow-Schritt-Abschluss nur, wenn der Schritt in der DB noch weder
+  // abgeschlossen noch uebersprungen ist. Sonst 409 (deutsch), nichts wird geschrieben.
+  static async saveIfStepOpen(order, workflowId, stepId) {
+    const wfObjectId = mongoose.Types.ObjectId.isValid(String(workflowId)) ? new mongoose.Types.ObjectId(String(workflowId)) : workflowId;
+    const stepObjectId = mongoose.Types.ObjectId.isValid(String(stepId)) ? new mongoose.Types.ObjectId(String(stepId)) : stepId;
+    order.$where = {
+      // Ein Storno zwischen Lesen und Speichern darf keinen Schritt mehr abschliessen (und den
+      // letzten Schritt nicht 'ready-for-pickup' ueber 'cancelled' schreiben lassen).
+      status: { $ne: 'cancelled' },
+      workflows: {
+        $elemMatch: {
+          _id: wfObjectId,
+          steps: { $elemMatch: { _id: stepObjectId, status: { $nin: ['completed', 'skipped'] } } },
+        },
+      },
+    };
+    try {
+      return await order.save();
+    } catch (error) {
+      if (error && (error.name === 'DocumentNotFoundError' || error.name === 'VersionError')) {
+        const current = await Order.findById(order._id).setOptions({ skipAutoPopulate: true }).select('status').lean();
+        if (current && current.status === 'cancelled') {
+          OrderService._assertOrderOpenForWorkflow(current, 'der Workflow kann nicht fortgesetzt werden.');
+        }
+        throw buildOrderValueError('Dieser Schritt wurde bereits abgeschlossen oder übersprungen.', 409, 'WORKFLOW_STEP_ALREADY_DONE');
+      }
+      throw error;
+    } finally {
+      order.$where = undefined;
     }
   }
 
@@ -2159,9 +2689,11 @@ class OrderService {
         throw new Error('Step not found in workflow');
       }
 
-      if (step.status === 'completed') {
-        throw new Error('Step has already been completed');
+      if (step.status === 'completed' || step.status === 'skipped') {
+        throw buildOrderValueError('Dieser Schritt wurde bereits abgeschlossen oder übersprungen.', 409, 'WORKFLOW_STEP_ALREADY_DONE');
       }
+      // Stornierter Auftrag: kein Schrittabschluss (sonst "Reparatur abgeschlossen" + Kundennachricht).
+      OrderService._assertOrderOpenForWorkflow(order, 'Workflow-Schritte können nicht mehr abgeschlossen werden.');
 
       const previousProgress = Number(order.progress || 0);
 
@@ -2233,6 +2765,7 @@ class OrderService {
 
       // Fetch staff once for use in both timeline entries and step assignment
       const staff = await User.findById(staffId);
+      const workflowActor = staff ? OrderHistory.normalizeActor(staff) : { id: toIdString(staffId) || 'system', name: 'Mitarbeiter' };
       const previousOrderStatus = order.status;
 
       if (nextIndex < workflow.steps.length) {
@@ -2248,45 +2781,54 @@ class OrderService {
         workflow.status = 'completed';
         workflow.completedAt = workflowCompletedAt;
 
-        // Add workflow completion timeline entry
-        order.timeline.push({
-          status: 'Workflow Completed',
-          description: `Workflow "${workflow.workflowName}" wurde vollständig abgeschlossen (${workflow.steps.length} Schritte)`,
-          completedAt: workflowCompletedAt,
-          staffId: staffId || 'system',
-          staffName: staff ? staff.name : 'Staff Member',
-        });
+        // Verlauf: deutsch, mit Typ und Bezug (HIST-2) - Schluessel bleiben stabil.
+        OrderHistory.push(order, OrderHistory.entry({
+          key: 'Workflow Completed',
+          type: 'workflow',
+          description: `Workflow „${workflow.workflowName}“ vollständig abgeschlossen (${workflow.steps.length} Schritte)`,
+          actor: workflowActor,
+          source: 'Workflow',
+          refs: { workflowId: workflow._id },
+          at: workflowCompletedAt,
+        }));
 
         // If every workflow on this order is now done, advance the order status
         const allWorkflowsDone = order.workflows.every(wf =>
           wf._id.toString() === workflowId.toString() ? true : wf.status === 'completed'
         );
         if (allWorkflowsDone && ['in-progress', 'quality-check', 'diagnostic-assessment'].includes(order.status)) {
+          const statusBefore = order.status;
           order.status = 'ready-for-pickup';
           order.actualCompletion = workflowCompletedAt;
-          order.timeline.push({
-            status: 'Order Ready',
-            description: `Auftrag ${order.orderNumber} ist abgeschlossen und bereit zur Abholung`,
-            completedAt: workflowCompletedAt,
-            staffId: staffId || 'system',
-            staffName: staff ? staff.name : 'Staff Member',
-          });
+          // Reparatur fertig ist NICHT "bereit zur Abholung": Rueckgabe per Versand oder Abholung (HIST-17).
+          OrderHistory.push(order, OrderHistory.entry({
+            key: 'Order Ready',
+            type: 'status',
+            description: `Reparatur abgeschlossen – alle Workflow-Schritte erledigt (${OrderHistory.statusLabelDe(statusBefore)} → ${OrderHistory.statusLabelDe('ready-for-pickup')})`,
+            actor: workflowActor,
+            source: 'Workflow',
+            changes: [{ field: 'status', label: 'Auftragsstatus', from: statusBefore, to: 'ready-for-pickup' }],
+            refs: { workflowId: workflow._id },
+            visibility: 'customer',
+            at: workflowCompletedAt,
+          }));
         }
       }
 
       // Add step completion timeline entry
       const timingSummary = step.estimatedDurationMinutes > 0
-        ? ` (actual ${step.actualDurationMinutes} min vs estimated ${step.estimatedDurationMinutes} min)`
-        : ` (actual ${step.actualDurationMinutes} min)`;
+        ? ` (tatsächlich ${step.actualDurationMinutes} Min., geplant ${step.estimatedDurationMinutes} Min.)`
+        : ` (tatsächlich ${step.actualDurationMinutes} Min.)`;
       await OrderService._autoAssignStaff(order, staffId);
-      order.timeline.push({
-        status: 'Workflow Step Completed',
-        description: `Step "${step.stepName}" completed in workflow "${workflow.workflowName}"${timingSummary}`,
-        completedAt: new Date(),
-        staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member',
-        photos: stepData.photos || []
-      });
+      OrderHistory.push(order, OrderHistory.entry({
+        key: 'Workflow Step Completed',
+        type: 'workflow',
+        description: `Schritt „${step.stepName}“ im Workflow „${workflow.workflowName}“ abgeschlossen${timingSummary}`,
+        actor: workflowActor,
+        source: 'Workflow',
+        refs: { workflowId: workflow._id, workflowStepId: step._id },
+        photos: stepData.photos || [],
+      }));
 
       // Update order progress based on workflow completion
       const totalSteps = workflow.steps.length;
@@ -2302,9 +2844,15 @@ class OrderService {
         order.progress = Math.round(totalProgress / order.workflows.length);
       }
 
-      const updatedOrder = await order.save();
+      // Bedingt speichern: nur wenn der Schritt in der DB noch offen ist. Zwei parallele Klicks
+      // bestehen sonst beide die Pruefung oben und schreiben doppelte Eintraege und
+      // Benachrichtigungen (HIST-6).
+      const updatedOrder = await OrderService.saveIfStepOpen(order, workflowId, stepId);
+      const becameReady = previousOrderStatus !== updatedOrder.status && updatedOrder.status === 'ready-for-pickup';
 
-      if (Number(updatedOrder.progress || 0) !== previousProgress) {
+      // Eine Nachricht je Ereignis: wird die Reparatur fertig, ersetzt die Fertig-Meldung die
+      // Fortschrittsmeldung (vorher zwei Benachrichtigungen fuer denselben Klick).
+      if (!becameReady && Number(updatedOrder.progress || 0) !== previousProgress) {
         const progressDelta = Number(updatedOrder.progress || 0) - previousProgress;
         await this.notifyCustomerOrderUpdate(
           updatedOrder,
@@ -2312,11 +2860,16 @@ class OrderService {
         );
       }
 
-      // Notify customer if order became ready for pickup
-      if (previousOrderStatus !== updatedOrder.status && updatedOrder.status === 'ready-for-pickup') {
+      // Reparatur fertig: Text nach dem echten Rueckgabeweg (Versand / Abholung, sonst neutral) -
+      // Versandauftraege werden nicht "abgeholt" (HIST-17, utils/returnMethod).
+      if (becameReady) {
+        const ReturnMethod = require('../utils/returnMethod'); // eslint-disable-line global-require
         await this.notifyCustomerOrderUpdate(
           updatedOrder,
-          `Gute Nachrichten! Ihr Auftrag ${updatedOrder.orderNumber} ist fertig und kann abgeholt werden. Alle Reparaturschritte wurden erfolgreich abgeschlossen.`,
+          ReturnMethod.readyCustomerMessage(
+            await ReturnMethod.resolveReturnMethodForOrder(updatedOrder._id),
+            `Ihres Auftrags ${updatedOrder.orderNumber}`
+          ),
           'ready-for-pickup'
         );
       }
@@ -2350,7 +2903,24 @@ class OrderService {
       }
 
       if (step.status === 'completed' || step.status === 'skipped') {
-        throw new Error('Step has already been completed or skipped');
+        throw buildOrderValueError('Dieser Schritt wurde bereits abgeschlossen oder übersprungen.', 409, 'WORKFLOW_STEP_ALREADY_DONE');
+      }
+      OrderService._assertOrderOpenForWorkflow(order, 'Workflow-Schritte können nicht mehr übersprungen werden.');
+
+      // Vorlagen-Option „Überspringen erlaubt“ (canSkip) serverseitig durchsetzen – dieselbe Quelle,
+      // aus der getOrderWorkflows den Schalter für die Oberfläche liest (Vorlagenschritt per stepId).
+      const template = workflow.workflowTemplateId
+        ? await WorkflowTemplate.findById(workflow.workflowTemplateId).select('steps._id steps.canSkip').lean()
+        : null;
+      const templateStep = template && Array.isArray(template.steps)
+        ? template.steps.find((candidate) => String(candidate._id) === String(step.stepId))
+        : null;
+      if (!templateStep || templateStep.canSkip !== true) {
+        throw buildOrderValueError(
+          'Dieser Schritt darf nicht übersprungen werden („Überspringen erlaubt“ ist in der Workflow-Vorlage nicht aktiviert).',
+          409,
+          'WORKFLOW_STEP_NOT_SKIPPABLE'
+        );
       }
 
       const previousProgress = Number(order.progress || 0);
@@ -2417,13 +2987,15 @@ class OrderService {
       // Add timeline entry
       const staff = await User.findById(staffId);
       await OrderService._autoAssignStaff(order, staffId);
-      order.timeline.push({
-        status: 'Workflow Step Skipped',
-        description: `Step "${step.stepName}" skipped in workflow "${workflow.workflowName}". Reason: ${reason || 'Not provided'}`,
-        completedAt: new Date(),
-        staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member'
-      });
+      OrderHistory.push(order, OrderHistory.entry({
+        key: 'Workflow Step Skipped',
+        type: 'workflow',
+        description: `Schritt „${step.stepName}“ im Workflow „${workflow.workflowName}“ übersprungen`,
+        actor: staff ? OrderHistory.normalizeActor(staff) : { id: toIdString(staffId) || 'system', name: 'Mitarbeiter' },
+        source: 'Workflow',
+        reason: reason || 'nicht angegeben',
+        refs: { workflowId: workflow._id, workflowStepId: step._id },
+      }));
 
       // Update order progress
       const totalSteps = workflow.steps.length;
@@ -2437,13 +3009,13 @@ class OrderService {
         order.progress = Math.round(totalProgress / order.workflows.length);
       }
 
-      const updatedOrder = await order.save();
+      const updatedOrder = await OrderService.saveIfStepOpen(order, workflowId, stepId);
 
       if (Number(updatedOrder.progress || 0) !== previousProgress) {
         const progressDelta = Number(updatedOrder.progress || 0) - previousProgress;
         await this.notifyCustomerOrderUpdate(
           updatedOrder,
-          `Ihr Auftrag ${updatedOrder.orderNumber} wurde im Reparaturprozess aktualisiert: ${updatedOrder.progress || 0}% (${progressDelta >= 0 ? '+' : ''}${progressDelta}%). Ein Schritt wurde uebersprungen.`
+          `Ihr Auftrag ${updatedOrder.orderNumber} wurde im Reparaturprozess aktualisiert: ${updatedOrder.progress || 0}% (${progressDelta >= 0 ? '+' : ''}${progressDelta}%). Ein Schritt wurde übersprungen.`
         );
       }
 
@@ -2456,7 +3028,19 @@ class OrderService {
   }
 
   // Pause/Resume workflow
+  // Bedingt gespeichert auf dem gelesenen Workflow- UND Auftragsstatus: ein paralleler
+  // Doppelklick (Pause/Fortsetzen) wird auf dem frischen Stand neu entschieden und ist dann
+  // ein No-op - kein zweiter Eintrag, keine zweite Benachrichtigung (HIST-6).
   static async updateWorkflowStatus(orderId, workflowId, status, staffId, pauseReason = null) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const result = await OrderService._updateWorkflowStatusAttempt(orderId, workflowId, status, staffId, pauseReason);
+      if (result) return result;
+    }
+    throw buildOrderValueError('Der Workflow wurde gleichzeitig geändert. Bitte die Seite neu laden und erneut versuchen.', 409, 'WORKFLOW_STATUS_CONFLICT');
+  }
+
+  // Ein Versuch von updateWorkflowStatus; null = parallel geaendert (erneut versuchen).
+  static async _updateWorkflowStatusAttempt(orderId, workflowId, status, staffId, pauseReason = null) {
     console.log('OrderService: Updating workflow status:', { orderId, workflowId, status, staffId, pauseReason });
 
     try {
@@ -2478,11 +3062,37 @@ class OrderService {
       const validStatuses = ['not-started', 'in-progress', 'on-hold', 'completed'];
       if (!validStatuses.includes(status)) {
         console.error('OrderService: Invalid workflow status:', status);
-        throw new Error('Invalid workflow status');
+        throw buildOrderValueError('Unbekannter Workflow-Status.', 400, 'INVALID_WORKFLOW_STATUS');
       }
 
       const oldStatus = workflow.status;
       const oldOrderStatus = order.status;
+      // Gleicher Status erneut gesendet (Doppelklick, Wiederholung): nichts aendern, kein
+      // Verlaufseintrag, keine Benachrichtigung (HIST-6).
+      if (oldStatus === status) {
+        order.$locals.unchanged = true;
+        return order;
+      }
+      // Uebergangstabelle (HIST-12): hier nur Pausieren (in-progress -> on-hold) und Fortsetzen
+      // (on-hold -> in-progress). Abschliessen geht nur ueber die Schritte, Starten ueber "Starten",
+      // und ein abgeschlossener Workflow kann den Auftrag nicht zurueckwerfen.
+      const ALLOWED_WORKFLOW_TRANSITIONS = { 'in-progress': ['on-hold'], 'on-hold': ['in-progress'] };
+      if (!(ALLOWED_WORKFLOW_TRANSITIONS[oldStatus] || []).includes(status)) {
+        throw buildOrderValueError(
+          oldStatus === 'completed'
+            ? 'Dieser Workflow ist abgeschlossen und kann nicht mehr pausiert oder zurückgesetzt werden – ein abgeschlossener Workflow ändert den Auftragsstatus nicht mehr.'
+            : 'Dieser Statuswechsel ist hier nicht möglich. Bitte den Workflow über „Starten“ bzw. die Schritte abschließen.',
+          409,
+          'WORKFLOW_TRANSITION_NOT_ALLOWED'
+        );
+      }
+      if (status === 'in-progress' && (oldOrderStatus === 'cancelled' || oldOrderStatus === 'completed')) {
+        throw buildOrderValueError(
+          `Der Auftrag ist ${oldOrderStatus === 'cancelled' ? 'storniert' : 'abgeschlossen'} – der Workflow kann nicht fortgesetzt werden.`,
+          409,
+          'WORKFLOW_ORDER_CLOSED'
+        );
+      }
       workflow.status = status;
 
       const hasActiveWorkflow = () => order.workflows.some((workflowItem) => {
@@ -2498,53 +3108,15 @@ class OrderService {
       // If pausing workflow (status = 'on-hold'), handle pause reason and keep the order in the repair stage.
       if (status === 'on-hold' && oldStatus !== 'on-hold') {
         console.log('OrderService: Pausing workflow with reason:', pauseReason);
-        const pauseStartedAt = new Date();
+        OrderService._pauseTemplateWorkflow(workflow, pauseReason, new Date());
 
-        // Record pause reason and timestamp
-        if (pauseReason) {
-          workflow.pauseReason = pauseReason;
-          console.log('OrderService: Pause reason recorded:', pauseReason);
+        // Ein fertiger, stornierter oder abgeschlossener Auftrag wird durch eine Workflow-Pause
+        // nicht zurueckgeworfen (HIST-12).
+        if (!['ready-for-pickup', 'completed', 'cancelled'].includes(oldOrderStatus)) {
+          const nextOrderStatus = hasActiveWorkflow() ? 'in-progress' : 'paused';
+          order.status = nextOrderStatus;
+          console.log('OrderService: Order status changed from', oldOrderStatus, 'to', nextOrderStatus);
         }
-
-        workflow.pausedAt = pauseStartedAt;
-        console.log('OrderService: Pause timestamp recorded');
-
-        const activeStepIndex = Number(workflow.currentStepIndex || 0);
-        const activeStep = workflow.steps[activeStepIndex] || workflow.steps.find((stepItem) => stepItem.status === 'in-progress');
-
-        if (activeStep && activeStep.status === 'in-progress') {
-          if (!activeStep.currentPauseStartedAt) {
-            activeStep.currentPauseStartedAt = pauseStartedAt;
-          }
-
-          if (!Array.isArray(activeStep.pauseHistory)) {
-            activeStep.pauseHistory = [];
-          }
-
-          activeStep.pauseHistory.push({
-            pausedAt: pauseStartedAt,
-            reason: pauseReason || 'Kein Grund angegeben',
-            stepId: activeStep.stepId,
-            stepName: activeStep.stepName,
-            stepIndex: activeStepIndex,
-          });
-
-          if (!Array.isArray(workflow.pauseHistory)) {
-            workflow.pauseHistory = [];
-          }
-
-          workflow.pauseHistory.push({
-            pausedAt: pauseStartedAt,
-            reason: pauseReason || 'Kein Grund angegeben',
-            stepId: activeStep.stepId,
-            stepName: activeStep.stepName,
-            stepIndex: activeStepIndex,
-          });
-        }
-
-        const nextOrderStatus = hasActiveWorkflow() ? 'in-progress' : 'paused';
-        order.status = nextOrderStatus;
-        console.log('OrderService: Order status changed from', oldOrderStatus, 'to', nextOrderStatus);
       }
 
       // If resuming workflow (status = 'in-progress'), clear pause reason and return the order to repair mode.
@@ -2609,43 +3181,63 @@ class OrderService {
 
       await OrderService._autoAssignStaff(order, staffId);
 
-      // Add timeline entry for workflow status change
-      let timelineDescription = `Workflow "${workflow.workflowName}" status changed from ${oldStatus} to ${status}`;
-      if (status === 'on-hold' && pauseReason) {
-        timelineDescription += ` - Reason: ${pauseReason}`;
-      }
-
-      order.timeline.push({
-        status: status === 'on-hold' ? 'Workflow Paused' : (status === 'in-progress' ? 'Workflow Resumed' : 'Workflow Status Updated'),
-        description: timelineDescription,
-        completedAt: new Date(),
-        staffId: staffId || 'system',
-        staffName: staffName
-      });
+      // Verlauf deutsch mit Typ/Bezug (HIST-2); der Pausengrund steht nur in reason (intern).
+      OrderHistory.push(order, OrderHistory.entry({
+        key: status === 'on-hold' ? 'Workflow Paused' : 'Workflow Resumed',
+        type: 'workflow',
+        description: status === 'on-hold'
+          ? `Workflow „${workflow.workflowName}“ pausiert`
+          : `Workflow „${workflow.workflowName}“ fortgesetzt`,
+        actor: { id: toIdString(staffId), name: staffName },
+        source: 'Workflow',
+        reason: status === 'on-hold' ? pauseReason : '',
+        refs: { workflowId: workflow._id },
+      }));
       console.log('OrderService: Timeline entry added for workflow status change');
 
       // If order status changed (pausing), add separate timeline entry
       if (oldOrderStatus !== order.status) {
-        order.timeline.push({
-          status: 'Order Status Updated',
-          description: `Order status changed from ${oldOrderStatus} to ${order.status} due to workflow status update`,
-          completedAt: new Date(),
-          staffId: staffId || 'system',
-          staffName: staffName
-        });
+        OrderHistory.push(order, OrderHistory.entry({
+          key: 'Order Status Updated',
+          type: 'status',
+          description: `Status geändert: ${OrderHistory.statusLabelDe(oldOrderStatus)} → ${OrderHistory.statusLabelDe(order.status)} (durch Workflow „${workflow.workflowName}“)`,
+          actor: { id: toIdString(staffId), name: staffName },
+          source: 'Workflow',
+          changes: [{ field: 'status', label: 'Auftragsstatus', from: oldOrderStatus, to: order.status }],
+          reason: status === 'on-hold' ? pauseReason : '',
+          refs: { workflowId: workflow._id },
+          visibility: 'customer',
+        }));
         console.log('OrderService: Timeline entry added for order status change');
       }
 
-      const updatedOrder = await order.save();
+      const workflowObjectId = mongoose.Types.ObjectId.isValid(String(workflow._id))
+        ? new mongoose.Types.ObjectId(String(workflow._id))
+        : workflow._id;
+      order.$where = {
+        status: oldOrderStatus == null ? { $in: [null] } : oldOrderStatus,
+        workflows: { $elemMatch: { _id: workflowObjectId, status: oldStatus == null ? { $in: [null] } : oldStatus } },
+      };
+      let updatedOrder;
+      try {
+        updatedOrder = await order.save();
+      } catch (saveError) {
+        if (saveError && (saveError.name === 'DocumentNotFoundError' || saveError.name === 'VersionError')) {
+          return null;
+        }
+        throw saveError;
+      } finally {
+        order.$where = undefined;
+      }
 
       if (oldOrderStatus !== updatedOrder.status) {
         const oldStatusLabel = this.getStatusLabel(oldOrderStatus);
         const newStatusLabel = this.getStatusLabel(updatedOrder.status);
-        const pauseHint = status === 'on-hold' && pauseReason ? ` Grund: ${pauseReason}` : '';
+        // Der Pausengrund ist intern (K04) und geht nie an den Kunden - nur der neutrale Status.
 
         await this.notifyCustomerOrderUpdate(
           updatedOrder,
-          `Ihr Auftrag ${updatedOrder.orderNumber} hat den Status gewechselt: ${oldStatusLabel} -> ${newStatusLabel}.${pauseHint} Aktueller Fortschritt: ${updatedOrder.progress || 0}%.`,
+          `Ihr Auftrag ${updatedOrder.orderNumber} hat den Status gewechselt: ${oldStatusLabel} → ${newStatusLabel}. Aktueller Fortschritt: ${updatedOrder.progress || 0}%.`,
           updatedOrder.status
         );
       }
@@ -2672,8 +3264,9 @@ class OrderService {
   }
 
   // Navigate to previous step
-  static async goBackToStep(orderId, workflowId, stepId, staffId) {
+  static async goBackToStep(orderId, workflowId, stepId, staffId, reason = '') {
     console.log('OrderService: Going back to workflow step:', { orderId, workflowId, stepId, staffId });
+    const reopenReason = String(reason || '').trim().slice(0, 2000);
 
     try {
       const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true });
@@ -2695,7 +3288,38 @@ class OrderService {
 
       // Can only go back to completed or skipped steps
       if (step.status !== 'completed' && step.status !== 'skipped') {
-        throw new Error('Can only navigate back to completed or skipped steps');
+        throw buildOrderValueError('Nur abgeschlossene oder übersprungene Schritte können erneut geöffnet werden.', 409, 'WORKFLOW_STEP_NOT_DONE');
+      }
+
+      // Erneutes Oeffnen darf einen abgeschlossenen/stornierten Auftrag nicht zurueckwerfen und
+      // nicht einen Auftrag, dessen Auslieferung schon angestossen ist (HIST-12, wie HIST-11).
+      const oldOrderStatus = order.status;
+      if (oldOrderStatus === 'completed' || oldOrderStatus === 'cancelled') {
+        throw buildOrderValueError(
+          `Der Auftrag ist ${oldOrderStatus === 'completed' ? 'abgeschlossen' : 'storniert'} – der Schritt kann nicht erneut geöffnet werden.`,
+          409,
+          'WORKFLOW_ORDER_CLOSED'
+        );
+      }
+      if (oldOrderStatus === 'ready-for-pickup') {
+        // Wie die Wiederaufnahme der Reparatur (reopenRepair): eine fertige Reparatur wird nur mit
+        // Grund wieder geoeffnet.
+        if (!reopenReason) {
+          throw buildOrderValueError(
+            'Bitte einen Grund angeben – die Reparatur ist abgeschlossen und wird durch das erneute Öffnen wieder aufgenommen.',
+            400,
+            'WORKFLOW_REOPEN_REASON_REQUIRED'
+          );
+        }
+        // eslint-disable-next-line global-require
+        const RepairWorkflowService = require('./repairWorkflowService');
+        if (await RepairWorkflowService.isOutboundShippingStarted(order._id)) {
+          throw buildOrderValueError(
+            'Das Gerät ist bereits für den Versand vorbereitet (Versandlabel an den Kunden vorhanden) – der Schritt kann nicht erneut geöffnet werden.',
+            409,
+            'WORKFLOW_REOPEN_OUTBOUND_EXISTS'
+          );
+        }
       }
 
       const previousProgress = Number(order.progress || 0);
@@ -2727,14 +3351,33 @@ class OrderService {
 
       // Add timeline entry
       const staff = await User.findById(staffId);
+      const reopenActor = staff ? OrderHistory.normalizeActor(staff) : { id: toIdString(staffId) || 'system', name: 'Mitarbeiter' };
       await OrderService._autoAssignStaff(order, staffId);
-      order.timeline.push({
-        status: 'Workflow Navigation',
-        description: `Navigated back to step "${step.stepName}" in workflow "${workflow.workflowName}"`,
-        completedAt: new Date(),
-        staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'Staff Member'
-      });
+      OrderHistory.push(order, OrderHistory.entry({
+        key: 'Workflow Step Reopened',
+        type: 'workflow',
+        description: `Schritt „${step.stepName}“ im Workflow „${workflow.workflowName}“ erneut geöffnet`,
+        actor: reopenActor,
+        source: 'Workflow',
+        reason: reopenReason,
+        refs: { workflowId: workflow._id, workflowStepId: step._id },
+      }));
+
+      // War der Auftrag durch diesen Workflow "Reparatur abgeschlossen", wird wieder repariert.
+      if (oldOrderStatus === 'ready-for-pickup') {
+        order.status = 'in-progress';
+        OrderHistory.push(order, OrderHistory.entry({
+          key: 'Order Status Updated',
+          type: 'status',
+          description: `Status geändert: ${OrderHistory.statusLabelDe(oldOrderStatus)} → ${OrderHistory.statusLabelDe('in-progress')} (Schritt erneut geöffnet)`,
+          actor: reopenActor,
+          source: 'Workflow',
+          changes: [{ field: 'status', label: 'Auftragsstatus', from: oldOrderStatus, to: 'in-progress' }],
+          reason: reopenReason,
+          refs: { workflowId: workflow._id },
+          visibility: 'customer',
+        }));
+      }
 
       // Update order progress
       if (order.workflows.length > 0) {
@@ -2745,13 +3388,35 @@ class OrderService {
         order.progress = Math.round(totalProgress / order.workflows.length);
       }
 
-      const updatedOrder = await order.save();
+      // Bedingt speichern: nur wenn Auftragsstatus und Schritt noch dem gelesenen Stand entsprechen
+      // (Doppelklick -> genau ein Eintrag, die zweite Anfrage bekommt 409).
+      const toObjectId = (value) => (mongoose.Types.ObjectId.isValid(String(value)) ? new mongoose.Types.ObjectId(String(value)) : value);
+      order.$where = {
+        status: oldOrderStatus == null ? { $in: [null] } : oldOrderStatus,
+        workflows: {
+          $elemMatch: {
+            _id: toObjectId(workflow._id),
+            steps: { $elemMatch: { _id: toObjectId(step._id), status: { $in: ['completed', 'skipped'] } } },
+          },
+        },
+      };
+      let updatedOrder;
+      try {
+        updatedOrder = await order.save();
+      } catch (saveError) {
+        if (saveError && (saveError.name === 'DocumentNotFoundError' || saveError.name === 'VersionError')) {
+          throw buildOrderValueError('Der Schritt wurde gleichzeitig geändert. Bitte die Ansicht neu laden.', 409, 'WORKFLOW_STATUS_CONFLICT');
+        }
+        throw saveError;
+      } finally {
+        order.$where = undefined;
+      }
 
       if (Number(updatedOrder.progress || 0) !== previousProgress) {
         const progressDelta = Number(updatedOrder.progress || 0) - previousProgress;
         await this.notifyCustomerOrderUpdate(
           updatedOrder,
-          `Ihr Auftrag ${updatedOrder.orderNumber} wurde im Reparaturprozess zurueckgesetzt. Neuer Fortschritt: ${updatedOrder.progress || 0}% (${progressDelta >= 0 ? '+' : ''}${progressDelta}%).`
+          `Ihr Auftrag ${updatedOrder.orderNumber} wurde im Reparaturprozess zurückgesetzt. Neuer Fortschritt: ${updatedOrder.progress || 0}% (${progressDelta >= 0 ? '+' : ''}${progressDelta}%).`
         );
       }
 
@@ -2909,100 +3574,326 @@ class OrderService {
   // —END_OF_SUGGESTED_WORKFLOWS_FIX—
 
   // Description: Get order progress timeline with milestone data
-  // Returns structured stages with completion status and dates
-  static async getProgressTimeline(orderId) {
-    console.log('OrderService: Getting progress timeline for order:', orderId);
-
+  // Ehrliche Meilensteine (HIST-1): jede Stufe nur aus echten Ereignissen des Verlaufs.
+  // Nie erreichte Stufen heissen 'skipped' ("Übersprungen – nicht erfasst"), fehlende
+  // Zeitpunkte "Zeitpunkt nicht erfasst" - es wird nichts aus dem Endstatus abgeleitet und
+  // kein Zeitstempel erfunden. Vertrag: OrderHistory.buildMilestones (server/utils/orderHistory.js).
+  // options.forCustomer: ohne Mitarbeiternamen/Eintrags-IDs.
+  static async getProgressTimeline(orderId, options = {}) {
     try {
-      const order = await Order.findById(orderId);
+      const order = await Order.findById(orderId)
+        .setOptions({ skipAutoPopulate: true })
+        .select('status progress createdAt timeline pickupConfirmation')
+        .lean();
       if (!order) {
         throw new Error('Order not found');
       }
-
-      // Map timeline entries by status
-      const timelineMap = {};
-      if (order.timeline && order.timeline.length > 0) {
-        order.timeline.forEach(entry => {
-          timelineMap[entry.status] = entry;
-        });
-      }
-
-      // Helper function to format date
-      const formatDate = (date) => {
-        if (!date) return null;
-        return new Date(date).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        });
-      };
-
-      // Define timeline stages
-      const stages = [
-        {
-          id: 'order-received',
-          label: 'Order Received',
-          status: 'completed', // Always completed when order exists
-          date: formatDate(order.createdAt)
-        },
-        {
-          id: 'diagnostic',
-          label: 'Diagnostic Assessment',
-          status: timelineMap['Diagnostic Assessment']
-            ? 'completed'
-            : order.status === 'diagnostic-assessment'
-              ? 'in-progress'
-              : (order.status !== 'pending' ? 'completed' : 'pending'),
-          date: timelineMap['Diagnostic Assessment'] ? formatDate(timelineMap['Diagnostic Assessment'].completedAt) : null
-        },
-        {
-          id: 'repair',
-          label: 'Repair in Progress',
-          status: (order.status === 'in-progress' || order.status === 'paused')
-            ? 'in-progress'
-            : (order.status === 'quality-check' || order.status === 'completed' || order.status === 'ready-for-pickup'
-              ? 'completed'
-              : 'pending'),
-          date: timelineMap['Repair in Progress'] ? formatDate(timelineMap['Repair in Progress'].completedAt) : null
-        },
-        {
-          id: 'quality-check',
-          label: 'Quality Check',
-          status: order.status === 'quality-check' ? 'in-progress' : (order.status === 'completed' || order.status === 'ready-for-pickup' ? 'completed' : 'pending'),
-          date: timelineMap['Quality Check'] ? formatDate(timelineMap['Quality Check'].completedAt) : null
-        },
-        {
-          id: 'pickup',
-          label: order.status === 'ready-for-pickup' ? 'Ready for Pickup' : 'Completed',
-          status: order.status === 'completed' || order.status === 'ready-for-pickup' ? 'completed' : 'pending',
-          date: order.actualCompletion ? formatDate(order.actualCompletion) : null
-        }
-      ];
-
-      // Determine current stage based on order status
-      let currentStage = 'order-received';
-      if (order.status === 'diagnostic-assessment') {
-        currentStage = 'diagnostic';
-      } else if (order.status === 'in-progress' || order.status === 'paused') {
-        currentStage = 'repair';
-      } else if (order.status === 'quality-check') {
-        currentStage = 'quality-check';
-      } else if (order.status === 'completed' || order.status === 'ready-for-pickup') {
-        currentStage = 'pickup';
-      }
-
-      console.log('OrderService: Progress timeline calculated for order:', orderId, 'Current stage:', currentStage);
-
-      return {
-        stages,
-        currentStage,
-        orderStatus: order.status,
-        progress: order.progress
-      };
+      return OrderHistory.buildMilestones(order, { forCustomer: options.forCustomer === true });
     } catch (error) {
       console.error('OrderService: Error getting progress timeline:', error);
       throw error;
     }
+  }
+
+  /**
+   * Zusammengefuehrter Verlauf eines Auftrags (Lesemodell, schreibt nichts).
+   * Personal (viewer.isStaff): order.timeline + nicht verknuepfte OrderRevisions + Rechnungen
+   *   (Erstellung, auditTrail) + Zahlungen/Erstattungen (Auftrag und Buchung) + Alt-Zeitstempel
+   *   aus RepairWorkflow/DeviceInspection, sofern kein Verlaufseintrag mit demselben eventKey
+   *   existiert. Kunde: nur OrderHistory.toCustomerView(order.timeline).
+   * options: { viewer: { isStaff }, types: string[] (OrderHistory.TYPES), before: cursor, limit }
+   * Rueckgabe: { entries, total, nextCursor, groups: [{id,label,types,count}], milestones }
+   */
+  static async getOrderHistory(orderId, options = {}) {
+    const isStaff = Boolean(options.viewer?.isStaff);
+    const order = await Order.findById(orderId)
+      .setOptions({ skipAutoPopulate: true })
+      .select('orderNumber status progress createdAt timeline pickupConfirmation bookingId customerId')
+      .lean();
+    if (!order) {
+      throw buildOrderValueError('Auftrag wurde nicht gefunden.', 404, 'ORDER_NOT_FOUND');
+    }
+    const orderIdText = String(order._id);
+    const timeline = Array.isArray(order.timeline) ? order.timeline : [];
+
+    let entries;
+    if (!isStaff) {
+      entries = OrderHistory.toCustomerView(timeline).map((item) => ({
+        id: item._id || '',
+        at: item.completedAt,
+        timeKnown: Boolean(item.completedAt),
+        timeNote: item.completedAt ? null : 'Zeitpunkt nicht erfasst',
+        key: item.status,
+        type: item.type,
+        typeLabel: OrderHistory.TYPE_LABELS[item.type] || item.type,
+        title: item.title,
+        description: item.description,
+        origin: 'timeline',
+      }));
+    } else {
+      entries = timeline.map((item) => OrderHistory.toView(item, { orderId: orderIdText }));
+      const knownKeys = new Set(timeline.map((item) => item && item.eventKey).filter(Boolean));
+      const linkedRevisionIds = new Set(
+        timeline.map((item) => item?.refs?.revisionId && String(item.refs.revisionId)).filter(Boolean)
+      );
+      const derived = (input) => OrderHistory.toView({ ...input, type: input.type }, { orderId: orderIdText, origin: input.origin });
+      const pushDerived = (input) => {
+        if (input.eventKey && knownKeys.has(input.eventKey)) return;
+        entries.push(derived(input));
+      };
+
+      // eslint-disable-next-line global-require
+      const OrderRevision = require('../models/OrderRevision');
+      // eslint-disable-next-line global-require
+      const Invoice = require('../models/Invoice');
+      // eslint-disable-next-line global-require
+      const Payment = require('../models/Payment');
+      const optionalModel = (name) => {
+        try {
+          return mongoose.model(name);
+        } catch (error) {
+          return null;
+        }
+      };
+
+      const REVISION_LABELS = {
+        initial_creation: 'Auftragswert bei Anlage',
+        diagnostic_addition: 'Diagnose ergänzt',
+        scope_change: 'Leistungsumfang geändert',
+        addon_added: 'Zusatzleistung hinzugefügt',
+        addon_updated: 'Zusatzleistung geändert',
+        addon_removed: 'Zusatzleistung entfernt',
+        service_updated: 'Position geändert',
+        device_change: 'Gerätewechsel',
+        price_adjustment: 'Preis angepasst',
+        discount_applied: 'Rabatt angewendet',
+        manual_edit: 'Manuelle Änderung',
+      };
+      const revisions = await OrderRevision.find({ orderId: order._id }).sort({ revisionNumber: 1 }).lean();
+      revisions
+        .filter((revision) => !linkedRevisionIds.has(String(revision._id)))
+        .forEach((revision) => {
+          const delta = Number(revision.deltaGrossAmount || 0);
+          pushDerived({
+            _id: `rev:${revision._id}`,
+            status: 'Order Revision',
+            type: revision.triggerReason === 'initial_creation' || revision.triggerReason === 'price_adjustment'
+              || revision.triggerReason === 'discount_applied' ? 'pricing' : 'services',
+            description: [
+              `${REVISION_LABELS[revision.triggerReason] || 'Änderung'} (Änderungsbeleg #${revision.revisionNumber})`,
+              revision.notes || '',
+            ].filter(Boolean).join(' · '),
+            completedAt: revision.createdAt,
+            staffId: revision.changedBy ? String(revision.changedBy) : 'system',
+            staffName: revision.changedByName || 'System',
+            source: 'Änderungsbeleg',
+            changes: delta !== 0 || revision.triggerReason === 'initial_creation'
+              ? [{ field: 'totalCost', label: 'Auftragswert', from: revision.previousGrossAmount, to: revision.newGrossAmount }]
+              : [],
+            refs: { revisionId: revision._id, revisionNumber: revision.revisionNumber },
+            origin: 'revision',
+          });
+        });
+
+      const bookingId = order.bookingId || null;
+      const invoiceFilter = { $or: [{ orderId: order._id }, { repairOrderIds: order._id }] };
+      if (bookingId) invoiceFilter.$or.push({ bookingId });
+      const invoices = await Invoice.find(invoiceFilter)
+        .select('invoiceNumber isCreditNote total status createdAt auditTrail orderId bookingId')
+        .lean();
+      const INVOICE_ACTIONS = {
+        sent: 'Rechnung versendet',
+        email_sent: 'Rechnung per E-Mail versendet',
+        cancelled: 'Rechnung storniert',
+        storno: 'Rechnung storniert',
+        archived: 'Rechnung archiviert',
+        dunning: 'Mahnung erstellt',
+        reminder: 'Zahlungserinnerung versendet',
+        payment_request: 'Zahlungsaufforderung versendet',
+      };
+      invoices.forEach((invoice) => {
+        const label = invoice.isCreditNote ? 'Gutschrift' : 'Rechnung';
+        const scope = invoice.bookingId && bookingId && toIdString(invoice.bookingId) === toIdString(bookingId)
+          && (!invoice.orderId || toIdString(invoice.orderId) !== orderIdText) ? ' (Buchung)' : '';
+        pushDerived({
+          _id: `inv:${invoice._id}`,
+          status: invoice.isCreditNote ? 'Credit Note Created' : 'Invoice Created',
+          type: 'invoice',
+          description: `${label} ${invoice.invoiceNumber || ''} erstellt${scope} · Gesamt (brutto) ${OrderHistory.formatEuroDe(invoice.total)}`.replace(/\s+/g, ' '),
+          completedAt: invoice.createdAt,
+          staffName: 'System',
+          source: 'Rechnungen',
+          refs: { invoiceId: invoice._id },
+          origin: 'invoice',
+        });
+        (Array.isArray(invoice.auditTrail) ? invoice.auditTrail : []).forEach((audit, index) => {
+          pushDerived({
+            _id: `inv:${invoice._id}:audit:${index}`,
+            status: 'Invoice Action',
+            type: 'invoice',
+            description: [
+              `${INVOICE_ACTIONS[String(audit.action || '').toLowerCase()] || `${label}: ${audit.action}`} (${invoice.invoiceNumber || label})`,
+              audit.detail || '',
+            ].filter(Boolean).join(' · '),
+            completedAt: audit.at,
+            staffId: audit.actorId ? String(audit.actorId) : 'system',
+            staffName: audit.actorName || 'System',
+            source: 'Rechnungen',
+            refs: { invoiceId: invoice._id },
+            origin: 'invoice',
+          });
+        });
+      });
+
+      const paymentFilter = { $or: [{ orderId: order._id }] };
+      if (bookingId) paymentFilter.$or.push({ bookingId });
+      const payments = await Payment.find(paymentFilter)
+        .select('amount currency paymentDate createdAt status paymentMethod recordedBy refundedAt refundAmount invoiceId orderId bookingId source')
+        .populate({ path: 'recordedBy', select: 'name', options: { skipAutoPopulate: true } })
+        .lean();
+      const METHOD_LABELS = {
+        credit_card: 'Kreditkarte', debit_card: 'Debitkarte', paypal: 'PayPal', stripe: 'Stripe', bank_transfer: 'Überweisung',
+        invoice: 'Rechnung', sepa: 'SEPA', cash: 'Bar', apple_pay: 'Apple Pay', google_pay: 'Google Pay',
+      };
+      const PAYMENT_STATUS = {
+        pending: 'ausstehend', processing: 'in Bearbeitung', completed: 'eingegangen', failed: 'fehlgeschlagen',
+        refunded: 'erstattet', disputed: 'angefochten',
+      };
+      payments.forEach((payment) => {
+        const bookingScope = !payment.orderId || toIdString(payment.orderId) !== orderIdText ? ' (gilt für die gesamte Buchung)' : '';
+        pushDerived({
+          _id: `pay:${payment._id}`,
+          status: 'Payment Recorded',
+          type: 'payment',
+          description: `Zahlung ${OrderHistory.formatEuroDe(payment.amount)} (${METHOD_LABELS[payment.paymentMethod] || payment.paymentMethod || 'unbekannt'}) – ${PAYMENT_STATUS[payment.status] || payment.status}${bookingScope}`,
+          completedAt: payment.paymentDate || payment.createdAt,
+          staffId: payment.recordedBy?._id ? String(payment.recordedBy._id) : 'system',
+          staffName: payment.recordedBy?.name || (payment.source === 'manual' ? 'Mitarbeiter' : 'System'),
+          source: 'Zahlungen',
+          refs: { paymentId: payment._id, invoiceId: payment.invoiceId || undefined },
+          origin: 'payment',
+        });
+        if (payment.refundedAt && Number(payment.refundAmount || 0) > 0) {
+          pushDerived({
+            _id: `pay:${payment._id}:refund`,
+            status: 'Refund Recorded',
+            type: 'payment',
+            description: `Erstattung ${OrderHistory.formatEuroDe(payment.refundAmount)}${bookingScope}`,
+            completedAt: payment.refundedAt,
+            staffName: 'System',
+            source: 'Zahlungen',
+            refs: { paymentId: payment._id },
+            origin: 'payment',
+          });
+        }
+      });
+
+      // Alt-Zeitstempel aus Reparatur-Workflow und Eingangspruefung (nur echte Zeitpunkte).
+      const RepairWorkflow = optionalModel('RepairWorkflow');
+      if (RepairWorkflow) {
+        const workflow = await RepairWorkflow.findOne({ orderId: order._id }).lean();
+        if (workflow) {
+          const wfId = workflow._id;
+          const add = (transition, at, key, description, actorName, reason) => {
+            if (!at) return;
+            pushDerived({
+              _id: `rwf:${wfId}:${transition}:${new Date(at).getTime()}`,
+              status: key,
+              type: 'workflow',
+              description,
+              completedAt: at,
+              staffName: actorName || 'Techniker',
+              source: 'Reparatur-Workflow',
+              reason,
+              refs: { repairWorkflowId: wfId },
+              eventKey: OrderHistory.repairWorkflowEventKey(wfId, transition, at),
+              origin: 'repair-workflow',
+            });
+          };
+          add('approve', workflow.approvalData?.approvedAt, 'Repair Workflow Started', 'Reparatur gestartet', workflow.approvalData?.approvedByTechnicianName);
+          (workflow.timerData?.pauseHistory || []).forEach((pause) => {
+            add('pause', pause.pausedAt, 'Repair Workflow Paused', 'Reparatur pausiert', pause.pausedByTechnicianName, pause.reason);
+            add('resume', pause.resumedAt, 'Repair Workflow Resumed', 'Reparatur fortgesetzt', pause.resumedByTechnicianName);
+          });
+          (workflow.incidents || []).forEach((incident) => {
+            add('incident', incident.timestamp, 'Repair Workflow Incident', `Zwischenfall gemeldet (${incident.type})`, incident.reportedByTechnicianName, incident.reason);
+            add('incident-resolved', incident.resolvedAt, 'Repair Workflow Incident Resolved', 'Zwischenfall erledigt', incident.resolvedByTechnicianName, incident.resolutionNote);
+          });
+          add('complete', workflow.timerData?.completedAt, 'Repair Workflow Completed', 'Reparatur abgeschlossen', workflow.metadata?.completedByTechnicianName);
+        }
+      }
+      const DeviceInspection = optionalModel('DeviceInspection');
+      if (DeviceInspection) {
+        const inspection = await DeviceInspection.findOne({ orderId: order._id })
+          .select('startedAt completedAt technicianName status')
+          .lean();
+        if (inspection) {
+          const addInspection = (kind, at, key, description) => {
+            if (!at) return;
+            pushDerived({
+              _id: `insp:${inspection._id}:${kind}`,
+              status: key,
+              type: 'inspection',
+              description,
+              completedAt: at,
+              staffName: inspection.technicianName || 'Techniker',
+              source: 'Eingangsprüfung',
+              refs: { inspectionId: inspection._id },
+              eventKey: OrderHistory.inspectionEventKey(kind, inspection._id),
+              origin: 'inspection',
+            });
+          };
+          addInspection('start', inspection.startedAt, 'Inspection Started', 'Eingangsprüfung gestartet');
+          addInspection('complete', inspection.completedAt, 'Inspection Completed', 'Eingangsprüfung abgeschlossen');
+        }
+      }
+    }
+
+    // Neueste zuerst; Eintraege ohne Zeitpunkt ans Ende (ehrlich als "Zeitpunkt nicht erfasst").
+    const timeOf = (item) => (item.at ? new Date(item.at).getTime() : -Infinity);
+    entries.sort((left, right) => {
+      const diff = timeOf(right) - timeOf(left);
+      if (diff !== 0) return diff;
+      return String(right.id).localeCompare(String(left.id));
+    });
+
+    const groups = OrderHistory.TYPE_GROUPS.map((group) => ({
+      ...group,
+      count: entries.filter((item) => group.types.includes(item.type)).length,
+    }));
+
+    const types = Array.isArray(options.types) ? options.types.filter((type) => OrderHistory.TYPES.includes(type)) : [];
+    let filtered = types.length ? entries.filter((item) => types.includes(item.type)) : entries;
+    const total = filtered.length;
+
+    // Cursor: '<ms>|<id>' des letzten gelieferten Eintrags (absteigend sortiert).
+    if (options.before) {
+      const [msText, ...idParts] = String(options.before).split('|');
+      const cursorMs = msText === 'none' ? -Infinity : Number(msText);
+      const cursorId = idParts.join('|');
+      const index = filtered.findIndex((item) => timeOf(item) === cursorMs && String(item.id) === cursorId);
+      if (index >= 0) {
+        filtered = filtered.slice(index + 1);
+      } else if (Number.isFinite(cursorMs)) {
+        filtered = filtered.filter((item) => timeOf(item) < cursorMs);
+      }
+    }
+    const limit = Math.min(300, Math.max(1, Number(options.limit) || 100));
+    const page = filtered.slice(0, limit);
+    const last = page[page.length - 1];
+    const nextCursor = filtered.length > limit && last
+      ? `${last.at ? new Date(last.at).getTime() : 'none'}|${last.id}`
+      : null;
+
+    return {
+      orderId: orderIdText,
+      orderNumber: order.orderNumber,
+      entries: page,
+      total,
+      nextCursor,
+      groups,
+      milestones: OrderHistory.buildMilestones(order, { forCustomer: !isStaff }),
+    };
   }
 
   // Confirm/verify unlock code or pattern
@@ -3027,13 +3918,30 @@ class OrderService {
       }
 
       // Update order with confirmation
+      const confirmedAt = new Date();
       order.unlockConfirmation = {
         confirmedBy: userId,
         confirmedByName: userName,
         confirmationStatus: confirmationStatus,
         notes: notes,
-        confirmedAt: new Date()
+        confirmedAt
       };
+
+      // Verlauf im selben Speichervorgang (HIST-13). Nur Personal - Entsperrdaten sind intern.
+      const unlockMeta = {
+        verified: { key: 'Unlock Verified', text: 'Entsperrdaten geprüft: korrekt' },
+        incorrect: { key: 'Unlock Incorrect', text: 'Entsperrdaten geprüft: falsch' },
+        'unable-to-verify': { key: 'Unlock Unverifiable', text: 'Entsperrdaten konnten nicht geprüft werden' },
+      }[confirmationStatus];
+      OrderHistory.push(order, OrderHistory.entry({
+        key: unlockMeta.key,
+        type: 'inspection',
+        description: unlockMeta.text,
+        actor: { id: toIdString(userId), name: userName },
+        source: 'Entsperrdaten',
+        reason: notes,
+        at: confirmedAt,
+      }));
 
       const updatedOrder = await order.save();
       console.log('OrderService: Unlock confirmation recorded for order:', orderId);
@@ -3122,6 +4030,9 @@ class OrderService {
           p => p.productId && p.productId.toString() === productId.toString()
         );
 
+        const previousQuantity = existingProductIndex !== -1
+          ? Number(order.shopProducts[existingProductIndex].quantity) || 0
+          : 0;
         if (existingProductIndex !== -1) {
           // Update quantity
           order.shopProducts[existingProductIndex].quantity += quantity;
@@ -3140,7 +4051,21 @@ class OrderService {
 
         // Recalculate total cost
         await OrderService.recalculateOrderTotal(order, conditions);
-        return { prevTotalCost, reconciliation, repricingConfirmed };
+        const eventKey = OrderService.newEditEventKey();
+        OrderHistory.push(order, OrderHistory.entry({
+          key: 'Order Products Changed',
+          type: 'services',
+          description: `Produkt „${product.name || 'Produkt'}“ ×${quantity} hinzugefügt (${formatEuroDe(product.price)} je Stück)`,
+          actor: await OrderHistory.resolveActor(userId),
+          source: 'Produkte',
+          changes: [
+            { field: 'shopProducts.quantity', label: `Menge „${product.name || 'Produkt'}“`, from: previousQuantity, to: previousQuantity + quantity },
+            { field: 'totalCost', label: 'Auftragswert', from: prevTotalCost, to: order.totalCost },
+          ],
+          eventKey,
+          force: true,
+        }));
+        return { prevTotalCost, reconciliation, repricingConfirmed, eventKey };
       });
       console.log('OrderService: Shop product added successfully to order:', orderId);
       await OrderService.recordConfirmedShopRepricing(updatedOrder, context, {
@@ -3164,13 +4089,14 @@ class OrderService {
     if (!context || !context.repricingConfirmed) return;
     try {
       const staff = userId ? await User.findById(userId).select('name') : null;
-      await OrderRevisionService.recordRevision(order, {
+      const revision = await OrderRevisionService.recordRevision(order, {
         triggerReason,
         previousGrossAmount: context.prevTotalCost,
         changedBy: userId || undefined,
         changedByName: staff?.name || 'Mitarbeiter',
         notes: [note, OrderService.describeConfirmedRepricing(context.reconciliation)].filter(Boolean).join(' | '),
       });
+      await OrderService.linkRevisionToHistory(order._id, context.eventKey, revision);
     } catch (revErr) {
       console.warn('OrderService: Warning recording revision on confirmed product repricing:', revErr.message);
     }
@@ -3194,23 +4120,45 @@ class OrderService {
         const prevTotalCost = order.totalCost;
         const removedItem = order.shopProducts[productIndex];
         const { conditions, reconciliation, repricingConfirmed } = OrderService.getPricingConditionsForEdit(order, options);
+        const removedProduct = removedItem?.productId
+          ? await Product.findById(removedItem.productId).select('name').lean().catch(() => null)
+          : null;
+        const productName = removedProduct?.name || 'Produkt';
         order.shopProducts.splice(productIndex, 1);
         console.log('OrderService: Shop product removed from order');
 
         // Recalculate total cost
         await OrderService.recalculateOrderTotal(order, conditions);
+        const removedQuantity = Number(removedItem?.quantity) || 0;
+        const removedPrice = Number(removedItem?.priceAtOrder) || 0;
+        const eventKey = OrderService.newEditEventKey();
+        OrderHistory.push(order, OrderHistory.entry({
+          key: 'Order Products Changed',
+          type: 'services',
+          description: `Produkt „${productName}“ ×${removedQuantity} entfernt (${formatEuroDe(removedPrice)} je Stück)`,
+          actor: await OrderHistory.resolveActor(userId),
+          source: 'Produkte',
+          changes: [
+            { field: 'shopProducts.quantity', label: `Menge „${productName}“`, from: removedQuantity, to: 0 },
+            { field: 'totalCost', label: 'Auftragswert', from: prevTotalCost, to: order.totalCost },
+          ],
+          eventKey,
+          force: true,
+        }));
         return {
           prevTotalCost,
           reconciliation,
           repricingConfirmed,
-          removedQuantity: Number(removedItem?.quantity) || 0,
-          removedPrice: Number(removedItem?.priceAtOrder) || 0,
+          removedQuantity,
+          removedPrice,
+          productName,
+          eventKey,
         };
       });
       console.log('OrderService: Shop product removed successfully from order:', orderId);
       await OrderService.recordConfirmedShopRepricing(updatedOrder, context, {
         triggerReason: 'scope_change',
-        note: `Produkt ×${context.removedQuantity} entfernt (${formatEuroDe(context.removedPrice)} je Stück)`,
+        note: `Produkt „${context.productName}“ ×${context.removedQuantity} entfernt (${formatEuroDe(context.removedPrice)} je Stück)`,
         userId,
       });
 
@@ -3259,7 +4207,21 @@ class OrderService {
 
         // Recalculate total cost
         await OrderService.recalculateOrderTotal(order, conditions);
-        return { prevTotalCost, reconciliation, repricingConfirmed, previousQuantity, productName: product.name || 'Produkt' };
+        const eventKey = OrderService.newEditEventKey();
+        const productName = product.name || 'Produkt';
+        const recorded = OrderHistory.push(order, OrderHistory.entry({
+          key: 'Order Products Changed',
+          type: 'services',
+          description: `Menge „${productName}“ geändert (${previousQuantity} → ${quantity}, ${formatEuroDe(productItem.priceAtOrder)} je Stück)`,
+          actor: await OrderHistory.resolveActor(userId),
+          source: 'Produkte',
+          changes: [
+            { field: 'shopProducts.quantity', label: `Menge „${productName}“`, from: previousQuantity, to: Number(quantity) },
+            { field: 'totalCost', label: 'Auftragswert', from: prevTotalCost, to: order.totalCost },
+          ],
+          eventKey,
+        }));
+        return { prevTotalCost, reconciliation, repricingConfirmed, previousQuantity, productName, eventKey: recorded ? eventKey : null };
       });
       console.log('OrderService: Shop product quantity updated successfully in order:', orderId);
       await OrderService.recordConfirmedShopRepricing(updatedOrder, context, {
@@ -3317,13 +4279,13 @@ class OrderService {
       // Add timeline entry
       const staff = await User.findById(staffId);
       await OrderService._autoAssignStaff(order, staffId);
-      order.timeline.push({
-        status: 'Workflow Removed',
-        description: `Workflow "${removedWorkflow.workflowName}" removed from order`,
-        completedAt: new Date(),
-        staffId: staffId || 'system',
-        staffName: staff ? staff.name : 'System'
-      });
+      OrderHistory.push(order, OrderHistory.entry({
+        key: 'Workflow Removed',
+        type: 'workflow',
+        description: `Workflow „${removedWorkflow.workflowName}“ entfernt`,
+        actor: staff ? OrderHistory.normalizeActor(staff) : { id: toIdString(staffId) || 'system', name: 'System' },
+        source: 'Workflow',
+      }));
 
       const updatedOrder = await order.save();
       console.log('OrderService: Workflow removed successfully');

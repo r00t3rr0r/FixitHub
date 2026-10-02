@@ -17,6 +17,7 @@ import {
   getInvoices,
   getPayments,
 } from "@/api/financial"
+import { formatMoney } from "@/lib/utils"
 import {
   getEPartOrders,
 } from "@/api/epartOrders"
@@ -45,7 +46,9 @@ import {
   Wallet,
   Wrench,
 } from "lucide-react"
-import { getDashboardSummary, getCustomerMessages, type CustomerMessage } from "@/api/adminDashboard"
+import { getDashboardSummary } from "@/api/adminDashboard"
+// Kundennachrichten: dieselbe Quelle und Regel wie das Postfach (/messages).
+import { getCommunicationSummary, type InboxItem } from "@/api/messages"
 import { getContactMessages, type ContactMessage } from "@/api/contactMessages"
 import { markNotificationAsRead } from "@/api/notifications"
 import { InactiveRepairsList } from "@/components/admin/InactiveRepairsList"
@@ -56,6 +59,44 @@ type NotificationMeta = {
   urgentCount: number
   totalCount: number
 }
+
+type DashboardKpiKey =
+  | "priorityOrders" | "pendingBookings" | "pendingRepairRequests" | "awaitingCustomer"
+  | "complaintsOpen" | "complaintsApproval" | "complaintsUrgent"
+  | "epartActive" | "epartPending" | "epartDelayed"
+  | "openInvoices" | "overdueInvoices" | "paymentsInReview"
+type DashboardKpis = Record<DashboardKpiKey, number | null>
+
+// Ziel jedes Zaehlers: die Liste MIT angewendetem Filter (Server: adminDashboardRoutes getDashboardKpis;
+// Gruppenregeln Reklamation/EPart: server/utils/listFilterGroups.js, Finanzen: FinancialService
+// getOpenReceivables / paymentsInReviewQuery). Zahl = Gesamtzahl der gefilterten Liste.
+const KPI_LINKS: Record<DashboardKpiKey, string> = {
+  priorityOrders: "/admin/orders?prio=high-urgent",
+  pendingBookings: "/admin/bookings?status=pending",
+  pendingRepairRequests: "/admin/repair-requests?status=pending",
+  awaitingCustomer: "/admin/orders?rueckmeldung=offen",
+  complaintsOpen: "/admin/complaints?status=offen",
+  complaintsApproval: "/admin/complaints?status=pending_approval",
+  complaintsUrgent: "/admin/complaints?status=offen&priority=high-urgent",
+  epartActive: "/admin/epart-orders?status=aktiv",
+  epartPending: "/admin/epart-orders?status=ausstehend",
+  epartDelayed: "/admin/epart-orders?status=verzoegert",
+  openInvoices: "/admin/financial?tab=invoices&forderung=offen",
+  overdueInvoices: "/admin/financial?tab=invoices&forderung=ueberfaellig",
+  paymentsInReview: "/admin/financial?tab=payments&zahlungen=pruefung",
+}
+
+const KPI_KEYS = Object.keys(KPI_LINKS) as DashboardKpiKey[]
+
+const EMPTY_KPIS = KPI_KEYS.reduce((acc, key) => ({ ...acc, [key]: null }), {} as DashboardKpis)
+
+const readKpis = (raw: any): DashboardKpis => KPI_KEYS.reduce((acc, key) => {
+  const value = raw?.[key]?.count
+  return { ...acc, [key]: typeof value === "number" && Number.isFinite(value) ? value : null }
+}, {} as DashboardKpis)
+
+// Unbekannter Zaehler: "–" (nie 0 aus einer Teilliste).
+const kpiText = (value: number | null) => (value === null ? "–" : String(value))
 
 type SectionCounts = {
   bookings: number
@@ -77,6 +118,7 @@ type DashboardOperations = {
     overdueInvoices: number
     pendingPayments: number
     periodRevenue: number
+    weekRevenue: number
   }
   epartOrders: {
     openCount: number
@@ -94,6 +136,8 @@ interface DashboardData {
   staffStatus: any[]
   assignedOrders: any[]
   systemOverview: Record<string, any>
+  // Serverzaehler je Dashboard-Link (gleiche Regel wie die gefilterte Zielliste); null = unbekannt.
+  kpis: DashboardKpis
   notificationMeta: NotificationMeta
   sectionCounts: SectionCounts
 }
@@ -110,6 +154,7 @@ const FALLBACK_OPERATIONS: DashboardOperations = {
     overdueInvoices: 0,
     pendingPayments: 0,
     periodRevenue: 0,
+    weekRevenue: 0,
   },
   epartOrders: {
     openCount: 0,
@@ -127,6 +172,7 @@ const FALLBACK_DATA: DashboardData = {
   staffStatus: [],
   assignedOrders: [],
   systemOverview: {},
+  kpis: EMPTY_KPIS,
   notificationMeta: {
     unreadCount: 0,
     urgentCount: 0,
@@ -168,24 +214,11 @@ const toName = (entity: any, fallback = "Unbekannt") => {
   return merged || fallback
 }
 
-const toCurrency = (value: number) => {
-  const amount = Number.isFinite(value) ? value : 0
-  return new Intl.NumberFormat("de-CH", {
-    style: "currency",
-    currency: "CHF",
-    maximumFractionDigits: 2,
-  }).format(amount)
-}
+// FIN-12/CUSTUX-12: frueher de-CH/CHF fuer EUR-Daten. Jetzt der gemeinsame Formatter
+// (lib/utils formatMoney): Waehrung EUR aus den Daten, Format de-DE.
+const toCurrency = (value: number) => formatMoney(Number.isFinite(value) ? value : 0, "EUR")
 
-const toEuroCurrency = (value: number) => {
-  const amount = Number.isFinite(value) ? value : 0
-  return new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
-}
+const toEuroCurrency = (value: number) => formatMoney(Number.isFinite(value) ? value : 0, "EUR")
 
 const capitalize = (value?: string) => {
   if (!value) return "Unbekannt"
@@ -220,8 +253,13 @@ export function AdminDashboard() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
   const [dashboardData, setDashboardData] = useState<DashboardData>(FALLBACK_DATA)
   const [operationsData, setOperationsData] = useState<DashboardOperations>(FALLBACK_OPERATIONS)
-  const [customerMessages, setCustomerMessages] = useState<CustomerMessage[]>([])
+  const [customerMessages, setCustomerMessages] = useState<InboxItem[]>([])
   const [totalUnreadMessages, setTotalUnreadMessages] = useState(0)
+  // "Antwort ausstehend" gilt teamweit; "ungelesen" nur fuer den angemeldeten Admin.
+  const [awaitingReplyMessages, setAwaitingReplyMessages] = useState(0)
+  // Ladefehler wird angezeigt ("–"), nie als 0 Nachrichten.
+  const [messagesLoadFailed, setMessagesLoadFailed] = useState(false)
+  const [messagesPartial, setMessagesPartial] = useState(false)
   const [openContactRequests, setOpenContactRequests] = useState<ContactMessage[]>([])
   const [unansweredContactCount, setUnansweredContactCount] = useState(0)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
@@ -329,21 +367,6 @@ export function AdminDashboard() {
     }))
   }
 
-  const removeCustomerMessageFromDashboard = (messageId?: string) => {
-    if (!messageId) return
-
-    setCustomerMessages((prev) => {
-      const nextMessages = prev.filter((message) => String(message?._id || "") !== String(messageId))
-      if (nextMessages.length === prev.length) return prev
-      setTotalUnreadMessages((current) => Math.max(0, current - 1))
-      return nextMessages
-    })
-  }
-
-  const clearCustomerMessagesFromDashboard = () => {
-    setCustomerMessages([])
-    setTotalUnreadMessages(0)
-  }
 
   const removeOpenContactRequestFromDashboard = (requestId?: string) => {
     if (!requestId) return
@@ -414,7 +437,9 @@ export function AdminDashboard() {
 
       const [data, msgData, contactData] = await Promise.all([
         getDashboardSummary(),
-        getCustomerMessages(15),
+        getCommunicationSummary(15)
+          .then((summary) => ({ ok: true as const, summary }))
+          .catch(() => ({ ok: false as const, summary: null })),
         getContactMessages({
           limit: 12,
           page: 1,
@@ -435,6 +460,7 @@ export function AdminDashboard() {
         staffStatus: safeArray(data.staffStatus),
         assignedOrders: safeArray(data.assignedOrders),
         systemOverview: safeObject(data.systemOverview),
+        kpis: readKpis((data as any).kpis),
         notificationMeta: {
           unreadCount: Number(data.notificationMeta?.unreadCount || 0),
           urgentCount: Number(data.notificationMeta?.urgentCount || 0),
@@ -451,8 +477,10 @@ export function AdminDashboard() {
 
       const signature = JSON.stringify({
         processedData,
-        totalUnread: msgData.totalUnread,
-        customerMessageIds: msgData.messages.map((msg) => msg._id),
+        messagesOk: msgData.ok,
+        totalUnread: msgData.summary?.unread ?? null,
+        awaitingReply: msgData.summary?.awaitingReply ?? null,
+        customerMessageIds: (msgData.summary?.recent || []).map((item) => `${item.key}:${item.unreadCount}:${item.awaitingReply}`),
         unresolvedContactIds: unresolvedContactMessages.map((message: ContactMessage) => message._id),
       })
 
@@ -461,8 +489,11 @@ export function AdminDashboard() {
       if (hasChanged) {
         dashboardDataSignatureRef.current = signature
         setDashboardData(processedData)
-        setCustomerMessages(msgData.messages)
-        setTotalUnreadMessages(msgData.totalUnread)
+        setMessagesLoadFailed(!msgData.ok)
+        setMessagesPartial(Boolean(msgData.summary?.partial))
+        setCustomerMessages(msgData.summary?.recent || [])
+        setTotalUnreadMessages(msgData.summary?.unread || 0)
+        setAwaitingReplyMessages(msgData.summary?.awaitingReply || 0)
         setOpenContactRequests(unresolvedContactMessages.slice(0, 5))
         setUnansweredContactCount(unresolvedContactMessages.length)
         setLastUpdatedAt(new Date())
@@ -507,7 +538,7 @@ export function AdminDashboard() {
     isOperationsFetchInFlightRef.current = true
 
     try {
-      const [complaintsData, invoicesData, paymentsData, reportData, epartData] = await Promise.all([
+      const [complaintsData, invoicesData, paymentsData, reportData, epartData, weekReportData] = await Promise.all([
         getAllComplaints({
           limit: 20,
           skip: 0,
@@ -525,6 +556,8 @@ export function AdminDashboard() {
           limit: 20,
           page: 1,
         }),
+        // FIN-6: Zahlungseingang dieser Woche (ab Montag) aus derselben Berechnung.
+        getFinancialReports({ period: "week" }).catch(() => null),
       ])
 
       const complaintItems = Array.isArray(complaintsData?.complaints) ? complaintsData.complaints : []
@@ -544,10 +577,19 @@ export function AdminDashboard() {
           items: complaintItems.slice(0, 5),
         },
         financial: {
-          openInvoices: invoiceItems.filter((item: any) => ["draft", "pending_approval", "sent", "viewed", "partially_paid", "overdue"].includes(String(item?.status || "").toLowerCase())).length,
-          overdueInvoices: invoiceItems.filter((item: any) => String(item?.status || "").toLowerCase() === "overdue").length,
-          pendingPayments: paymentItems.filter((item: any) => ["pending", "processing", "disputed"].includes(String(item?.status || "").toLowerCase())).length,
-          periodRevenue: Number(reportData?.report?.totalRevenue || 0),
+          // FIN-6: Zaehler serverseitig (alle offenen Rechnungen), nicht aus den ersten 50.
+          openInvoices: Number.isFinite(Number(reportData?.report?.openInvoiceCount))
+            ? Number(reportData.report.openInvoiceCount)
+            : invoiceItems.filter((item: any) => ["draft", "pending_approval", "sent", "viewed", "partially_paid", "overdue"].includes(String(item?.status || "").toLowerCase())).length,
+          overdueInvoices: Number.isFinite(Number(reportData?.report?.overdueInvoiceCount))
+            ? Number(reportData.report.overdueInvoiceCount)
+            : invoiceItems.filter((item: any) => String(item?.status || "").toLowerCase() === "overdue").length,
+          // Serverseitig gezaehlt (ohne abgebrochene PayPal-Checkouts); Liste nur als Rueckfall.
+          pendingPayments: Number.isFinite(Number(reportData?.report?.paymentsInReviewCount))
+            ? Number(reportData.report.paymentsInReviewCount)
+            : paymentItems.filter((item: any) => ["pending", "processing", "disputed"].includes(String(item?.status || "").toLowerCase())).length,
+          periodRevenue: Number(reportData?.report?.collectedGross ?? reportData?.report?.totalRevenue ?? 0),
+          weekRevenue: Number(weekReportData?.report?.collectedGross ?? weekReportData?.report?.totalRevenue ?? 0),
         },
         epartOrders: {
           openCount: epartItems.filter((item: any) => !["received", "cancelled"].includes(String(item?.status || "").toLowerCase())).length,
@@ -669,27 +711,32 @@ export function AdminDashboard() {
   const performance = safeObject(systemOverview.performance)
   const health = safeObject(systemOverview.systemHealth)
 
+  // Prioritätsaufträge, offene Buchungen und ausstehende Reparaturanfragen kommen als Serverzähler
+  // (dashboardData.kpis) - früher aus den 10 zugewiesenen Aufträgen bzw. 5 neuesten Einträgen gezählt.
   const derived = useMemo(() => {
-    const urgentOrders = dashboardData.assignedOrders.filter((order) =>
-      ["urgent", "high"].includes(String(order?.priority || "").toLowerCase())
-    ).length
-
     const overloadedStaff = dashboardData.staffStatus.filter((staff) => Number(staff?.utilizationRate || 0) >= 85).length
 
-    const pendingBookings = dashboardData.bookings.filter((booking) => String(booking?.status || "") === "pending").length
-
-    const openRepairs = dashboardData.repairRequests.filter((request) => {
-      const status = String(request?.status || "")
-      return ["pending", "reviewing", "approved"].includes(status)
-    }).length
-
     return {
-      urgentOrders,
       overloadedStaff,
-      pendingBookings,
-      openRepairs,
     }
   }, [dashboardData])
+  const kpis = dashboardData.kpis || EMPTY_KPIS
+
+  // Kachel mit Serverzahl; Klick öffnet die Liste mit genau diesem Filter (KPI_LINKS).
+  const renderKpiTile = (label: string, key: DashboardKpiKey) => (
+    <div key={key}>
+      <button
+        type="button"
+        onClick={() => navigate(KPI_LINKS[key])}
+        className="w-full text-left"
+        style={{ background: "transparent", border: 0, padding: 0, cursor: "pointer" }}
+        aria-label={`${label}: ${kpiText(kpis[key])} – gefilterte Liste öffnen`}
+      >
+        <p>{label}</p>
+        <h4>{kpiText(kpis[key])}</h4>
+      </button>
+    </div>
+  )
 
   const timeAgo = (date?: string | Date) => {
     if (!date) return "-"
@@ -790,8 +837,12 @@ export function AdminDashboard() {
           <CardContent className="compact-stat-content">
             <div>
               <p>{t('adminDashboard.messagesLabel')}</p>
-              <h3>{totalUnreadMessages}</h3>
-              <small>{t('adminDashboard.unreadFromCustomers')}</small>
+              <h3 title={messagesLoadFailed ? "Nachrichten konnten nicht geladen werden" : undefined}>{messagesLoadFailed ? "–" : totalUnreadMessages}</h3>
+              <small>
+                {messagesLoadFailed
+                  ? "Konnte nicht geladen werden"
+                  : `ungelesen (Sie) · ${awaitingReplyMessages} Antwort ausstehend (Team)`}
+              </small>
             </div>
             <MessageCircle className="h-4 w-4" />
           </CardContent>
@@ -822,11 +873,15 @@ export function AdminDashboard() {
 
       <div className="compact-alert-bar">
         <button type="button" onClick={() => navigate("/notifications")}>{t('adminDashboard.urgentNotices')}: <strong>{dashboardData.notificationMeta.urgentCount}</strong></button>
-        <button type="button" onClick={() => navigate("/admin/orders")}>{t('adminDashboard.priorityOrders')}: <strong>{derived.urgentOrders}</strong></button>
+        <button type="button" onClick={() => navigate(KPI_LINKS.priorityOrders)}>{t('adminDashboard.priorityOrders')}: <strong>{kpiText(kpis.priorityOrders)}</strong></button>
         <button type="button" onClick={() => navigate("/admin/staff")}>{t('adminDashboard.teamOverload')}: <strong>{derived.overloadedStaff}</strong></button>
-        <button type="button" onClick={() => navigate("/admin/bookings")}>{t('adminDashboard.openBookings')}: <strong>{derived.pendingBookings}</strong></button>
-        {totalUnreadMessages > 0 && (
-          <button type="button" className="compact-alert-messages" onClick={() => navigate("/admin/orders")}>{t('adminDashboard.newCustomerMessages')}: <strong>{totalUnreadMessages}</strong></button>
+        <button type="button" onClick={() => navigate(KPI_LINKS.pendingBookings)}>{t('adminDashboard.openBookings')}: <strong>{kpiText(kpis.pendingBookings)}</strong></button>
+        <button type="button" onClick={() => navigate(KPI_LINKS.awaitingCustomer)}>Warten auf Kundenrückmeldung: <strong>{kpiText(kpis.awaitingCustomer)}</strong></button>
+        {!messagesLoadFailed && totalUnreadMessages > 0 && (
+          <button type="button" className="compact-alert-messages" onClick={() => navigate("/messages?filter=unread")}>{t('adminDashboard.newCustomerMessages')}: <strong>{totalUnreadMessages}</strong></button>
+        )}
+        {!messagesLoadFailed && awaitingReplyMessages > 0 && (
+          <button type="button" className="compact-alert-messages" onClick={() => navigate("/messages?filter=awaiting_reply")}>Antwort ausstehend: <strong>{awaitingReplyMessages}</strong></button>
         )}
       </div>
 
@@ -889,7 +944,16 @@ export function AdminDashboard() {
               <Wrench className="h-4 w-4" />
               {t('adminDashboard.repairRequests')}
             </CardTitle>
-            <CardDescription>{derived.openRepairs} {t('adminDashboard.open')}</CardDescription>
+            <CardDescription>
+              <button
+                type="button"
+                className="underline-offset-2 hover:underline"
+                onClick={() => navigate(KPI_LINKS.pendingRepairRequests)}
+                title="Reparaturanfragen mit Status „Ausstehend“ öffnen"
+              >
+                {kpiText(kpis.pendingRepairRequests)} ausstehend
+              </button>
+            </CardDescription>
           </CardHeader>
           <CardContent className="compact-panel-content">
             <ScrollArea className="compact-scroll-area">
@@ -1012,45 +1076,50 @@ export function AdminDashboard() {
               {t('adminDashboard.newCustomerMessages')}
             </CardTitle>
             <CardDescription>
-              {totalUnreadMessages > 0
-                ? <span className="compact-messages-count-label">{totalUnreadMessages} {t('adminDashboard.unreadLabel')}</span>
-                : t('adminDashboard.noNewMessages')}
+              {messagesLoadFailed
+                ? <span role="alert">Nachrichten konnten nicht geladen werden.</span>
+                : <span className="compact-messages-count-label">{totalUnreadMessages} ungelesen (Sie) · {awaitingReplyMessages} Antwort ausstehend (Team)</span>}
             </CardDescription>
           </CardHeader>
           <CardContent className="compact-panel-content">
             <ScrollArea className="compact-scroll-area">
               <div className="compact-list">
-                {customerMessages.length === 0 && (
-                  <p className="compact-empty">{t('adminDashboard.noUnreadMessages')}</p>
+                {messagesLoadFailed && (
+                  <div className="compact-empty" role="alert">
+                    <p>Nachrichten konnten nicht geladen werden.</p>
+                    <Button size="sm" variant="outline" onClick={() => fetchDashboardData()}>Erneut versuchen</Button>
+                  </div>
                 )}
-                {customerMessages.slice(0, 8).map((msg) => {
-                  const label = msg.source === "inspection"
-                    ? msg.orderNumber ? `${t('adminDashboard.orderLabel')} #${msg.orderNumber}` : t('adminDashboard.orderLabel')
-                    : msg.requestNumber ? `${t('adminDashboard.requestLabel')} #${msg.requestNumber}` : (msg.deviceType || t('adminDashboard.repairRequests'))
-                  const preview = msg.content.length > 60
-                    ? `${msg.content.slice(0, 60)}…`
-                    : msg.content
+                {!messagesLoadFailed && messagesPartial && (
+                  <p className="compact-sub" role="alert">Nicht alle Quellen konnten geladen werden – Details im Postfach.</p>
+                )}
+                {!messagesLoadFailed && customerMessages.length === 0 && (
+                  <p className="compact-empty">Keine ungelesenen oder offenen Kundengespräche.</p>
+                )}
+                {customerMessages.slice(0, 8).map((item) => {
+                  const preview = (item.lastMessage?.preview || "").length > 60
+                    ? `${(item.lastMessage?.preview || "").slice(0, 60)}…`
+                    : (item.lastMessage?.preview || "")
                   return (
                     <button
-                      key={msg._id}
+                      key={item.key}
                       type="button"
                       className="compact-msg-item"
-                      onClick={() => {
-                        removeCustomerMessageFromDashboard(msg._id)
-                        navigate(msg.navigateTo)
-                      }}
+                      onClick={() => navigate(item.threadUrl)}
+                      title="Gespräch im Postfach öffnen"
                     >
                       <div className="compact-msg-avatar">
                         <MessageCircle className="h-3.5 w-3.5" />
                       </div>
                       <div className="compact-msg-body">
-                        <p className="compact-title">{msg.senderName}</p>
-                        <p className="compact-sub compact-msg-ref">{label}</p>
+                        <p className="compact-title">{item.customer?.name || item.lastMessage?.senderName || "Kunde"}</p>
+                        <p className="compact-sub compact-msg-ref">{item.sourceLabel}: {item.title}</p>
                         <p className="compact-sub compact-msg-preview">{preview}</p>
                       </div>
                       <div className="compact-list-side">
-                        <Badge className="compact-badge-unread">{t('common.new')}</Badge>
-                        <small>{timeAgo(msg.createdAt)}</small>
+                        {item.unreadCount > 0 && <Badge className="compact-badge-unread">{item.unreadCount} neu</Badge>}
+                        {item.awaitingReply && <Badge variant="outline">Antwort ausstehend</Badge>}
+                        <small>{timeAgo(item.lastMessage?.createdAt || item.lastActivityAt || "")}</small>
                       </div>
                     </button>
                   )
@@ -1114,11 +1183,8 @@ export function AdminDashboard() {
             </div>
 
             <Separator />
-            <Button size="sm" variant="outline" className="w-full" onClick={() => {
-              clearCustomerMessagesFromDashboard()
-              navigate("/admin/orders")
-            }}>
-              {t('adminDashboard.allOrders')}
+            <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/messages")}>
+              Alle Nachrichten im Postfach
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </CardContent>
@@ -1211,22 +1277,14 @@ export function AdminDashboard() {
               <ClipboardList className="h-4 w-4" />
               {t('adminDashboard.complaintsTitle')}
             </CardTitle>
-            <CardDescription>{operationsData.complaints.openCount} {t('adminDashboard.open')}</CardDescription>
+            <CardDescription>{kpiText(kpis.complaintsOpen)} {t('adminDashboard.open')}</CardDescription>
           </CardHeader>
           <CardContent className="compact-panel-content">
             <div className="compact-kpi-grid compact-kpi-grid--3">
-              <div>
-                <p>{t('adminDashboard.approvals')}</p>
-                <h4>{operationsData.complaints.approvalQueueCount}</h4>
-              </div>
-              <div>
-                <p>{t('adminDashboard.urgent')}</p>
-                <h4>{operationsData.complaints.urgentCount}</h4>
-              </div>
-              <div>
-                <p>{t('adminDashboard.openTotal')}</p>
-                <h4>{operationsData.complaints.openCount}</h4>
-              </div>
+              {renderKpiTile(t('adminDashboard.approvals'), "complaintsApproval")}
+              {/* Dringend = offen UND Priorität hoch/dringend */}
+              {renderKpiTile(t('adminDashboard.urgent'), "complaintsUrgent")}
+              {renderKpiTile(t('adminDashboard.openTotal'), "complaintsOpen")}
             </div>
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/complaints")}>
               {t('adminDashboard.goToComplaints')}
@@ -1241,22 +1299,13 @@ export function AdminDashboard() {
               <Wallet className="h-4 w-4" />
               {t('adminDashboard.financialTitle')}
             </CardTitle>
-            <CardDescription>{toCurrency(operationsData.financial.periodRevenue)} {t('adminDashboard.revenueLabel')}</CardDescription>
+            <CardDescription>Zahlungseingang diesen Monat (brutto): {toCurrency(operationsData.financial.periodRevenue)}</CardDescription>
           </CardHeader>
           <CardContent className="compact-panel-content">
             <div className="compact-kpi-grid compact-kpi-grid--3">
-              <div>
-                <p>{t('adminDashboard.openInvoices')}</p>
-                <h4>{operationsData.financial.openInvoices}</h4>
-              </div>
-              <div>
-                <p>{t('adminDashboard.overdue')}</p>
-                <h4>{operationsData.financial.overdueInvoices}</h4>
-              </div>
-              <div>
-                <p>{t('adminDashboard.pendingPayments')}</p>
-                <h4>{operationsData.financial.pendingPayments}</h4>
-              </div>
+              {renderKpiTile(t('adminDashboard.openInvoices'), "openInvoices")}
+              {renderKpiTile(t('adminDashboard.overdue'), "overdueInvoices")}
+              {renderKpiTile("Zahlungen in Prüfung", "paymentsInReview")}
             </div>
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/financial")}>
               {t('adminDashboard.goToFinancial')}
@@ -1271,22 +1320,13 @@ export function AdminDashboard() {
               <ShoppingCart className="h-4 w-4" />
               {t('adminDashboard.epartTitle')}
             </CardTitle>
-            <CardDescription>{operationsData.epartOrders.openCount} {t('adminDashboard.active')}</CardDescription>
+            <CardDescription>{kpiText(kpis.epartActive)} {t('adminDashboard.active')}</CardDescription>
           </CardHeader>
           <CardContent className="compact-panel-content">
             <div className="compact-kpi-grid compact-kpi-grid--3">
-              <div>
-                <p>{t('adminDashboard.pending')}</p>
-                <h4>{operationsData.epartOrders.pendingCount}</h4>
-              </div>
-              <div>
-                <p>{t('adminDashboard.delayed')}</p>
-                <h4>{operationsData.epartOrders.delayedCount}</h4>
-              </div>
-              <div>
-                <p>{t('adminDashboard.openTotal')}</p>
-                <h4>{operationsData.epartOrders.openCount}</h4>
-              </div>
+              {renderKpiTile(t('adminDashboard.pending'), "epartPending")}
+              {renderKpiTile(t('adminDashboard.delayed'), "epartDelayed")}
+              {renderKpiTile(t('adminDashboard.openTotal'), "epartActive")}
             </div>
             <Button size="sm" variant="outline" className="w-full" onClick={() => navigate("/admin/epart-orders")}>
               {t('adminDashboard.goToEpart')}
@@ -1318,8 +1358,8 @@ export function AdminDashboard() {
               <h4>{thisWeek.orders || 0}</h4>
             </div>
             <div>
-              <p>{t('adminDashboard.weekRevenue')}</p>
-              <h4>{toCurrency(Number(thisWeek.revenue || 0))}</h4>
+              <p>Zahlungseingang diese Woche (brutto)</p>
+              <h4>{toCurrency(Number(operationsData.financial.weekRevenue || 0))}</h4>
             </div>
           </CardContent>
         </Card>

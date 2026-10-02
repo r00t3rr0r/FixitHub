@@ -33,8 +33,50 @@ const validateOrderId = (req, res, next) => {
 
 const technicianOf = (req) => ({
   technicianId: req.user._id,
-  technicianName: req.user.name || req.user.email,
+  technicianName: req.user.name || [req.user.firstName, req.user.lastName].filter(Boolean).join(' ') || req.user.email,
 });
+
+const NOTIFICATION_MESSAGES = {
+  sent: 'Kunde wurde benachrichtigt (Benachrichtigung und E-Mail).',
+  sentGuest: 'Kunde wurde per E-Mail benachrichtigt (Gastauftrag ohne Kundenkonto).',
+  duplicate: 'Der Kunde wurde hierzu bereits benachrichtigt – keine zweite Nachricht gesendet.',
+  failed: 'Gespeichert, aber der Kunde konnte nicht benachrichtigt werden.',
+  // Altwerte (vor dem Gast-E-Mail-Weg gespeichert) bleiben lesbar.
+  no_customer_account: 'Gespeichert. Der Auftrag hat kein Kundenkonto (Gastauftrag) – bitte den Kunden auf anderem Weg informieren.',
+  no_contact: 'Gespeichert. Für diesen Gastauftrag ist keine E-Mail-Adresse hinterlegt – bitte den Kunden auf anderem Weg informieren.',
+  order_cancelled: 'Gespeichert. Der Auftrag ist storniert – es wurde keine Nachricht an den Kunden gesendet.',
+  preferences: 'Gespeichert. Der Kunde hat Benachrichtigungen abgeschaltet – es wurde nichts gesendet.',
+};
+
+const sentMessageOf = (notification) => (notification?.inApp === false && notification?.email === 'sent'
+  ? NOTIFICATION_MESSAGES.sentGuest
+  : NOTIFICATION_MESSAGES.sent);
+
+/**
+ * Einheitliche Erfolgsantwort der Zustandswechsel:
+ * { success, workflow, message, orderStatus, orderStatusChanged, warnings[],
+ *   customerNotification: { status: 'sent'|'failed'|'skipped'|'duplicate', reason?, error?, inApp?, email?, message? } }
+ * Speichererfolg (success/message) und Benachrichtigungsergebnis werden GETRENNT gemeldet.
+ */
+const sendTransitionResult = (res, workflow, successMessage) => {
+  const orderSync = workflow?.$locals?.orderSync || { warnings: [] };
+  const customerNotification = workflow?.$locals?.customerNotification || { status: 'skipped', reason: 'not_requested' };
+  const warnings = [...(orderSync.warnings || [])];
+  if (customerNotification.status === 'failed') {
+    warnings.push(`${NOTIFICATION_MESSAGES.failed}${customerNotification.error ? ` (${customerNotification.error})` : ''}`);
+  } else if (customerNotification.status === 'skipped' && NOTIFICATION_MESSAGES[customerNotification.reason]) {
+    warnings.push(NOTIFICATION_MESSAGES[customerNotification.reason]);
+  }
+  return res.json({
+    success: true,
+    workflow,
+    message: successMessage,
+    orderStatus: orderSync.orderStatus || null,
+    orderStatusChanged: Boolean(orderSync.statusChanged),
+    warnings,
+    customerNotification,
+  });
+};
 
 router.get('/admin/inactive', requireAdminOrStaff, async (req, res) => {
   try {
@@ -100,22 +142,20 @@ router.post('/:orderId/init', requireAdminOrStaff, validateOrderId, async (req, 
 router.post('/:orderId/approve', requireAdminOrStaff, validateOrderId, async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { internalNotes, orderChanges, notifyCustomer } = req.body;
+    const { internalNotes, orderChanges, notifyCustomer, customerMessage } = req.body || {};
     const { technicianId, technicianName } = technicianOf(req);
 
     const workflow = await RepairWorkflowService.approveRepairStart(
       orderId,
       internalNotes,
       orderChanges,
-      notifyCustomer,
+      notifyCustomer === true,
       technicianId,
       technicianName,
+      { customerMessage },
     );
 
-    res.json({
-      success: true,
-      workflow,
-    });
+    return sendTransitionResult(res, workflow, 'Die Reparatur wurde gestartet.');
   } catch (error) {
     console.error('Error approving repair start:', error);
     return sendError(res, error, 'Reparatur konnte nicht freigegeben werden.');
@@ -146,10 +186,7 @@ router.post('/:orderId/pause', requireAdminOrStaff, validateOrderId, async (req,
 
     const workflow = await RepairWorkflowService.pauseRepair(orderId, pauseReason, technicianId, technicianName);
 
-    res.json({
-      success: true,
-      workflow,
-    });
+    return sendTransitionResult(res, workflow, 'Die Reparatur wurde pausiert.');
   } catch (error) {
     console.error('Error pausing repair:', error);
     return sendError(res, error, 'Reparatur-Workflow konnte nicht pausiert werden.');
@@ -163,10 +200,7 @@ router.post('/:orderId/resume', requireAdminOrStaff, validateOrderId, async (req
 
     const workflow = await RepairWorkflowService.resumeRepair(orderId, technicianId, technicianName);
 
-    res.json({
-      success: true,
-      workflow,
-    });
+    return sendTransitionResult(res, workflow, 'Die Reparatur wurde fortgesetzt.');
   } catch (error) {
     console.error('Error resuming repair:', error);
     return sendError(res, error, 'Reparatur-Workflow konnte nicht fortgesetzt werden.');
@@ -178,12 +212,14 @@ router.post('/:orderId/complete', requireAdminOrStaff, validateOrderId, async (r
     const { orderId } = req.params;
     const { technicianId, technicianName } = technicianOf(req);
 
-    const workflow = await RepairWorkflowService.completeRepair(orderId, technicianId, technicianName);
+    const { notifyCustomer, customerMessage } = req.body || {};
 
-    res.json({
-      success: true,
-      workflow,
+    const workflow = await RepairWorkflowService.completeRepair(orderId, technicianId, technicianName, {
+      notifyCustomer: notifyCustomer === true,
+      customerMessage,
     });
+
+    return sendTransitionResult(res, workflow, 'Die Reparatur wurde abgeschlossen.');
   } catch (error) {
     console.error('Error completing repair:', error);
     return sendError(res, error, 'Reparatur-Workflow konnte nicht abgeschlossen werden.');
@@ -193,22 +229,24 @@ router.post('/:orderId/complete', requireAdminOrStaff, validateOrderId, async (r
 router.post('/:orderId/incidents', requireAdminOrStaff, validateOrderId, async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { incidentType, reason, additionalData } = req.body;
+    const { incidentType, reason, additionalData, notifyCustomer, customerMessage } = req.body || {};
     const { technicianId, technicianName } = technicianOf(req);
+
+    if (!String(reason || '').trim()) {
+      return res.status(400).json({ success: false, message: 'Bitte eine Kurzbeschreibung des Zwischenfalls angeben.', error: 'Bitte eine Kurzbeschreibung des Zwischenfalls angeben.' });
+    }
 
     const workflow = await RepairWorkflowService.reportIncident(
       orderId,
       incidentType,
-      reason,
+      String(reason).trim(),
       additionalData,
       technicianId,
       technicianName,
+      { notifyCustomer: notifyCustomer === true, customerMessage },
     );
 
-    res.json({
-      success: true,
-      workflow,
-    });
+    return sendTransitionResult(res, workflow, 'Der Zwischenfall wurde gemeldet.');
   } catch (error) {
     console.error('Error reporting incident:', error);
     return sendError(res, error, 'Zwischenfall konnte nicht gemeldet werden.');
@@ -224,14 +262,64 @@ router.post('/:orderId/incidents/:incidentId/resolve', requireAdminOrStaff, vali
 
     const workflow = await RepairWorkflowService.resolveIncident(orderId, incidentId, note, technicianId, technicianName);
 
-    res.json({
-      success: true,
-      workflow,
-      message: 'Zwischenfall wurde als erledigt markiert.',
-    });
+    return sendTransitionResult(res, workflow, 'Zwischenfall wurde als erledigt markiert.');
   } catch (error) {
     console.error('Error resolving incident:', error);
     return sendError(res, error, 'Zwischenfall konnte nicht als erledigt markiert werden.');
+  }
+});
+
+// Abgeschlossene Reparatur wieder aufnehmen (HIST-11).
+// Request: { reason: string (Pflicht) }
+// Response: wie die anderen Zustandswechsel; 409 wenn bereits ein Versandlabel an den Kunden
+// existiert oder der Auftrag abgeschlossen/storniert ist, 400 ohne Grund.
+router.post('/:orderId/reopen', requireAdminOrStaff, validateOrderId, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason } = req.body || {};
+    const { technicianId, technicianName } = technicianOf(req);
+    const workflow = await RepairWorkflowService.reopenRepair(orderId, reason, technicianId, technicianName);
+    return sendTransitionResult(res, workflow, 'Die Reparatur wurde wieder aufgenommen.');
+  } catch (error) {
+    console.error('Error reopening repair:', error);
+    return sendError(res, error, 'Die Reparatur konnte nicht wieder aufgenommen werden.');
+  }
+});
+
+// Auftragsstatus/-verlauf erneut abgleichen (nach der Warnung "Auftragsstatus konnte nicht
+// aktualisiert werden"). Idempotent.
+router.post('/:orderId/sync-order', requireAdminOrStaff, validateOrderId, async (req, res) => {
+  try {
+    const { workflow, orderSync } = await RepairWorkflowService.syncOrderForCurrentState(req.params.orderId, req.user);
+    workflow.$locals.orderSync = orderSync;
+    workflow.$locals.customerNotification = { status: 'skipped', reason: 'not_requested' };
+    return sendTransitionResult(res, workflow, orderSync.warnings.length
+      ? 'Der Auftragsstatus konnte weiterhin nicht aktualisiert werden.'
+      : 'Auftragsstatus und Verlauf sind aktuell.');
+  } catch (error) {
+    console.error('Error syncing order from repair workflow:', error);
+    return sendError(res, error, 'Der Auftragsstatus konnte nicht abgeglichen werden.');
+  }
+});
+
+// Kundenbenachrichtigung erneut senden (ohne den Zustand erneut zu speichern).
+// Request: { target: 'approval' | 'completion' | 'incident', incidentId?: string, customerMessage?: string }
+// Response: { success, workflow, customerNotification, message }
+router.post('/:orderId/notify-customer', requireAdminOrStaff, validateOrderId, async (req, res) => {
+  try {
+    const { target, incidentId, customerMessage } = req.body || {};
+    const { workflow, customerNotification } = await RepairWorkflowService.retryCustomerNotification(req.params.orderId, {
+      target, incidentId, customerMessage,
+    });
+    const message = customerNotification.status === 'sent'
+      ? sentMessageOf(customerNotification)
+      : (customerNotification.status === 'duplicate'
+        ? NOTIFICATION_MESSAGES.duplicate
+        : (NOTIFICATION_MESSAGES[customerNotification.reason] || `${NOTIFICATION_MESSAGES.failed}${customerNotification.error ? ` (${customerNotification.error})` : ''}`));
+    return res.json({ success: customerNotification.status === 'sent' || customerNotification.status === 'duplicate', workflow, customerNotification, message });
+  } catch (error) {
+    console.error('Error retrying customer notification:', error);
+    return sendError(res, error, 'Die Benachrichtigung konnte nicht gesendet werden.');
   }
 });
 

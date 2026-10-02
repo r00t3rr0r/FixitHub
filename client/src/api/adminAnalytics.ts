@@ -55,6 +55,12 @@ export type ProfitabilityOrderRow = {
   varianceHours: number
   description: string
   device?: string
+  /** Auftragswert brutto/netto (FIN-7); stornierte Auftraege = 0. */
+  orderValueGross?: number
+  orderValueNet?: number
+  isCancelled?: boolean
+  /** Kosten/Deckungsbeitrag sind kalkuliert (Schaetzung). */
+  isEstimate?: boolean
 }
 
 export type ProfitabilityBookingRow = {
@@ -122,6 +128,37 @@ export type ProfitabilityBookingRow = {
   orderCount: number
   itemSummary: string
   orders: ProfitabilityOrderRow[]
+  /** Drei getrennte Kennzahlen je Buchung (FIN-7). */
+  orderValueGross?: number
+  orderValueNet?: number
+  /** Ausgestellte Rechnungen minus wertmindernde Gutschriften (alle Daten). */
+  invoicedGross?: number
+  invoicedNet?: number
+  /** Abgeschlossene Zahlungen minus Erstattungen, jede Zahlung einmal. */
+  collectedGross?: number
+  hasInvoice?: boolean
+  taxExempt?: boolean
+  isEstimate?: boolean
+  /** Stornierte Buchung: sichtbar, aber in keiner Summe. */
+  excludedFromTotals?: boolean
+}
+
+/** Kennzahlen des Zeitraums (serverseitig, siehe calculationMeta.figures). */
+export type ProfitabilityPeriodFigures = {
+  range: { startDate: string | null; endDate: string | null }
+  orderValueGross: number
+  orderValueNet: number
+  invoicedGross: number
+  invoicedNet: number
+  creditNotesGross: number
+  invoiceCount: number
+  creditNoteCount: number
+  collectedGross: number
+  paymentCount: number
+  estimatedContributionMargin: number
+  invoicedContributionMargin: number
+  marginPercentOnInvoiced: number | null
+  invoicedBookingCount: number
 }
 
 export type ProfitabilitySettings = {
@@ -225,7 +262,11 @@ export type ProfitabilitySummary = {
 export type ProfitabilityReportResponse = {
   success: boolean
   rows: ProfitabilityBookingRow[]
-  summary: ProfitabilitySummary
+  summary: ProfitabilitySummary & { excludedBookings?: number }
+  periodFigures?: ProfitabilityPeriodFigures
+  /** true = mehr Buchungen im Zeitraum als geladen (Grenze 2000). */
+  truncated?: boolean
+  matchingBookingCount?: number
   periodSummary?: {
     totals: Record<string, number>
     workdays: number
@@ -251,8 +292,10 @@ export type ProfitabilityReportResponse = {
   }>
   calculationMeta?: {
     vatRate: number
+    vatRateSource?: string
     targetGrossMarginRate: number
     projectionWorkdays: number
+    figures?: Record<string, string>
     configurableFormulas: {
       paymentFeeModel: string
       dynamicAdditionalCosts: string
@@ -278,16 +321,22 @@ export const getProfitabilityReport = async (params: ProfitabilityReportParams =
     return response.data
   } catch (error: any) {
     console.error('Error fetching profitability report:', error)
-    throw new Error(error?.response?.data?.error || error.message)
+    throw new Error(error?.data?.error || error?.response?.data?.error || error.message || 'Die Auswertung konnte nicht geladen werden.')
   }
 }
 
-export const updateProfitabilitySettings = async (settings: ProfitabilitySettings) => {
+/**
+ * Speichert die Auswertungs-Einstellungen. Die Antwort enthaelt die nach dem Speichern
+ * NEU GELESENEN Werte (settings). Ungueltige Werte -> Fehler mit deutscher Meldung (400).
+ */
+export const updateProfitabilitySettings = async (settings: ProfitabilitySettings): Promise<{ success: boolean; settings?: ProfitabilitySettings; message?: string }> => {
   try {
     const response = await api.put('/api/admin/analytics/profitability/settings', settings)
-    return response.data
+    const data = response.data as { success?: boolean; settings?: ProfitabilitySettings; message?: string; error?: string }
+    if (data?.success === false) throw new Error(data.error || 'Die Einstellungen konnten nicht gespeichert werden.')
+    return { success: true, settings: data?.settings, message: data?.message }
   } catch (error: any) {
     console.error('Error updating profitability settings:', error)
-    throw new Error(error?.response?.data?.error || error.message)
+    throw new Error(error?.data?.error || error?.response?.data?.error || error.message)
   }
 }

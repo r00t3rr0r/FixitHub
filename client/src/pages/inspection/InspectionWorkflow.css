@@ -143,9 +143,22 @@
 
 .inspection-content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  /* Breitere Kommunikationsspalte (frueher ca. 327px bei 1366px): lesbare Nachrichten. */
+  grid-template-columns: minmax(0, 1.5fr) minmax(360px, 1fr);
   gap: 1.25rem;
   align-items: start;
+}
+
+.inspection-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* Auf breiten Bildschirmen ist die Spalte sichtbar - der Sprung-Button nur bei einer Spalte. */
+.inspection-jump-to-communication {
+  display: none;
 }
 
 .inspection-form-column {
@@ -154,15 +167,32 @@
 
 .inspection-communication-column {
   min-width: 0;
+  /* Spalte so hoch wie das Formular: nur dann hat "sticky" Bewegungsraum. */
+  align-self: stretch;
+  scroll-margin-top: 1rem;
 }
 
 .inspection-communication-card {
   position: sticky;
   top: 1rem;
+  display: flex;
+  flex-direction: column;
+  /* Karte nie hoeher als der sichtbare Bereich: Verlauf scrollt innen, Antwortfeld bleibt sichtbar.
+     Scrollbereich ist <main> im Layout: Container h-[calc(100vh-4rem)] mit pt-16 (border-box)
+     => sichtbare Hoehe 100vh - 8rem; "sticky" rechnet ab dem Innenabstand von <main>
+     (lg:py-6 = 1.5rem) plus top 1rem, unten 1rem Luft. Gemessen (Chromium, 1366x768):
+     Karte 104-688 px, <main> endet bei 704 px -> Antwortfeld und Senden-Button sichtbar. */
+  max-height: calc(100dvh - 8rem - 1.5rem - 2rem);
+  min-height: 420px;
 }
 
 .inspection-communication-content {
   padding-top: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .inspection-notes-card {
@@ -252,6 +282,20 @@
 
   .inspection-communication-card {
     position: static;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .inspection-communication-content {
+    overflow: visible;
+  }
+
+  .inspection-communication-content .inspection-comm-thread {
+    max-height: 60vh;
+  }
+
+  .inspection-jump-to-communication {
+    display: inline-flex;
   }
 }
 

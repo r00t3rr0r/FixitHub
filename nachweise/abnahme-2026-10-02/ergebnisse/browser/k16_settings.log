@@ -1,0 +1,11 @@
+   [shot] 01_analyse_einstellung_geaendert.png
+   Rueckmeldung: 
+  PASS Analyse: Stundensatz 95,5 nach Reload erhalten (nicht 955 / 95) :: 92 -> 95,5
+   [shot] 02_finanz_einstellung_gespeichert.png
+  PASS Finanzen: Zahlungsziel 21 Tage nach Reload erhalten :: 14 -> 21
+  PASS Finanzeinstellungen erklaeren Wirkung/Geltung (Hilfetext) 
+  PASS Standardwaehrung: Hinweis "keine Umrechnung" 
+  PASS Analyse-Wert nach Speichern der Finanzeinstellungen unveraendert (kein Ueberschreiben) :: 95,5
+   [shot] 03_analyse_nach_finanzspeichern.png
+   Ausgangswerte wiederhergestellt (92 / 14)
+==== k16_settings: 5 bestanden, 0 fehlgeschlagen ====

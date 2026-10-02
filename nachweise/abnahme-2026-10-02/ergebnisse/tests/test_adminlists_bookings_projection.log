@@ -1,0 +1,43 @@
+
+[ADMUX-5 Projektion der Admin-Liste]
+  PASS Admin GET /api/bookings -> 200 :: 200
+  PASS orderIds enthalten (2 Auftraege) :: 2
+  PASS returnShipmentStatus + returnTrackingNumber enthalten :: label-created RET-AL-0001
+  PASS orders[] mit Auftragsnummern :: ORD-AL-001,ORD-AL-002
+  PASS orders[] mit Geraet, Status und Fortschritt :: {"b":"Apple","m":"iPad Pro 9.7","s":"in-progress","p":50}
+  PASS Label-URLs (data:-PDF) werden nicht mitgeladen :: undefined/undefined
+  PASS DHL-5: Dummy-Einsendelabel -> inboundLabelPlaceholder true :: true
+  PASS ohne Dummy-Label -> inboundLabelPlaceholder false :: false
+  PASS finalCost (Altbestand) enthalten :: 189.9
+  PASS Altbuchung ohne orderIds: orderIds aus Auftraegen mit bookingId :: ["6abf92b007eaa026e3e96c26"]
+  PASS Admin sieht auch Buchungen anderer Kunden :: 6
+
+[Review-Fix: Shop-Auftrag ohne Rohplatzhalter, Buchungslabel-Modus]
+  PASS Shop-Auftrag: type product, Etikett = Produktnamen :: product Panzerglas
+  PASS Shop-Auftrag ohne Produktnamen: Etikett "Shop-Artikel" :: Shop-Artikel
+  PASS kein Rohplatzhalter "N/A Shop Products Order" in orders[] :: ["Panzerglas","Shop-Artikel","Apple iPhone 14"]
+  PASS Reparaturauftrag: type repair, Etikett Marke + Modell :: repair Apple iPhone 14
+  PASS DHL-5: Admin-Liste liefert den konfigurierten Modus (Standard dummy) :: dummy
+  PASS DHL-5: konfiguriert live -> labelMode live (auch fuer Staff) :: 200 live
+  PASS Kunde erhaelt keinen labelMode :: 200 undefined
+
+[Rollen]
+  PASS Staff erhaelt dieselbe Projektion (orders[]) :: 200 2
+  PASS fremder Kunde sieht nur seine eigene Buchung :: 6abf92b107eaa026e3e96c74
+  PASS keine fremde Buchung im Kundenergebnis :: 1
+  PASS Kunde mit Kommunikationsfilter sieht keine fremden Buchungen :: 6abf92b107eaa026e3e96c74
+  PASS ohne Anmeldung -> 401 :: 401
+
+[COMMS Filter "Ungelesene Kundenrueckmeldungen" (eine Regel, pro Benutzer)]
+  PASS Admin mit Filter -> 200 :: 200
+  PASS ungelesene Kundennachricht -> Buchung enthalten :: 3
+  PASS vom Admin gelesene Kundennachricht -> fuer den Admin nicht enthalten :: false
+  PASS nur Team-Nachricht -> nicht enthalten :: false
+  PASS Gastnachricht ohne senderId -> enthalten :: true
+  PASS Rueckfrage nach dem Lesen beantwortet -> enthalten :: true
+  PASS Buchung ohne Gespraech -> nicht enthalten :: false
+  PASS total passt zur gefilterten Liste (3) :: 3/3
+  PASS pro Benutzer: fuer einen anderen Mitarbeiter bleibt B ungelesen :: true
+  PASS eigene Team-Nachricht zaehlt auch fuer Staff nicht :: false
+
+Ergebnis: 33 PASS, 0 FAIL

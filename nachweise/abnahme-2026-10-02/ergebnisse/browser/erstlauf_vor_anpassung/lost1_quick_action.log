@@ -1,0 +1,10 @@
+   [setup] Admin-API POST /api/inspection-communication/ORD-2026-063/quick-action part_replacement -> 404
+   [setup] Admin-API POST /api/inspection-communication/ORD-2026-063/quick-action additional_costs -> 404
+   [setup] Admin-API POST /api/repair-request-communication/RR-1790906460309-00023/quick-action approval_required -> 404
+  FAIL Vorbereitung: drei offene Aktionen angelegt :: 404/404/404
+  FAIL Kunde (Auftrag): Aktion A sichtbar 
+  FAIL Kunde (Auftrag): Hinweis "Rückfrage beantworten" vor dem Erledigen 
+  FAIL Kunde (Auftrag): Knopf "Als erledigt markieren" in Aktion A vorhanden 
+   [shot] 01_kunde_auftrag_aktion_offen.png
+  FAIL Ablauf abgebrochen: locator.click: Timeout 30000ms exceeded. 
+==== lost1_quick_action: 0 bestanden, 5 fehlgeschlagen ====

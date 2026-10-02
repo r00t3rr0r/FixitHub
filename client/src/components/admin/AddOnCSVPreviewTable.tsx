@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatEUR } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -154,7 +155,7 @@ const AddOnCSVPreviewTable: React.FC<AddOnCSVPreviewTableProps> = ({
                       <Badge variant="outline">{item.data.category || '-'}</Badge>
                     </TableCell>
                     <TableCell className="font-mono">
-                      ${item.data.price?.toFixed(2) || '0.00'}
+                      {formatEUR(item.data.price ?? 0)}
                     </TableCell>
                     <TableCell className="text-sm">
                       {item.data.estimatedTime || '-'}

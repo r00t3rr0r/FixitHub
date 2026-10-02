@@ -1,0 +1,100 @@
+(node:1097836) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1097836) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1097836) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[1] Kompatible Services fuer den Geraetewechsel (Backend-Filter)
+[DeviceChange] Found 27 compatible services for device Apple iPhone 15 (smartphone)
+  PASS passender Service enthalten :: 27
+  PASS Service fuer iPhone 14 NICHT enthalten :: false
+  PASS Altdaten-Service fuer iPhone 14 NICHT enthalten :: false
+  PASS deaktivierter Service NICHT enthalten :: false
+  PASS fremder Hersteller NICHT enthalten :: false
+  PASS modellunabhaengiger Hersteller-Service enthalten :: true
+  PASS vollstaendige Liste ohne Seitenbegrenzung (25 + Display + Diagnose) :: 27
+
+[2] Katalogliste mit Modellfilter behandelt Altdaten korrekt
+ServiceService: Listing services with filters: {
+  deviceType: 'smartphone',
+  manufacturerPrecise: 'Apple',
+  modelPrecise: 'iPhone 15'
+} pagination: { page: 1, limit: 100 } sorting: {}
+ServiceService: Querying with sort: { popularity: -1, name: 1 } skip: 0, limit: 100
+ServiceService: Found 27 services out of 27 total (page 1/1)
+  PASS Altdaten-Service fuer iPhone 14 NICHT als "alle Modelle" gelistet :: false
+  PASS modellunabhaengiger Service gelistet :: true
+ServiceService: Listing services with filters: {
+  deviceType: 'Smartphone',
+  manufacturerPrecise: 'Apple',
+  modelPrecise: 'iPhone 14'
+} pagination: { page: 1, limit: 100 } sorting: {}
+ServiceService: Querying with sort: { popularity: -1, name: 1 } skip: 0, limit: 100
+ServiceService: Found 3 services out of 3 total (page 1/1)
+  PASS Altdaten-Service beim richtigen Modell gelistet :: Akkutausch (Altdaten),Diagnose Apple,Displaytausch iPhone 14
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf92c3c726d631abd8ab45'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 14',
+  deviceType: 'Smartphone',
+  services: [ '6abf92c3c726d631abd8abba' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf92c4c726d631abd8ac41')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+  PASS Ausgangslage 100 - 10 % = 90,00 :: 90
+
+[3] Geraetewechsel mit Service fuer ein ANDERES Modell wird abgelehnt - nichts gespeichert
+[DeviceChange] Starting device change for order 6abf92c4c726d631abd8ac41. Old: Apple iPhone 14 (Smartphone), New: Apple iPhone 15 (smartphone)
+[DeviceChange] Error changing device: Der Service „Displaytausch iPhone 14“ passt nicht zu Apple iPhone 15 (anderes Modell).
+  PASS Fehler gemeldet :: Der Service „Displaytausch iPhone 14“ passt nicht zu Apple iPhone 15 (anderes Modell).
+  PASS Fehlermeldung deutsch :: Der Service „Displaytausch iPhone 14“ passt nicht zu Apple iPhone 15 (anderes Modell).
+  PASS Geraet NICHT geaendert :: iPhone 14
+  PASS Position NICHT geaendert :: 6abf92c3c726d631abd8abba
+
+[4] Geraetewechsel mit DEAKTIVIERTEM Service wird abgelehnt
+[DeviceChange] Starting device change for order 6abf92c4c726d631abd8ac41. Old: Apple iPhone 14 (Smartphone), New: Apple iPhone 15 (smartphone)
+[DeviceChange] Error changing device: Der Service „Alt: Kamera iPhone 15“ ist nicht mehr aktiv und kann nicht verwendet werden.
+  PASS Fehler gemeldet :: Der Service „Alt: Kamera iPhone 15“ ist nicht mehr aktiv und kann nicht verwendet werden.
+  PASS Geraet NICHT geaendert :: iPhone 14
+
+[5] Gueltiger Geraetewechsel iPhone 14 -> iPhone 15 (Display 120,00)
+[DeviceChange] Starting device change for order 6abf92c4c726d631abd8ac41. Old: Apple iPhone 14 (Smartphone), New: Apple iPhone 15 (smartphone)
+[DeviceChange] Replaced service Displaytausch iPhone 14 with Displaytausch iPhone 15: 100 -> 120
+[DeviceChange] Total cost change: 90 -> 108 (+18)
+[DeviceChange] Device successfully changed for order 6abf92c4c726d631abd8ac41. Requires confirmation: true
+  PASS Erfolg gemeldet :: true
+  PASS weiterhin genau 1 Position :: 1
+  PASS dieselbe Auftragszeile :: 6abf92c4c726d631abd8ac42
+  PASS richtige Service-ID :: 6abf92c3c726d631abd8abbf
+  PASS Name-Snapshot des neuen Service :: Displaytausch iPhone 15
+  PASS Listenpreis 120,00 :: 120
+  PASS Haendlerrabatt neu berechnet = 12,00 :: 12
+  PASS Auftragswert = 108,00 :: 108
+  PASS Zusammenfassung zeigt 108,00 :: 108
+[OrderServiceManagement] Retrieved 1 services for order 6abf92c4c726d631abd8ac41
+  PASS nach Reload: Service korrekt :: Displaytausch iPhone 15
+  PASS nach Reload: Brutto 108,00 :: 108
+  PASS Geraetewechsel historisiert :: 1
+  PASS Verursacher festgehalten :: 6abf92c3c726d631abd8ab8e
+  PASS vorher 90,00 -> nachher 108,00 :: 90 -> 108
+  PASS Grund festgehalten :: Gerätewechsel Apple iPhone 14 → Apple iPhone 15 | „Displaytausch iPhone 14“ → „Displaytausch iPhone 15“ (120,00 €) | Auftragswert 90,00 € → 108,00 € | Grund: Kunde hat falsches Modell gebucht
+
+[6] Bestaetigung benachrichtigt den Kunden (Mock, deutsch)
+[DeviceChange] Device change confirmed for order 6abf92c4c726d631abd8ac41 by user 6abf92c3c726d631abd8ab8e
+  PASS Benachrichtigung erzeugt :: 1
+  PASS deutscher Text mit Umlaut :: Gerätewechsel bestätigt / Der Gerätewechsel für Ihren Reparaturauftrag #ORD-2026-001 wurde bestätigt. Reparaturservices und Preise wurden entsprechend angepasst.
+
+[7] Service fuer ein anderes Modell kann nicht zum Auftrag hinzugefuegt werden
+[OrderServiceManagement] Error adding service to order: Der Service „Displaytausch Galaxy S24“ passt nicht zu dem Gerät dieses Auftrags (Apple iPhone 15) (anderer Hersteller).
+  PASS Hinzufuegen abgelehnt (deutsch) :: Der Service „Displaytausch Galaxy S24“ passt nicht zu dem Gerät dieses Auftrags (Apple iPhone 15) (anderer Hersteller).
+  PASS nichts hinzugefuegt :: 1
+[OrderServiceManagement] Service 6abf92c3c726d631abd8abc8 added to order 6abf92c4c726d631abd8ac41. List price: 20. Order value: 126
+  PASS modellunabhaengiger Service darf hinzugefuegt werden :: 2
+  PASS fehlende Zeitangabe -> 0 Minuten (kein NaN) :: 0
+  PASS Auftragswert = 126,00 :: 126
+
+[8] Rechnungsbrutto === Auftragswert nach dem Geraetewechsel
+FinancialService: Generating invoice from repair orders: [ '6abf92c4c726d631abd8ac41' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0001
+  PASS Rechnungsbrutto === Auftragswert :: 126 === 126
+
+==== 40 bestanden, 0 fehlgeschlagen ====

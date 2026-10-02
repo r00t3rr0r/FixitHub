@@ -485,13 +485,184 @@ class SystemConfigService {
 
       this.migrateTemplateLinksToCentralBaseUrl(config);
 
-      const savedConfig = await config.save();
+      // Abschnittsweise speichern: validiert werden nur die geaenderten Pfade. Unberuehrte
+      // Abschnitte mit Altdaten (z. B. Integration ohne apiKey) blockieren sonst jede Einstellung.
+      const savedConfig = await config.save({ validateModifiedOnly: true });
       console.log('SystemConfigService: Configuration updated successfully');
       return savedConfig;
     } catch (error) {
       console.error('SystemConfigService: Error updating configuration:', error);
       throw error;
     }
+  }
+
+  /**
+   * Abschnittsweises Speichern fuer PUT /api/system-config (01.10.2026, SET-1/SET-4).
+   *
+   * Drei Oberflaechen teilen sich das Singleton-Dokument (Systemkonfiguration,
+   * Rechnungen > Einstellungen, Analysen > Einstellungen). Frueher wurde der komplette
+   * Stand beim Seitenaufruf zurueckgeschrieben und verschachtelte Objekte ersetzt ->
+   * Einstellungen anderer Seiten wurden still zurueckgesetzt.
+   *
+   * Jetzt:
+   *  - nur Abschnitte aus EDITABLE_SECTIONS werden uebernommen; profitabilitySettings,
+   *    notificationTemplates, integrations usw. haben eigene Endpunkte und werden ignoriert
+   *    (im Ergebnis als ignoredSections gemeldet);
+   *  - jeder gelieferte Abschnitt wird in den gespeicherten Stand tief gemischt
+   *    (Arrays werden ersetzt), Geschwisterfelder bleiben erhalten;
+   *  - financialSettings wird fachlich validiert (400 mit deutschem Text).
+   */
+  static EDITABLE_SECTIONS = [
+    'siteName',
+    'adminEmail',
+    'timezone',
+    'maintenanceMode',
+    'emailSettings',
+    'notificationSettings',
+    'templateLinkSettings',
+    'workflowSettings',
+    'securitySettings',
+    'contentSettings',
+    'cartSettings',
+    'financialSettings'
+  ];
+
+  static isPlainObject(value) {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+      && !(value instanceof Date) && Object.getPrototypeOf(value) === Object.prototype;
+  }
+
+  static deepMergeSection(base, patch) {
+    if (!this.isPlainObject(patch)) return patch;
+    const result = this.isPlainObject(base) ? { ...base } : {};
+    Object.entries(patch).forEach(([key, value]) => {
+      if (value === undefined) return;
+      result[key] = this.isPlainObject(value) ? this.deepMergeSection(result[key], value) : value;
+    });
+    return result;
+  }
+
+  static validationError(message) {
+    const error = new Error(message);
+    error.status = 400;
+    return error;
+  }
+
+  /**
+   * Prueft nur die im Patch gelieferten Felder (gespeicherte Altwerte blockieren das
+   * Speichern anderer Felder nicht). Zahlen als String ("7") werden in Zahlen umgewandelt.
+   * Gibt den bereinigten Patch zurueck.
+   */
+  static validateFinancialSettingsPatch(patch) {
+    if (patch === undefined) return patch;
+    if (!this.isPlainObject(patch)) {
+      throw this.validationError('Finanzeinstellungen haben ein ungültiges Format.');
+    }
+    const clean = JSON.parse(JSON.stringify(patch));
+    const has = (obj, key) => this.isPlainObject(obj) && Object.prototype.hasOwnProperty.call(obj, key);
+    const numberInRange = (obj, key, { min, max, integer = false, label }) => {
+      if (!has(obj, key)) return;
+      const raw = obj[key];
+      const value = typeof raw === 'string' ? Number(raw.replace(',', '.').trim()) : Number(raw);
+      if (raw === '' || raw === null || !Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
+        throw this.validationError(`${label} muss ${integer ? 'eine ganze Zahl' : 'eine Zahl'} zwischen ${min} und ${max} sein.`);
+      }
+      obj[key] = value;
+    };
+    const emailOrEmpty = (obj, key, label) => {
+      if (!has(obj, key)) return;
+      const value = String(obj[key] ?? '').trim();
+      if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) {
+        throw this.validationError(`${label}: Bitte eine gültige E-Mail-Adresse eingeben.`);
+      }
+      obj[key] = value;
+    };
+
+    const defaults = clean.defaults;
+    if (defaults !== undefined && !this.isPlainObject(defaults)) {
+      throw this.validationError('Finanzeinstellungen (Standardwerte) haben ein ungültiges Format.');
+    }
+    numberInRange(defaults, 'taxRate', { min: 0, max: 100, label: 'Steuersatz (%)' });
+    numberInRange(defaults, 'defaultDiscount', { min: 0, max: 100, label: 'Standardrabatt (%)' });
+    numberInRange(defaults, 'paymentDueDays', { min: 0, max: 365, integer: true, label: 'Zahlungsziel (Tage)' });
+    if (has(defaults, 'currency')) {
+      const currency = String(defaults.currency ?? '').trim().toUpperCase();
+      if (currency !== 'EUR') {
+        throw this.validationError('Standardwährung ist fest auf EUR eingestellt (keine Umrechnung).');
+      }
+      defaults.currency = currency;
+    }
+    if (has(defaults, 'locale')) {
+      const locale = String(defaults.locale ?? '').trim();
+      let supported = /^[a-z]{2}-[A-Z]{2}$/.test(locale);
+      if (supported) {
+        try {
+          supported = Intl.NumberFormat.supportedLocalesOf([locale]).length > 0;
+        } catch (error) {
+          supported = false;
+        }
+      }
+      if (!supported) {
+        throw this.validationError('Gebietsschema muss im Format „de-DE“ angegeben werden.');
+      }
+      defaults.locale = locale;
+    }
+
+    const discountPolicy = clean.discountPolicy;
+    numberInRange(discountPolicy, 'maxDiscountPercent', { min: 0, max: 100, label: 'Max. Rabatt (%)' });
+    numberInRange(discountPolicy, 'lateFeePercent', { min: 0, max: 100, label: 'Verzugspauschale (%)' });
+
+    emailOrEmpty(clean.invoiceMetadata, 'issuerEmail', 'Absender-E-Mail für Rechnungen');
+    emailOrEmpty(clean.paymentPreferences, 'internalCopyEmail', 'E-Mail für interne Kopie');
+
+    return clean;
+  }
+
+  static async updateSystemConfigurationSections(body) {
+    if (!this.isPlainObject(body)) {
+      throw this.validationError('Ungültige Anfrage: Es wurden keine Einstellungen übermittelt.');
+    }
+
+    const updatedSections = [];
+    const ignoredSections = [];
+    const patch = {};
+    Object.keys(body).forEach((key) => {
+      if (this.EDITABLE_SECTIONS.includes(key)) {
+        if (body[key] !== undefined) {
+          patch[key] = body[key];
+          updatedSections.push(key);
+        }
+      } else {
+        ignoredSections.push(key);
+      }
+    });
+
+    if (Object.prototype.hasOwnProperty.call(patch, 'financialSettings')) {
+      patch.financialSettings = this.validateFinancialSettingsPatch(patch.financialSettings);
+    }
+
+    let config = await SystemConfiguration.findOne();
+    if (!config) {
+      config = new SystemConfiguration();
+    }
+    const current = config.toObject({ depopulate: true });
+
+    const merged = {};
+    updatedSections.forEach((section) => {
+      const value = patch[section];
+      merged[section] = this.isPlainObject(value)
+        ? this.deepMergeSection(current[section], value)
+        : value;
+    });
+
+    // templateLinkSettings-Sonderlogik (Normalisierung / strikte Production-URL) bleibt
+    // in updateSystemConfiguration; dort wird nur noch der gemischte Abschnitt zugewiesen.
+    let savedConfig = config;
+    if (updatedSections.length > 0) {
+      savedConfig = await this.updateSystemConfiguration(merged);
+    }
+
+    return { config: savedConfig, updatedSections, ignoredSections };
   }
 
   // Get notification templates

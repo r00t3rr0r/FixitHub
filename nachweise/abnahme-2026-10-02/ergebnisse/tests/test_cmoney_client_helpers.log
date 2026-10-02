@@ -1,0 +1,34 @@
+
+[1] Gemeinsame Dezimalregel
+  PASS "49.90" => 49,9 :: 49.9
+  PASS "49,90" => 49,9 :: 49.9
+  PASS "1.234,50" => 1234,5 :: 1234.5
+
+[2] Keine eigenen Komma/Punkt-Parser fuer Geldbetraege
+  PASS Kostenvoranschlag: parseAmount nutzt parseDecimalInput (frueher "49.90" -> 4990 €) :: const parseAmount = (): number | null => { const value = parseDecimalInput(quoteAmount) return value !== null && value >
+  PASS Ueberzahlung: parseDecimalInput statt parseFloat(x.replace(",", ".")) (frueher "1.234,50" -> 1,234) :: geprueft
+
+[3] Blob-Downloads ueber die gemeinsame Konfiguration
+  PASS exportPayments(csv) liefert die CSV-Datei als Blob :: "Rechnungsnummer;Datum;Be"
+  PASS exportInvoicesData(csv) liefert die CSV-Datei als Blob :: "Rechnungsnummer;Datum;Be"
+  PASS exportInvoicesData ZM(csv) liefert die CSV-Datei als Blob :: "Rechnungsnummer;Datum;Be"
+  PASS exportPayments(json) bleibt JSON :: {"items":[]}
+  PASS Lieferantenrechnung: downloadInvoice liefert Blob :: Blob
+  PASS src/api/users.ts: gemeinsame invoicePdfRequestConfig() statt eigener Blob-Kopie :: geprueft
+  PASS src/api/epartOrders.ts: gemeinsame invoicePdfRequestConfig() statt eigener Blob-Kopie :: geprueft
+  PASS src/api/financial.ts: gemeinsame invoicePdfRequestConfig() statt eigener Blob-Kopie :: geprueft
+
+[4] Ein Geldformatierer fuer Reparaturanfragen
+  PASS ungueltiger Waehrungscode -> EUR (frueher RangeError) :: 1,00 €
+  PASS formatMoney = lib/utils formatMoney :: 89,00 € / 1.234,50 €
+
+[5] Betraege immer de-DE
+  PASS Startseiten-Shop: formatEUR (frueher "€49.90" in der englischen Oberflaeche) :: 49,90 €
+  PASS Reklamationen: formatEUR statt "12.50 EUR" :: 12,50 €
+
+[6] Importe stehen im Importblock
+  PASS src/components/admin/UserDetailsDialog.tsx: formatEUR-Import oben, Datei endet mit Zeilenumbruch :: sauber
+  PASS src/pages/admin/PartsManagement.tsx: formatEUR-Import oben, Datei endet mit Zeilenumbruch :: sauber
+  PASS src/pages/admin/ServiceManagement.tsx: formatEUR-Import oben, Datei endet mit Zeilenumbruch :: sauber
+
+Ergebnis: 20 PASS, 0 FAIL

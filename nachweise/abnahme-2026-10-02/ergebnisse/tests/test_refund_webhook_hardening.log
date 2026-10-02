@@ -1,0 +1,83 @@
+
+[1 refundCapture: endgueltig abgelehnt vs. unklar, deutsche Meldung]
+  PASS Zeitueberschreitung = unklar (Geld evtl. bewegt) :: {"thrown":true,"outcome":"indeterminate","message":"PayPal hat nicht eindeutig geantwortet (Zeitüberschreitung oder Störung beim Anbieter). Die Erstattung kann bereits ausgeführt worden sein.","providerCode":"ECONNABORTED"}
+  PASS HTTP 503 = unklar :: {"thrown":true,"outcome":"indeterminate","message":"PayPal hat nicht eindeutig geantwortet (Zeitüberschreitung oder Störung beim Anbieter). Die Erstattung kann bereits ausgeführt worden sein.","providerCode":"SERVICE_UNAVAILABLE"}
+  PASS HTTP 422 mit Antwort = endgueltig abgelehnt :: {"thrown":true,"outcome":"rejected","message":"Der Betrag übersteigt den bei PayPal noch erstattbaren Betrag dieser Zahlung.","providerCode":"REFUND_AMOUNT_EXCEEDED"}
+  PASS Meldung deutsch, kein roher PayPal-Code im Satz :: Der Betrag übersteigt den bei PayPal noch erstattbaren Betrag dieser Zahlung.
+  PASS Roher Code nur als providerCode :: REFUND_AMOUNT_EXCEEDED
+
+[2 Unklares PayPal-Ergebnis: ausstehend, keine zweite Erstattung, Abgleich mit derselben Request-ID]
+  PASS Zeitueberschreitung wird NICHT als Fehler "nichts erstattet" gemeldet :: kein Fehler
+  PASS Antwort: ausstehend, Ergebnis unklar :: pending / true
+  PASS Eintrag bleibt ausstehend (nicht failed) :: pending
+  PASS Noch nichts als erstattet gezaehlt :: undefined
+  PASS Neue Erstattung abgelehnt, solange eine ungeklaert ist (409, deutsch) :: 409 Eine frühere PayPal-Erstattung dieser Zahlung über 20,00 € ist noch ungeklärt (PayPal hat nicht eindeutig geantwortet). Bitte zuerst im PayPal-Konto prüfen, ob diese Erstattung ausgeführt wurde, und den Vorgang bei der Zahlung über „Abgleichen“ klären (ausgeführt – mit PayPal-Erstattungs-ID – oder nicht ausgeführt). Bis dahin wird keine weitere Erstattung gebucht, auch keine manuelle: sonst würde dasselbe Geld doppelt gezählt, sobald PayPal den offenen Vorgang abschließt.
+  PASS Keine PayPal-Erstattung mit neuer Request-ID :: []
+  PASS Bei PayPal genau 20 erstattet (nicht doppelt) :: 20
+  PASS Neue Erstattung angehalten, solange die fruehere ungeklaert ist (409, deutsch) :: REFUND_UNRESOLVED Eine frühere PayPal-Erstattung dieser Zahlung über 20,00 € ist noch ungeklärt (PayPal hat nicht eindeutig geantwortet). Bitte zuerst im PayPal-Konto prüfen, ob diese Erstattung ausgeführt wurde, und den Vorgang bei der Zahlung über „Abgleichen“ klären (ausgeführt – mit PayPal-Erstattungs-ID – oder nicht ausgeführt). Bis dahin wird keine weitere Erstattung gebucht, auch keine manuelle: sonst würde dasselbe Geld doppelt gezählt, sobald PayPal den offenen Vorgang abschließt.
+  PASS Kein PayPal-Aufruf als Nebenwirkung einer anderen Anfrage :: 0 Aufrufe
+  PASS Nichts doppelt: gebucht 0, bei PayPal weiterhin genau 20 :: undefined / 20
+  PASS Wiederholung im selben Dialog: genau ein Abgleich mit DERSELBEN PayPal-Request-Id :: completed / 1 Aufruf(e) / true
+  PASS Abgeglichen: 20 erstattet, genau einmal, bei PayPal genau 20 :: 20 / 20
+  PASS Rest bleibt gueltig (Teilerstattung) :: completed
+  PASS Nach Abgleich: weitere Erstattung 15 moeglich (20 + 15) :: completed / 35 / 35
+  PASS Abgleich "nicht ausgefuehrt": failed, nichts gebucht :: failed / undefined
+  PASS Abgleich "ausgefuehrt" + spaeterer Webhook: genau 12 gebucht :: 12
+  PASS HTTP 503 -> ausstehend :: pending
+  PASS Webhook schliesst den unklaren Eintrag ab (kein zweiter Eintrag) :: 10 / 1
+
+[3 Endgueltig abgelehnt: kontrollierte Wiederholung unter demselben Schluessel]
+  PASS Ablehnung gemeldet, deutsch, ohne rohen Code :: Der Betrag übersteigt den bei PayPal noch erstattbaren Betrag dieser Zahlung. Es wurde nichts als erstattet verbucht; die Erstattung kann nach Klärung erneut ausgelöst werden.
+  PASS Eintrag failed, nichts gezaehlt :: failed / undefined
+  PASS Wiederholung mit demselben Schluessel moeglich :: completed
+  PASS 20 erstattet :: 20
+  PASS Neue PayPal-Request-Id fuer den neuen Versuch :: ["mcr-refund-0121e215c99df873ef60059c6cb91385-1","mcr-refund-0121e215c99df873ef60059c6cb91385-2"]
+  PASS Erfolgreiche Erstattung wird nicht wiederholt :: true / 20 / 2
+  PASS Parallele Wiederholung: genau eine Erstattung :: 10 / failed,completed
+
+[4 "Bezahlt" nach Erstattung der Restzahlung erneut moeglich, Doppelklick = eine Wirkung]
+  PASS Doppelklick: genau eine Restzahlung 50 :: 50
+  PASS Nach Erstattung wieder 50 offen :: 50
+  PASS Erneut "bezahlt" (vorher partially_paid) funktioniert :: paid
+  PASS Beleg: 150 gueltig zugeordnet, offen 0 :: {"a":150,"o":0}
+  PASS Genau eine neue gueltige Restzahlung :: 50/completed/0,50/refunded/50
+
+[5 Zwei verschiedene Zahlungen gleichzeitig auf dieselbe Rechnung: keine Ueberzuordnung]
+  PASS Genau eine Zahlung angenommen :: 1
+  PASS Zugeordnet genau 100 (nicht mehr) :: 100
+  PASS Keine zusaetzliche gezaehlte Zahlung, keine Ueberzahlung :: 1 / 0
+  PASS Ablehnungen deutsch :: Die Zahlung konnte nicht gebucht werden, weil der Rechnungsstand parallel geändert wurde. Bitte erneut versuchen. | Die Zahlung konnte nicht gebucht werden, weil der Rechnungsstand parallel geändert wurde. Bitte erneut versuchen. | Die Zahlung konnte nicht gebucht werden, weil der Rechnungsstand parallel geändert wurde. Bitte erneut versuchen.
+  PASS Zwei Teilzahlungen nacheinander: bezahlt :: {"a":80,"o":0}
+
+[6 LIVE-Webhook-Route: Refund-Ereignisse idempotent und kumulativ]
+  PASS Webhook angenommen :: 200
+  PASS Teilerstattung 40: Status bleibt completed, 60 zaehlen weiter :: completed / 40
+  PASS Capture-Referenz nicht durch Refund-ID ueberschrieben :: CAP-WH
+  PASS Wiederholter Webhook: keine zweite Buchung :: 40 / 1
+  PASS PENDING zaehlt noch nicht :: pending / 40
+  PASS Webhook schliesst die ausstehende Erstattung genau einmal ab (40 + 25) :: 65 / completed,completed
+  PASS Rueckbuchung 35: voll erstattet :: 100 / refunded
+  PASS Spaetes COMPLETED hebt die Erstattung nicht auf :: refunded / 100 / 100
+  PASS Unbekannte Capture: quittiert, nichts veraendert :: 200 / false
+
+[7 POST /api/invoices/:id/pay: dieselbe Ankuendigung zweimal = eine Vormerkung]
+  PASS Alle Antworten 202 (vorgemerkt) :: 202,202,202
+  PASS Genau EINE Vormerkung gespeichert :: 1
+  PASS Vormerkung zaehlt nicht als Zahlung :: 70
+
+[8 POST /api/invoices/:id/payments/confirm: Referenz muss zu DIESER Rechnung gehoeren]
+  PASS PayPal-Order einer anderen Rechnung abgelehnt, nichts gebucht :: 409 Diese PayPal-Zahlung gehört nicht zu dieser Rechnung und wurde nicht verbucht.
+  PASS Meldung deutsch :: Diese PayPal-Zahlung gehört nicht zu dieser Rechnung und wurde nicht verbucht.
+  PASS Richtige Rechnung: gebucht, bezahlt :: 201 / 0
+  PASS Bereits gebuchte Capture wird nicht ein zweites Mal gebucht :: 409 Diese Zahlung ist bereits an anderer Stelle verbucht und wurde nicht erneut erfasst. Bitte wenden Sie sich an unseren Support, falls die Rechnung dennoch offen ist.
+  PASS Stripe-Session einer anderen Rechnung abgelehnt :: 409 Diese Stripe-Zahlung gehört nicht zu dieser Rechnung und wurde nicht verbucht.
+
+[9 Admin-Route POST /api/admin/financial/payments/:id/refund + Abgleich (HTTP)]
+  PASS HTTP: unklar -> 201, ausstehend, indeterminate :: 201 / {"_id":"6abf936c80f2da567fdcb71d","paymentId":"6abf936c80f2da567fdcb715","amount":30,"reason":"Kulanz","mode":"gateway","status":"pending","indeterminate":true,"gatewayProvider":"paypal","gatewayReference":"","processedAt":"2026-10-02T11:20:12.682Z","refundedTotal":0,"duplicate":false}
+  PASS HTTP: deutsche Meldung "nicht eindeutig" :: PayPal hat nicht eindeutig geantwortet. Die Erstattung ist als „ausstehend – Abgleich nötig“ vorgemerkt und zählt noch nicht als erstattet. Sie wird über die PayPal-Benachrichtigung abgeglichen oder beim erneuten Auslösen desselben Vorgangs geprüft – es wird dabei nicht doppelt erstattet.
+  PASS HTTP: zweite Erstattung waehrend ungeklaert -> 409 :: 409 REFUND_UNRESOLVED
+  PASS HTTP-Abgleich "ausgefuehrt": 30 gebucht :: 200 / 30
+  PASS HTTP: bereits abgeglichener Vorgang -> 409 :: 409
+  PASS Kunde darf nicht erstatten (403) :: 403
+
+==== 63 bestanden, 0 fehlgeschlagen ====

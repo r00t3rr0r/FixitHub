@@ -1,5 +1,8 @@
 # Manueller Abnahmetest für Sophie
 
+> **Ergänzt am 02.10.2026:** Kommunikation, Verlauf, Versand und Bedienung werden mit `ABNAHMETEST_2026-10-02.md` geprüft; die Punkte hier zu Preis, Rechnung, Zahlung und Inspektion gelten weiter.
+
+
 **Stand:** 26.09.2026 · Branch `adars` (noch nicht committet)
 
 Diese Liste prüft genau die Punkte aus deinem Test vom 24.09.2026. Zu jedem Schritt steht, was

@@ -2,6 +2,7 @@ const DeviceInspection = require('../models/DeviceInspection');
 const Order = require('../models/Order');
 const NotificationService = require('./notificationService');
 const OrderService = require('./orderService');
+const OrderHistory = require('../utils/orderHistory');
 const EmailService = require('./emailService');
 const pdfkit = require('pdfkit');
 const path = require('path');
@@ -253,7 +254,7 @@ class DeviceInspectionService {
       let resolvedCustomerId = customerId || null;
 
       const order = await Order.findById(orderId)
-        .select('customerId deviceBrand deviceModel deviceType reportedDevice timeline');
+        .select('customerId status deviceBrand deviceModel deviceType reportedDevice timeline');
       if (!order) {
         throw new Error('Auftrag nicht gefunden.');
       }
@@ -264,6 +265,7 @@ class DeviceInspectionService {
 
       // Check if inspection already exists
       let inspection = await DeviceInspection.findOne({ orderId });
+      const created = !inspection;
 
       if (!inspection) {
         // "Gemeldetes Modell" is the device the customer originally booked. Order.reportedDevice
@@ -313,26 +315,71 @@ class DeviceInspectionService {
           }
         }
 
-        // Update order state through OrderService so status notifications stay centralized.
-        try {
-          const updatedOrder = await OrderService.updateStatus(
-            orderId,
-            'diagnostic-assessment',
-            'Device inspection has been initiated by technician',
-            technicianId
-          );
-          console.log(`[DeviceInspection] Order status updated to 'diagnostic-assessment' for order: ${updatedOrder?._id || orderId}`);
-        } catch (orderError) {
-          console.error(`[DeviceInspection] Error updating order status:`, orderError);
-          // Don't throw - status update failure shouldn't block inspection initialization
-        }
       }
+
+      // Auftragsverlauf + Status (HIST-5c / HIST-10): 'Inspection Started' wird genau einmal je
+      // Inspektion geschrieben (eventKey). Fehlt der Eintrag - etwa weil die Statusaenderung beim
+      // ersten Start fehlschlug -, holt ein erneuter Aufruf ihn nach (selbstheilend). Ein Fehler
+      // wird NICHT verschluckt, sondern als Warnung an die Oberflaeche gemeldet.
+      inspection.$locals.warnings = await this._recordInspectionStart(order, inspection, technicianId, { created });
 
       return inspection;
     } catch (error) {
       console.error(`[DeviceInspection] Error initializing inspection:`, error);
       throw error;
     }
+  }
+
+  /**
+   * 'Inspection Started' im Auftragsverlauf (HIST-10) und Status 'diagnostic-assessment' (nur aus
+   * 'pending') - genau einmal je Inspektion (eventKey inspection-start:<id>, dasselbe Format wie die
+   * Leseprojektion). Altdaten werden nicht angefasst: nachgeholt wird nur bei einer neu angelegten
+   * Inspektion oder solange der Auftrag noch 'pending' ist (= der Statuswechsel ist fehlgeschlagen).
+   * Rueckgabe: deutsche Warnungen (leer = alles gespeichert).
+   */
+  static async _recordInspectionStart(order, inspection, technicianId, { created = false } = {}) {
+    const warnings = [];
+    if (!order || !inspection) return warnings;
+    const eventKey = OrderHistory.inspectionEventKey('start', inspection._id);
+    if (OrderHistory.hasEventKey(order, eventKey)) return warnings;
+    const pending = order.status === 'pending';
+    if (!created && !pending) return warnings;
+    try {
+      if (pending && inspection.status !== 'completed') {
+        // Interne Verlaufsnotiz und Kundentext sind getrennt (NOTIF-3).
+        await OrderService.updateStatus(
+          order._id,
+          'diagnostic-assessment',
+          'Eingangsprüfung durch Techniker gestartet',
+          technicianId,
+          {
+            customerMessage: 'Ihr Gerät ist bei uns eingegangen. Die Eingangsprüfung hat begonnen.',
+            key: 'Inspection Started',
+            eventKey,
+            source: 'Eingangsprüfung',
+            refs: { inspectionId: inspection._id },
+          }
+        );
+      } else {
+        const actor = await OrderHistory.resolveActor(technicianId);
+        const historyEntry = OrderHistory.entry({
+          key: 'Inspection Started',
+          type: 'inspection',
+          description: 'Eingangsprüfung gestartet',
+          actor,
+          source: 'Eingangsprüfung',
+          refs: { inspectionId: inspection._id },
+          eventKey,
+          at: inspection.startedAt || new Date(),
+        });
+        const { filter, update } = OrderHistory.updateFor(historyEntry, { _id: order._id });
+        await Order.updateOne(filter, update);
+      }
+    } catch (error) {
+      console.error(`[DeviceInspection] Order status/history for inspection start failed:`, error);
+      warnings.push('Die Eingangsprüfung wurde gestartet, aber Auftragsstatus und Verlauf konnten nicht aktualisiert werden. Bitte „Erneut versuchen“ wählen.');
+    }
+    return warnings;
   }
 
   // Get inspection by order ID
@@ -669,15 +716,22 @@ class DeviceInspectionService {
         .map(t => `- ${t.testName}: ${t.reason}`)
         .join('\n');
 
+      // Typ 'order_update' (frueher 'order-alert' - kein gueltiger Typ, die Benachrichtigung ging
+      // still verloren, NOTIF-8). dedupeKey: hoechstens EINE solche Benachrichtigung je Inspektion.
+      const inspectionOrderId = String(inspection.orderId?._id || inspection.orderId || '');
       await NotificationService.createNotification({
         userId: inspection.customerId,
-        type: 'order-alert',
+        type: 'order_update',
         title: 'Auffälligkeiten beim Gerätetest',
         message: `Beim Test Ihres Geräts sind folgende Auffälligkeiten aufgefallen:\n${failedTestsText}\nEin Techniker meldet sich in Kürze mit den Reparaturmöglichkeiten bei Ihnen.`,
+        orderId: inspectionOrderId || undefined,
+        actionUrl: inspectionOrderId ? `/orders/${inspectionOrderId}` : '',
+        dedupeKey: `inspection:${inspection._id}:failed_tests`,
         metadata: {
-          orderId: inspection.orderId,
+          orderId: inspectionOrderId || null,
           inspectionId: inspection._id,
           failedTests: inspection.failedTestDetails,
+          event: 'inspection_failed_tests',
         },
       });
 
@@ -687,6 +741,89 @@ class DeviceInspectionService {
       console.error(`[DeviceInspection] Error creating customer notification:`, error);
       // Don't throw - notification failure shouldn't block inspection
     }
+  }
+
+  // Kundentext zu einem Defekt an den Kunden des Auftrags (In-App + E-Mail, ausdrueckliche
+  // Mitarbeiteraktion wie eine Chatnachricht). Liefert { status: 'sent' | 'skipped' | 'duplicate' | 'failed', error? }.
+  static async _sendCustomerDefectInformation(inspection, orderId, customerInformation) {
+    const shouldInform = Boolean(customerInformation && customerInformation.shouldInform);
+    const customerMessage = String(customerInformation?.customerMessage || '').trim().slice(0, 2000);
+    if (!shouldInform || !customerMessage) {
+      return { status: 'skipped' };
+    }
+    try {
+      const order = await Order.findById(orderId)
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id orderNumber customerId')
+        .lean();
+      const customerId = order?.customerId ? String(order.customerId._id || order.customerId) : '';
+      if (!customerId) {
+        return { status: 'skipped', reason: 'no_customer_account' };
+      }
+      const result = await NotificationService.createNotification({
+        userId: customerId,
+        type: 'message',
+        title: 'Information zu einem Defekt an Ihrem Gerät',
+        message: customerMessage,
+        orderId: String(order._id),
+        actionUrl: `/orders/${order._id}`,
+        dedupeKey: `inspection:${inspection._id}:customer_defect_info`,
+        metadata: {
+          orderId: String(order._id),
+          inspectionId: String(inspection._id),
+          event: 'customer_defect_info',
+        },
+      }, { forceEmail: true, returnResult: true });
+      if (result?.deduplicated) return { status: 'duplicate' };
+      if (result?.emailDelivery?.status === 'failed') {
+        return { status: 'failed', error: result.emailDelivery.error || 'E-Mail fehlgeschlagen' };
+      }
+      // Auch ohne In-App-Zeile (Kunde hat In-App abgeschaltet) zaehlt die versendete E-Mail.
+      return { status: (result?.notification || result?.emailDelivery?.status === 'sent') ? 'sent' : 'skipped' };
+    } catch (error) {
+      console.error(`[DeviceInspection] Error sending customer defect information:`, error);
+      return { status: 'failed', error: error.message };
+    }
+  }
+
+  static async _recordInspectionCompletion(orderId, inspection, { firstCompletion, knownCostBefore, actor } = {}) {
+    const warnings = [];
+    try {
+      const knownCost = DeviceInspection.resolveKnownRepairCost(inspection.repairOffer);
+      const actorInfo = actor ? OrderHistory.normalizeActor(actor) : await OrderHistory.resolveActor(inspection.technicianId);
+      const entries = [];
+      if (firstCompletion) {
+        entries.push(OrderHistory.entry({
+          key: 'Inspection Completed',
+          type: 'inspection',
+          description: `Eingangsprüfung abgeschlossen${knownCost !== null ? ` · Kostenvoranschlag ${OrderHistory.formatEuroDe(knownCost)}${knownCost === 0 ? ' (kostenlos)' : ''}` : ''}`,
+          actor: actorInfo,
+          source: 'Eingangsprüfung',
+          refs: { inspectionId: inspection._id },
+          eventKey: OrderHistory.inspectionEventKey('complete', inspection._id),
+          at: inspection.completedAt,
+        }));
+      } else if (knownCost !== null && knownCost !== knownCostBefore) {
+        entries.push(OrderHistory.entry({
+          key: 'Repair Quote Updated',
+          type: 'quote',
+          description: `Kostenvoranschlag aktualisiert: ${knownCostBefore === null ? 'nicht angegeben' : OrderHistory.formatEuroDe(knownCostBefore)} → ${OrderHistory.formatEuroDe(knownCost)}`,
+          actor: actorInfo,
+          source: 'Eingangsprüfung',
+          changes: [{ field: 'repairOffer.cost', label: 'Kostenvoranschlag', from: knownCostBefore, to: knownCost }],
+          refs: { inspectionId: inspection._id },
+          eventKey: `inspection-quote:${inspection._id}:${knownCost}:${new Date(inspection.completedAt || Date.now()).getTime()}`,
+        }));
+      }
+      for (const historyEntry of entries.filter(Boolean)) {
+        const { filter, update } = OrderHistory.updateFor(historyEntry, { _id: orderId });
+        await Order.updateOne(filter, update);
+      }
+    } catch (error) {
+      console.error(`[DeviceInspection] Order history for inspection completion failed:`, error);
+      warnings.push('Die Inspektion ist gespeichert, aber der Auftragsverlauf konnte nicht aktualisiert werden.');
+    }
+    return warnings;
   }
 
   // Complete inspection and generate report
@@ -717,6 +854,7 @@ class DeviceInspectionService {
       }
 
       if (customerInformation && typeof customerInformation === 'object') {
+        const previousCustomerInformation = inspection.customerInformation || {};
         inspection.customerInformation = {
           shouldInform: Boolean(customerInformation.shouldInform),
           reason: customerInformation.reason || '',
@@ -724,12 +862,16 @@ class DeviceInspectionService {
           suggestedStatus: customerInformation.suggestedStatus || '',
           mailTemplate: customerInformation.mailTemplate || '',
           generatedAt: customerInformation.mailTemplate ? new Date() : null,
+          customerMessage: String(customerInformation.customerMessage || '').trim().slice(0, 2000),
+          // Einmal gesendet bleibt gesendet (erneutes Abschliessen ueberschreibt das nicht).
+          sentAt: previousCustomerInformation.sentAt || null,
         };
       }
 
       const normalizedOffer = this._normalizeRepairOffer(repairOffer);
+      const knownCostBefore = DeviceInspection.resolveKnownRepairCost(inspection.repairOffer);
       if (normalizedOffer) {
-        const previousKnownCost = DeviceInspection.resolveKnownRepairCost(inspection.repairOffer);
+        const previousKnownCost = knownCostBefore;
         // Step 7 has no price input: a payload WITHOUT a price is never a deliberate removal (the
         // 15.09 client sends cost 0 without costSpecified whenever it has no price). A quote that
         // is already known - including an explicit free one - is kept.
@@ -775,13 +917,38 @@ class DeviceInspectionService {
       } catch (saveError) {
         if (saveError && saveError.name === 'DocumentNotFoundError' && !wasAlreadyCompleted && !options._concurrentRetry) {
           console.log(`[DeviceInspection] Inspection ${inspection._id} was completed concurrently - applying this request as a re-completion`);
-          return this.completeInspection(orderId, isRepairable, repairOffer, completionAction, customerInformation, { _concurrentRetry: true });
+          return this.completeInspection(orderId, isRepairable, repairOffer, completionAction, customerInformation, { ...options, _concurrentRetry: true });
         }
         throw saveError;
       } finally {
         inspection.$where = undefined;
       }
       console.log(`[DeviceInspection] Inspection completed: ${inspection._id}`);
+
+      // Kundeninformation zu einem Defekt (NOTIF-7, Server-Vertrag): nur wenn die Checkbox
+      // gesetzt ist UND ein ausdruecklicher Kundentext (customerInformation.customerMessage)
+      // vorliegt. Die interne Notiz (note) erreicht den Kunden nie. Hoechstens EINE solche
+      // Benachrichtigung je Inspektion (dedupeKey), auch bei erneutem Abschliessen.
+      const customerNotification = await this._sendCustomerDefectInformation(inspection, orderId, customerInformation);
+      if (customerNotification.status === 'sent' && !inspection.customerInformation?.sentAt) {
+        const sentAt = new Date();
+        await DeviceInspection.updateOne(
+          { _id: inspection._id, 'customerInformation.sentAt': null },
+          { $set: { 'customerInformation.sentAt': sentAt } }
+        );
+        if (inspection.customerInformation) inspection.customerInformation.sentAt = sentAt;
+      }
+      // Ergebnis fuer die Route (PUT /:orderId/complete -> customerNotification), nicht gespeichert.
+      inspection.$locals.customerNotification = customerNotification;
+
+      // Auftragsverlauf (HIST-10): Abschluss genau einmal (Gewinner des Abschluss-Wettlaufs), ein
+      // geaenderter Kostenvoranschlag bei erneutem Abschliessen als eigener Eintrag. Ein Fehler
+      // macht den Abschluss nicht rueckgaengig, wird aber gemeldet.
+      inspection.$locals.warnings = await this._recordInspectionCompletion(orderId, inspection, {
+        firstCompletion: !wasAlreadyCompleted,
+        knownCostBefore,
+        actor: options.actor,
+      });
 
       if (wasAlreadyCompleted) {
         console.log(`[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email`);
@@ -805,7 +972,10 @@ class DeviceInspectionService {
             // Only an explicitly given price is quoted; a missing price is never "EUR 0.00", and
             // the deprecated isRepairable is not sent (its stored values were mostly defaults).
             const knownCost = DeviceInspection.resolveKnownRepairCost(inspection.repairOffer);
-            await EmailService.sendDiagnosisCompletedEmail(order.customerId.email, {
+            // Eingangspruefung, nicht die kostenpflichtige Diagnose (NOTIF-4): eigener Trigger
+            // 'inspection_completed' (Vorlage 'Eingangspruefung abgeschlossen', Rueckfall auf die
+            // bisherige Vorlage 'Diagnose abgeschlossen').
+            await EmailService.sendInspectionCompletedEmail(order.customerId.email, {
               customerName,
               orderNumber: order.orderNumber,
               deviceBrand: order.deviceBrand,
@@ -815,12 +985,12 @@ class DeviceInspectionService {
               diagnosisCompletedAt: inspection.completedAt,
               deviceCondition: inspection.externalInspection?.overallCondition || null,
               recommendedAction: knownCost === null
-                ? 'Diagnose abgeschlossen - wir melden uns mit dem weiteren Vorgehen.'
+                ? 'Eingangsprüfung abgeschlossen – wir melden uns mit dem weiteren Vorgehen.'
                 : `Kostenvoranschlag: ${this._formatEuro(knownCost)}${knownCost === 0 ? ' (kostenlos)' : ''}`
             });
           }
         } catch (emailError) {
-          console.error(`[DeviceInspection] Error sending diagnosis completed email:`, emailError);
+          console.error(`[DeviceInspection] Error sending inspection completed email:`, emailError);
         }
       });
 

@@ -120,7 +120,17 @@ async function main() {
   };
   EmailService.buildSystemUrl = async (p) => `http://test.invalid${p}`;
   const NotificationService = require(path.join(SERVER_DIR, 'services/notificationService'));
-  NotificationService.createNotification = async (data) => ({ _id: new mongoose.Types.ObjectId(), ...data });
+  // Workflow-Kundenbenachrichtigungen laufen seit Welle 2 (NOTIF-5) ueber NotificationService
+  // (In-App + E-Mail, returnResult). Nur mit simulateDelivery gelten sie als zugestellt.
+  const createdNotifications = [];
+  NotificationService.createNotification = async (data, options = {}) => {
+    createdNotifications.push(data);
+    const doc = { _id: new mongoose.Types.ObjectId(), ...data };
+    if (!options.returnResult) return doc;
+    return simulateDelivery
+      ? { notification: doc, inApp: true, emailDelivery: { status: 'sent' }, deduplicated: false }
+      : { notification: null, inApp: false, emailDelivery: { status: 'failed', error: 'Im Test nicht zugestellt' }, deduplicated: false };
+  };
   const InspectionCommunicationService = require(path.join(SERVER_DIR, 'services/inspectionCommunicationService'));
   InspectionCommunicationService.notifyMessageRecipients = async () => undefined;
 
@@ -428,24 +438,28 @@ async function main() {
     await call('POST', `/api/repair-workflows/${orderRace._id}/init`, staff, {});
     simulateDelivery = true;
     sentTriggers.length = 0;
+    createdNotifications.length = 0;
     const approves = await withParallelSaves(() => Promise.all([
       call('POST', `/api/repair-workflows/${orderRace._id}/approve`, staff, { internalNotes: 'Erste Freigabe', notifyCustomer: true }),
       call('POST', `/api/repair-workflows/${orderRace._id}/approve`, otherStaff, { internalNotes: 'Zweite Freigabe', notifyCustomer: true }),
     ]));
-    const startedMails = sentTriggers.filter((trigger) => trigger === 'repair_workflow_started').length;
+    const startedMails = createdNotifications.filter((data) => data?.metadata?.event === 'repair_workflow_started').length;
     check(statuses(approves) === '200,409', 'Doppelte Freigabe: genau eine wirkt, die andere 409', statuses(approves));
     check(startedMails === 1, 'Doppelte Freigabe: Start-Mail genau einmal', startedMails);
     const conflict = approves.find((response) => response.status === 409);
     check(conflict && isGerman(conflict.body?.message), 'Konfliktmeldung ist deutsch', conflict && conflict.body?.message);
 
     sentTriggers.length = 0;
+    createdNotifications.length = 0;
     const pauses = await withParallelSaves(() => Promise.all([
       call('POST', `/api/repair-workflows/${orderRace._id}/pause`, staff, { pauseReason: 'Teil holen' }),
       call('POST', `/api/repair-workflows/${orderRace._id}/pause`, otherStaff, { pauseReason: 'Telefon' }),
     ]));
-    const pausedMails = sentTriggers.filter((trigger) => trigger === 'repair_workflow_paused').length;
+    // Seit Welle 2 (K04/NOTIF-5): Pausieren schickt dem Kunden NIE etwas (der Pausengrund ist intern).
+    const pausedMails = sentTriggers.filter((trigger) => trigger === 'repair_workflow_paused').length
+      + createdNotifications.filter((data) => String(data?.userId || '') === String(customer._id)).length;
     check(statuses(pauses) === '200,409', 'Doppeltes Pausieren: genau eines wirkt, das andere 409', statuses(pauses));
-    check(pausedMails === 1, 'Doppeltes Pausieren: Pausen-Mail genau einmal', pausedMails);
+    check(pausedMails === 0, 'Doppeltes Pausieren: keine Nachricht an den Kunden (Pausengrund intern)', pausedMails);
     const pausedWinner = pauses.find((response) => response.status === 200)?.body?.workflow?.timerData || {};
     const pausedStored = (await RepairWorkflow.findOne({ orderId: orderRace._id }).lean()).timerData;
     check(pausedStored.currentPauseReason === pausedWinner.currentPauseReason,

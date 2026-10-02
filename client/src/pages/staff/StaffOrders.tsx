@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/useToast"
 import { useAuth } from "@/contexts/AuthContext"
 import { generateAvatarPlaceholder } from "@/utils/placeholders"
 import { getAssignedOrders } from "@/api/adminOrders"
+import { READY_NEUTRAL_LABEL } from "@/lib/returnMethod"
 import { getUnreadMessageCounts } from "@/api/inspectionCommunication"
 import { getUnreadMessageCount as getRepairRequestUnreadMessageCount } from "@/api/repairRequestCommunication"
 import { getRepairRequests } from "@/api/repairRequests"
@@ -107,7 +108,7 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
   'in-progress': 'In Bearbeitung',
   paused: 'Pausiert',
   'quality-check': 'Qualitätsprüfung',
-  'ready-for-pickup': 'Abholbereit',
+  'ready-for-pickup': READY_NEUTRAL_LABEL,
   completed: 'Abgeschlossen',
   cancelled: 'Storniert',
 }
@@ -735,7 +736,7 @@ export function StaffOrders() {
                   <SelectItem value="pending">Ausstehend</SelectItem>
                   <SelectItem value="in-progress">In Bearbeitung</SelectItem>
                   <SelectItem value="quality-check">Qualitätsprüfung</SelectItem>
-                  <SelectItem value="ready-for-pickup">Abholbereit</SelectItem>
+                  <SelectItem value="ready-for-pickup">{READY_NEUTRAL_LABEL}</SelectItem>
                   <SelectItem value="completed">Abgeschlossen</SelectItem>
                   <SelectItem value="cancelled">Storniert</SelectItem>
                 </SelectContent>

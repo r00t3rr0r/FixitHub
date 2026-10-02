@@ -5,6 +5,44 @@ const Booking = require('../models/Booking');
 const User = require('../models/User');
 const InspectionCommunication = require('../models/InspectionCommunication');
 const DHLService = require('../services/dhlService');
+const OrderHistory = require('../utils/orderHistory');
+const {
+  guestAccessLimits, normalizeGuestToken, normalizeGuestEmail, guestEmailMatches,
+} = require('./middleware/guestAccess');
+
+// Alle Routen dieses Routers sind Gast-Zugriffe ohne Anmeldung (Token oder Buchungsnummer +
+// E-Mail): Fehlversuche, Lese- und Schreibvolumen je Client-IP begrenzt (guestAccess.js).
+router.use(...guestAccessLimits);
+
+// Interne Felder, die Gaeste zusaetzlich zu OrderHistory.GUEST_INTERNAL_ORDER_FIELDS nie
+// erhalten: Zugangsschluessel (der Gast kennt seinen eigenen; Buchungsnummer + E-Mail soll
+// nicht zum Link-Token fuehren), Label-Sperren, Idempotenzschluessel des Checkouts.
+const GUEST_HIDDEN_ORDER_FIELDS = {
+  guestTrackingToken: undefined,
+  shippingLabelCreationStartedAt: undefined,
+  returnLabelCreationStartedAt: undefined,
+};
+const GUEST_HIDDEN_BOOKING_FIELDS = {
+  guestTrackingToken: undefined,
+  checkoutAttemptId: undefined,
+  shippingLabelCreationInProgress: undefined,
+  shippingLabelCreationStartedAt: undefined,
+  returnLabelCreationStartedAt: undefined,
+};
+
+// Gast-Sicht auf Verlauf und Fortschritt (HIST-15/HIST-1): Positivliste statt des kompletten
+// internen Verlaufs (Pausengruende, Mitarbeiternamen, DHL-Abgleichtexte), dazu ehrliche
+// Meilensteine ohne Namen. workflows/assignedStaff tragen Mitarbeiternamen und interne
+// Pausengruende - fuer Gaeste nicht bestimmt.
+// Dazu dieselbe Projektion personalbezogener Felder wie fuer eingeloggte Kunden
+// (OrderHistory.customerOrderOverrides): kein Mitarbeitername in pickupConfirmation, keine
+// addOns[].assignedStaff, keine internen Felder (Bedarfsliste, Konditionen, Bearbeitungsstand).
+const guestHistoryFields = (order) => ({
+  ...OrderHistory.customerOrderOverrides(order, { guest: true }),
+  ...GUEST_HIDDEN_ORDER_FIELDS,
+  timeline: OrderHistory.toCustomerView(order?.timeline),
+  milestones: OrderHistory.buildMilestones(order || {}, { forCustomer: true }),
+});
 
 // Oeffentliche Sicht auf eine Versandrichtung - ohne interne Abgleich-/Download-Details.
 const publicShipmentDirection = (view = {}) => ({
@@ -107,16 +145,19 @@ const normalizeGuestCommunication = (communication) => {
 };
 
 const resolveGuestBookingContext = async ({ token, bookingNumber, email, orderId }) => {
-  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const normalizedEmail = normalizeGuestEmail(email);
   if (!normalizedEmail) {
     throw new Error('Email is required');
   }
 
   let booking = null;
   if (token) {
-    booking = await Booking.findOne({ guestTrackingToken: String(token).trim() }).lean();
-  } else if (bookingNumber) {
-    booking = await Booking.findOne({ bookingNumber: String(bookingNumber).trim() }).lean();
+    // Nur ein gueltig geformter Token: ' ' traf frueher (nach trim) Buchungen OHNE Token
+    // (Standardwert ''), ein Objekt/Array waere ein Abfrageoperator gewesen.
+    const guestToken = normalizeGuestToken(token);
+    booking = guestToken ? await Booking.findOne({ guestTrackingToken: guestToken }).lean() : null;
+  } else if (bookingNumber && typeof bookingNumber === 'string') {
+    booking = await Booking.findOne({ bookingNumber: bookingNumber.trim() }).lean();
   } else {
     throw new Error('Tracking token or booking number is required');
   }
@@ -131,7 +172,7 @@ const resolveGuestBookingContext = async ({ token, bookingNumber, email, orderId
     bookingEmail = customer?.email;
   }
 
-  if (!bookingEmail || bookingEmail.toLowerCase() !== normalizedEmail) {
+  if (!guestEmailMatches(bookingEmail, normalizedEmail)) {
     throw new Error('Email does not match booking records');
   }
 
@@ -181,23 +222,22 @@ const canGuestSendMessage = (communication) => {
 // Response: { success: boolean, order: Order, relatedOrders: Order[], booking: Booking }
 router.get('/', async (req, res) => {
   try {
-    const { token, email } = req.query;
-
-    console.log('OrderTrackingRoutes: Tracking order with token for email:', email);
+    const token = normalizeGuestToken(req.query.token);
+    const email = normalizeGuestEmail(req.query.email);
 
     // Validate parameters
-    if (!token || !email) {
+    if (!req.query.token || !email) {
       return res.status(400).json({
         success: false,
         error: 'Tracking token and email are required'
       });
     }
 
-    // Find order by tracking token
-    const order = await Order.findOne({ guestTrackingToken: token })
+    // Find order by tracking token (ungueltig geformter Token = nicht gefunden)
+    const order = token ? await Order.findOne({ guestTrackingToken: token })
       .populate('services.serviceId', 'name description price estimatedTime category')
       .populate('shopProducts.productId', 'name price images category')
-      .lean();
+      .lean() : null;
 
     if (!order) {
       console.log('OrderTrackingRoutes: Order not found with tracking token');
@@ -208,7 +248,7 @@ router.get('/', async (req, res) => {
     }
 
     // Verify email matches
-    if (order.guestInfo?.email?.toLowerCase() !== email.toLowerCase()) {
+    if (!guestEmailMatches(order.guestInfo?.email, email)) {
       console.log('OrderTrackingRoutes: Email mismatch for order tracking');
       return res.status(403).json({
         success: false,
@@ -241,6 +281,7 @@ router.get('/', async (req, res) => {
     // Prepare response data
     const responseOrder = {
       ...(await withShipmentView(order)),
+      ...guestHistoryFields(order),
       // Hide sensitive internal information
       unlockPattern: undefined,
       unlockCode: undefined,
@@ -259,7 +300,11 @@ router.get('/', async (req, res) => {
       deviceType: ro.deviceType,
       progress: ro.progress,
       estimatedCompletion: ro.estimatedCompletion,
-      createdAt: ro.createdAt
+      createdAt: ro.createdAt,
+      // Gleiche Gast-Projektion wie beim Hauptauftrag ("Details ansehen" zeigt sonst einen
+      // leeren Verlauf, obwohl es Eintraege gibt).
+      timeline: OrderHistory.toCustomerView(ro.timeline),
+      milestones: OrderHistory.buildMilestones(ro, { forCustomer: true }),
     }));
 
     res.json({
@@ -289,20 +334,19 @@ router.get('/', async (req, res) => {
 // Response: { success: boolean, booking: Booking, orders: Order[] }
 router.get('/booking', async (req, res) => {
   try {
-    const { token, email } = req.query;
-
-    console.log('OrderTrackingRoutes: Tracking booking with token for email:', email);
+    const token = normalizeGuestToken(req.query.token);
+    const email = normalizeGuestEmail(req.query.email);
 
     // Validate parameters
-    if (!token || !email) {
+    if (!req.query.token || !email) {
       return res.status(400).json({
         success: false,
         error: 'Tracking token and email are required'
       });
     }
 
-    // Find booking by tracking token
-    const booking = await Booking.findOne({ guestTrackingToken: token })
+    // Find booking by tracking token (ungueltig geformter Token = nicht gefunden)
+    const booking = token ? await Booking.findOne({ guestTrackingToken: token })
       .populate({
         path: 'orderIds',
         populate: [
@@ -310,7 +354,7 @@ router.get('/booking', async (req, res) => {
           { path: 'shopProducts.productId', select: 'name price images category' }
         ]
       })
-      .lean();
+      .lean() : null;
 
     if (!booking) {
       console.log('OrderTrackingRoutes: Booking not found with tracking token');
@@ -321,7 +365,7 @@ router.get('/booking', async (req, res) => {
     }
 
     // Verify email matches
-    if (booking.guestInfo?.email?.toLowerCase() !== email.toLowerCase()) {
+    if (!guestEmailMatches(booking.guestInfo?.email, email)) {
       console.log('OrderTrackingRoutes: Email mismatch for booking tracking');
       return res.status(403).json({
         success: false,
@@ -335,6 +379,7 @@ router.get('/booking', async (req, res) => {
     const shipmentViews = await Promise.all((booking.orderIds || []).map((order) => withShipmentView(order)));
     const responseOrders = shipmentViews.map(order => ({
       ...order,
+      ...guestHistoryFields(order),
       unlockPattern: undefined,
       unlockCode: undefined,
       unlockConfirmation: undefined,
@@ -344,6 +389,11 @@ router.get('/booking', async (req, res) => {
 
     const responseBooking = {
       ...booking,
+      ...GUEST_HIDDEN_BOOKING_FIELDS,
+      // DHL REVIEW-7: Richtung des Buchungs-Labelplatzes (aus dem ROHEN Verlauf, vor der
+      // Kundenansicht). Die Gastseite zeigt den Platz nur bei 'inbound' als Einsendelabel.
+      shippingLabelDirection: DHLService.resolveStoredBookingLabelDirection(booking),
+      timeline: OrderHistory.toCustomerView(booking.timeline),
       orderIds: responseOrders
     };
 
@@ -367,7 +417,8 @@ router.get('/booking', async (req, res) => {
 // Response: { success: boolean, booking: Booking, orders: Order[] }
 router.get('/by-number', async (req, res) => {
   try {
-    const { bookingNumber, email } = req.query;
+    const bookingNumber = typeof req.query.bookingNumber === 'string' ? req.query.bookingNumber : '';
+    const email = normalizeGuestEmail(req.query.email);
 
     if (!bookingNumber || !email) {
       return res.status(400).json({
@@ -400,7 +451,7 @@ router.get('/by-number', async (req, res) => {
       const user = await User.findById(booking.customerId).select('email').lean();
       bookingEmail = user?.email;
     }
-    if (!bookingEmail || bookingEmail.toLowerCase() !== email.toString().trim().toLowerCase()) {
+    if (!guestEmailMatches(bookingEmail, email)) {
       return res.status(403).json({
         success: false,
         error: 'Email does not match booking records'
@@ -410,6 +461,7 @@ router.get('/by-number', async (req, res) => {
     const shipmentViews = await Promise.all((booking.orderIds || []).map((order) => withShipmentView(order)));
     const responseOrders = shipmentViews.map(order => ({
       ...order,
+      ...guestHistoryFields(order),
       unlockPattern: undefined,
       unlockCode: undefined,
       unlockConfirmation: undefined,
@@ -419,7 +471,13 @@ router.get('/by-number', async (req, res) => {
 
     res.json({
       success: true,
-      booking: { ...booking, orderIds: responseOrders },
+      booking: {
+        ...booking,
+        ...GUEST_HIDDEN_BOOKING_FIELDS,
+        shippingLabelDirection: DHLService.resolveStoredBookingLabelDirection(booking),
+        timeline: OrderHistory.toCustomerView(booking.timeline),
+        orderIds: responseOrders,
+      },
       orders: responseOrders
     });
   } catch (error) {
@@ -442,7 +500,8 @@ router.get('/booking/:orderId/communication', async (req, res) => {
 
     await resolveGuestBookingContext({ token, bookingNumber, email, orderId });
 
-    const communication = await InspectionCommunication.findOne({ orderId }).lean();
+    // Derselbe Thread wie im Service (bei Altdaten-Duplikaten immer das aelteste Dokument).
+    const communication = await require('../services/inspectionCommunicationService').findThread(orderId).lean();
 
     res.json({
       success: true,
@@ -470,7 +529,7 @@ router.post('/booking/:orderId/communication/message', async (req, res) => {
 
     const { guestName, guestEmail } = await resolveGuestBookingContext({ token, bookingNumber, email, orderId });
 
-    const communication = await InspectionCommunication.findOne({ orderId });
+    const communication = await require('../services/inspectionCommunicationService').findThread(orderId);
     if (!canGuestSendMessage(communication)) {
       return res.status(403).json({
         success: false,
@@ -478,31 +537,26 @@ router.post('/booking/:orderId/communication/message', async (req, res) => {
       });
     }
 
-    communication.messages.push({
-      senderType: 'customer',
-      senderName: guestName,
-      senderRole: 'guest',
-      messageType: 'text',
-      content: String(content).trim(),
-      metadata: {
-        guestEmail,
-      },
-      readBy: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    // Gleicher Speicherweg wie fuer angemeldete Kunden: atomar, idempotent (clientMessageId)
+    // und mit Team-Benachrichtigung (zugewiesene Mitarbeiter, sonst alle aktiven Admins).
+    const InspectionCommunicationService = require('../services/inspectionCommunicationService');
+    const { created } = await InspectionCommunicationService.sendGuestMessage(orderId, {
+      guestName,
+      guestEmail,
+      content,
+      clientMessageId: (req.body || {}).clientMessageId,
     });
-    communication.lastMessageAt = new Date();
-    await communication.save();
 
-    const updatedCommunication = await InspectionCommunication.findById(communication._id).lean();
+    const updatedCommunication = await InspectionCommunicationService.findThread(orderId).lean();
 
-    res.status(201).json({
+    res.status(created ? 201 : 200).json({
       success: true,
+      created,
       communication: normalizeGuestCommunication(updatedCommunication),
     });
   } catch (error) {
     const message = error?.message || 'Failed to send message';
-    const statusCode = /required/i.test(message) ? 400 : /not found|does not belong|does not match/i.test(message) ? 404 : 500;
+    const statusCode = Number(error?.status) || (/required/i.test(message) ? 400 : /not found|does not belong|does not match/i.test(message) ? 404 : 500);
     res.status(statusCode).json({ success: false, error: message });
   }
 });
@@ -522,33 +576,12 @@ router.post('/booking/:orderId/communication/feedback-response', async (req, res
 
     const { guestEmail } = await resolveGuestBookingContext({ token, bookingNumber, email, orderId });
 
-    const communication = await InspectionCommunication.findOne({ orderId });
-    if (!communication) {
-      return res.status(404).json({ success: false, error: 'Communication thread not found' });
-    }
+    // Gleicher atomarer Pfad wie fuer angemeldete Kunden: nur offene Rueckfragen, nur angebotene
+    // Antworten (400), Doppel-Absendungen -> 409, Team-Benachrichtigung genau einmal.
+    const InspectionCommunicationService = require('../services/inspectionCommunicationService');
+    await InspectionCommunicationService.respondToFeedback(orderId, messageId, response, null, 'Gastkunde', { guestEmail });
 
-    const targetMessage = communication.messages.find((message) => message?._id?.toString() === String(messageId));
-    if (!targetMessage || !targetMessage.feedbackRequest) {
-      return res.status(404).json({ success: false, error: 'Feedback request not found' });
-    }
-
-    if (targetMessage.feedbackRequest.status !== 'pending') {
-      return res.status(409).json({ success: false, error: 'Feedback request already answered' });
-    }
-
-    targetMessage.feedbackRequest.response = response;
-    targetMessage.feedbackRequest.respondedAt = new Date();
-    targetMessage.feedbackRequest.status = 'responded';
-    targetMessage.metadata = {
-      ...(targetMessage.metadata || {}),
-      guestResponderEmail: guestEmail,
-    };
-
-    communication.pendingFeedbackCount = Math.max(0, (communication.pendingFeedbackCount || 0) - 1);
-    communication.lastMessageAt = new Date();
-    await communication.save();
-
-    const updatedCommunication = await InspectionCommunication.findById(communication._id).lean();
+    const updatedCommunication = await InspectionCommunicationService.findThread(orderId).lean();
 
     res.json({
       success: true,
@@ -556,7 +589,7 @@ router.post('/booking/:orderId/communication/feedback-response', async (req, res
     });
   } catch (error) {
     const message = error?.message || 'Failed to respond to feedback';
-    const statusCode = /required/i.test(message) ? 400 : /not found|does not belong|does not match/i.test(message) ? 404 : 500;
+    const statusCode = Number(error?.status) || (/required/i.test(message) ? 400 : /not found|does not belong|does not match/i.test(message) ? 404 : 500);
     res.status(statusCode).json({ success: false, error: message });
   }
 });
@@ -572,12 +605,13 @@ router.put('/booking/:orderId/communication/quick-action/:messageId/complete', a
 
     await resolveGuestBookingContext({ token, bookingNumber, email, orderId });
 
-    const communication = await InspectionCommunication.findOne({ orderId });
+    const InspectionCommunicationService = require('../services/inspectionCommunicationService');
+    const communication = await InspectionCommunicationService.findThread(orderId).lean();
     if (!communication) {
       return res.status(404).json({ success: false, error: 'Communication thread not found' });
     }
 
-    const targetMessage = communication.messages.find((message) => message?._id?.toString() === String(messageId));
+    const targetMessage = (communication.messages || []).find((message) => message?._id?.toString() === String(messageId));
     if (!targetMessage || !targetMessage.quickAction) {
       return res.status(404).json({ success: false, error: 'Quick action not found' });
     }
@@ -586,13 +620,10 @@ router.put('/booking/:orderId/communication/quick-action/:messageId/complete', a
       return res.status(409).json({ success: false, error: 'Quick action already completed' });
     }
 
-    targetMessage.quickAction.status = 'completed';
-    targetMessage.quickAction.completedAt = new Date();
-    communication.pendingActionsCount = Math.max(0, (communication.pendingActionsCount || 0) - 1);
-    communication.lastMessageAt = new Date();
-    await communication.save();
+    // Gleicher Speicherweg wie fuer angemeldete Kunden (aeltester Thread, Rolle 'guest').
+    await InspectionCommunicationService.completeQuickAction(orderId, messageId, { role: 'guest' });
 
-    const updatedCommunication = await InspectionCommunication.findById(communication._id).lean();
+    const updatedCommunication = await InspectionCommunicationService.findThread(orderId).lean();
 
     res.json({
       success: true,
@@ -600,7 +631,7 @@ router.put('/booking/:orderId/communication/quick-action/:messageId/complete', a
     });
   } catch (error) {
     const message = error?.message || 'Failed to complete action';
-    const statusCode = /required/i.test(message) ? 400 : /not found|does not belong|does not match/i.test(message) ? 404 : 500;
+    const statusCode = Number(error?.status) || (/required/i.test(message) ? 400 : /not found|does not belong|does not match/i.test(message) ? 404 : 500);
     res.status(statusCode).json({ success: false, error: message });
   }
 });

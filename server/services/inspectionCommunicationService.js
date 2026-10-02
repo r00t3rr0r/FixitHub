@@ -1,9 +1,47 @@
+const crypto = require('crypto');
+const mongoose = require('mongoose');
 const InspectionCommunication = require('../models/InspectionCommunication');
 const Order = require('../models/Order');
+const User = require('../models/User');
 const DeviceInspection = require('../models/DeviceInspection');
 const Complaint = require('../models/Complaint');
 const NotificationService = require('./notificationService');
 const EmailService = require('./emailService');
+const { isStaffRole, summarizeMessages } = require('../utils/communicationReadRules');
+
+// Sonderzeichen in Suchbegriffen ('(' '[' '*' ...) duerfen keinen RegExp-Fehler (500) ausloesen.
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Kanonische Adresse eines Gespraechs im Postfach (Personal) - dieselbe wie im Inbox-Service.
+const orderThreadUrl = (orderId) => `/messages?thread=order:${orderId}`;
+
+const MAX_MESSAGE_LENGTH = 5000;
+
+const isObjectIdLike = (value) => /^[a-f0-9]{24}$/i.test(String(value || ''));
+
+// Fehler mit HTTP-Status fuer die Route (Meldung ist bereits deutsch und kundentauglich).
+const httpError = (status, message) => {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+};
+
+// Idempotenzschluessel des Clients: nur kurze, druckbare Zeichen.
+const normalizeClientMessageId = (value) => {
+  const text = String(value || '').trim();
+  return /^[A-Za-z0-9_.:-]{8,100}$/.test(text) ? text : '';
+};
+
+const sortMessagesAscending = (communication) => {
+  if (communication && communication.messages && communication.messages.length > 0) {
+    communication.messages.sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateA - dateB;
+    });
+  }
+  return communication;
+};
 
 // Deutsches Betragsformat fuer Meldungen an die Oberflaeche (20,00 € statt 20.00 €).
 function formatEuroDe(value) {
@@ -74,9 +112,58 @@ class InspectionCommunicationService {
     }
   }
 
+  // Alle aktiven Admins (Empfaenger, wenn einem Auftrag kein Mitarbeiter zugewiesen ist).
+  static async getActiveAdminIds() {
+    try {
+      const admins = await User.find({ role: 'admin', isActive: { $ne: false } }).select('_id').lean();
+      return admins.map((admin) => String(admin._id));
+    } catch (error) {
+      console.error(`InspectionCommunicationService: Error loading admin recipients: ${error.message || error}`);
+      return [];
+    }
+  }
+
+  // Team-Empfaenger einer Kundenaktivitaet: zugewiesene Mitarbeiter, sonst alle aktiven Admins.
+  static async getTeamRecipientIds(order) {
+    const ids = new Set();
+    (order?.assignedStaff || []).forEach((entry) => {
+      const staffId = entry?.staffId ? String(entry.staffId) : '';
+      if (staffId) ids.add(staffId);
+    });
+    if (!ids.size) {
+      (await this.getActiveAdminIds()).forEach((id) => ids.add(id));
+    }
+    return Array.from(ids);
+  }
+
+  // Benachrichtigt das Team ueber eine Kundenaktivitaet ohne Textnachricht
+  // (Antwort auf Rueckfrage - auch von Gaesten). Fehler brechen die Hauptaktion nie ab.
+  static async notifyTeamAboutCustomerActivity(orderId, { title, message, messageType, senderName }) {
+    try {
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true })
+        .select('assignedStaff orderNumber').lean();
+      if (!order) return;
+      const recipients = await this.getTeamRecipientIds(order);
+      await Promise.all(recipients.map((recipientId) => NotificationService.createNotification({
+        userId: recipientId,
+        title,
+        message,
+        type: 'message',
+        orderId,
+        actionUrl: orderThreadUrl(orderId),
+        metadata: { senderType: 'customer', messageType, senderName: senderName || null },
+      })));
+    } catch (error) {
+      console.error(`InspectionCommunicationService: Error notifying team: ${error.message || error}`);
+    }
+  }
+
   static async notifyMessageRecipients(orderId, senderId, senderType, senderName, content) {
     try {
-      const order = await Order.findById(orderId).select('customerId assignedStaff orderNumber guestInfo guestTrackingToken').lean();
+      // skipAutoPopulate: sonst sind customerId/assignedStaff.staffId populierte Objekte und
+      // String(...) ergibt '[object Object]' - die Benachrichtigung ging dann ins Leere.
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true })
+        .select('customerId assignedStaff orderNumber guestInfo guestTrackingToken').lean();
       if (!order) return;
       const complaintContext = await this.getComplaintNotificationContext(orderId);
 
@@ -90,6 +177,13 @@ class InspectionCommunicationService {
             recipientIds.add(staffId);
           }
         });
+        // Ohne zugewiesenen Mitarbeiter ging die Kundennachricht bisher an niemanden.
+        // Produktentscheidung: dann alle aktiven Admins benachrichtigen.
+        if (!recipientIds.size) {
+          (await this.getActiveAdminIds()).forEach((adminId) => {
+            if (adminId !== senderIdString) recipientIds.add(adminId);
+          });
+        }
       } else {
         const customerId = order.customerId ? String(order.customerId) : '';
         if (customerId && customerId !== senderIdString) {
@@ -106,7 +200,8 @@ class InspectionCommunicationService {
       const preview = trimmedContent.length > 140 ? `${trimmedContent.slice(0, 137)}...` : trimmedContent;
       const title = complaintContext
         ? (senderType === 'customer' ? 'Neue Nachricht zur Reklamation' : 'Neue Team-Nachricht zur Reklamation')
-        : (senderType === 'customer' ? 'Neue Kunden-Nachricht' : 'Neue Team-Nachricht');
+        : (senderType === 'customer' ? 'Neue Kundennachricht' : 'Neue Team-Nachricht');
+      const customerIdString = order.customerId ? String(order.customerId) : '';
       const orderReference = order.orderNumber ? `#${order.orderNumber}` : 'Ihrem Auftrag';
       const notificationReference = complaintContext?.complaintNumber
         ? `Reklamation ${complaintContext.complaintNumber}`
@@ -120,7 +215,8 @@ class InspectionCommunicationService {
             message: `${senderName} hat eine neue Nachricht zu ${notificationReference} gesendet${preview ? `: ${preview}` : '.'}`,
             type: 'message',
             orderId,
-            actionUrl: `/orders/${orderId}`,
+            // Personal landet direkt im Gespraech (Postfach), der Kunde im eigenen Auftrag.
+            actionUrl: String(recipientId) === customerIdString ? `/orders/${orderId}` : orderThreadUrl(orderId),
             metadata: {
               senderId: senderIdString || null,
               senderType,
@@ -171,7 +267,7 @@ class InspectionCommunicationService {
       }
 
       if (search) {
-        const searchRegex = new RegExp(search, 'i');
+        const searchRegex = new RegExp(escapeRegex(search), 'i');
         const matchingOrdersQuery = {
           $or: [
             { orderNumber: { $regex: searchRegex } },
@@ -283,93 +379,243 @@ class InspectionCommunicationService {
     }
   }
 
+  // Thread eines Auftrags lesen. Gibt es (Altdaten) mehrere Dokumente pro Auftrag, gewinnt
+  // immer das aelteste - Schreib- und Lesepfade arbeiten damit auf demselben Dokument.
+  static findThread(orderId) {
+    return InspectionCommunication.findOne({ orderId }).sort({ createdAt: 1, _id: 1 });
+  }
+
+  // Thread populiert und chronologisch sortiert (Antwortformat aller Schreib-Routen).
+  static async loadPopulatedThread(orderId) {
+    const communication = await this.findThread(orderId)
+      .populate('messages.senderId', 'name email role avatar')
+      .populate('messages.feedbackRequest.respondedBy', 'name email');
+    return sortMessagesAscending(communication);
+  }
+
   // Get or create communication thread for an order
+  // Atomar (upsert): gleichzeitige erste Nachrichten legen keinen zweiten Thread an
+  // (zusaetzlich abgesichert durch den eindeutigen Index orderId_unique_thread).
   static async getOrCreateCommunicationThread(orderId, inspectionId = null, initiatingUserId = null, initiatingUserName = null, initiatingUserRole = null) {
     try {
-      let communication = await InspectionCommunication.findOne({ orderId });
-
-      if (!communication) {
-        console.log(`InspectionCommunicationService: Creating new communication thread for order ${orderId}`);
-        communication = new InspectionCommunication({
-          orderId,
-          inspectionId,
-          messages: [],
-          status: 'active',
-          createdBy: initiatingUserId ? {
-            userId: initiatingUserId,
-            name: initiatingUserName,
-            role: initiatingUserRole,
-          } : undefined,
-        });
-        await communication.save();
+      const existing = await this.findThread(orderId);
+      if (existing) {
+        return existing;
       }
 
-      return communication;
+      const now = new Date();
+      const setOnInsert = {
+        orderId,
+        messages: [],
+        status: 'active',
+        pendingFeedbackCount: 0,
+        pendingActionsCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+      if (inspectionId) setOnInsert.inspectionId = inspectionId;
+      if (initiatingUserId) {
+        setOnInsert.createdBy = { userId: initiatingUserId, name: initiatingUserName, role: initiatingUserRole };
+      }
+
+      try {
+        await InspectionCommunication.updateOne(
+          { orderId },
+          { $setOnInsert: setOnInsert },
+          { upsert: true, timestamps: false }
+        );
+      } catch (error) {
+        // E11000: ein paralleler Aufruf hat den Thread gerade angelegt - den verwenden wir.
+        if (error?.code !== 11000) throw error;
+      }
+
+      return await this.findThread(orderId);
     } catch (error) {
       console.error(`InspectionCommunicationService: Error getting or creating communication thread: ${error}`);
       throw error;
     }
   }
 
+  // Haengt eine Nachricht atomar an. Mit clientMessageId wird dieselbe Nachricht nur EINMAL
+  // gespeichert (Doppelklick, Enter-Wiederholung, Retry). Rueckgabe: { created, message }.
+  static async appendMessage(orderId, message, { clientMessageId = '', incrementFeedback = 0, incrementActions = 0, threadDefaults = {} } = {}) {
+    const thread = await this.getOrCreateCommunicationThread(
+      orderId,
+      threadDefaults.inspectionId || null,
+      threadDefaults.userId || null,
+      threadDefaults.userName || null,
+      threadDefaults.userRole || null
+    );
+    const key = normalizeClientMessageId(clientMessageId);
+    const now = new Date();
+    const messageId = new mongoose.Types.ObjectId();
+    const toPush = {
+      ...message,
+      _id: messageId,
+      readBy: message.readBy || [],
+      createdAt: message.createdAt || now,
+      updatedAt: now,
+    };
+    if (key) toPush.clientMessageId = key;
+
+    const filter = { _id: thread._id };
+    if (key) {
+      // Wiederholung = gleiche clientMessageId vom SELBEN Absender mit DEMSELBEN Nachrichtentyp.
+      // So wird z. B. eine Rueckfrage mit einer wiederverwendeten Entwurfs-ID nicht still verworfen.
+      const duplicate = { clientMessageId: key, messageType: message.messageType || 'text' };
+      const senderKey = message.senderId && typeof message.senderId === 'object' && message.senderId._id
+        ? message.senderId._id
+        : message.senderId;
+      if (senderKey && isObjectIdLike(senderKey)) duplicate.senderId = new mongoose.Types.ObjectId(String(senderKey));
+      else duplicate.senderType = message.senderType;
+      filter.messages = { $not: { $elemMatch: duplicate } };
+    }
+    const update = { $push: { messages: toPush }, $set: { lastMessageAt: now } };
+    const inc = {};
+    if (incrementFeedback) inc.pendingFeedbackCount = incrementFeedback;
+    if (incrementActions) inc.pendingActionsCount = incrementActions;
+    if (Object.keys(inc).length) update.$inc = inc;
+
+    const result = await InspectionCommunication.updateOne(filter, update);
+    if (result.modifiedCount) {
+      // Auch Gast-Nachrichten (Track-Order-Routen) leeren den Zaehler-Cache des Postfachs.
+      require('./communicationInboxService').invalidateSummaryCache();
+    }
+    return { created: Boolean(result.modifiedCount), messageId, clientMessageId: key };
+  }
+
   // Send a message
-  static async sendMessage(orderId, senderId, senderName, content, senderType = 'staff', senderRole = null) {
+  static async sendMessage(orderId, senderId, senderName, content, senderType = 'staff', senderRole = null, options = {}) {
+    const result = await this.sendMessageWithResult(orderId, senderId, senderName, content, senderType, senderRole, options);
+    return result.communication;
+  }
+
+  // Wie sendMessage, meldet aber zusaetzlich, ob die Nachricht neu war (false = Wiederholung
+  // derselben clientMessageId; dann KEINE zweite Benachrichtigung).
+  static async sendMessageWithResult(orderId, senderId, senderName, content, senderType = 'staff', senderRole = null, options = {}) {
     try {
-      console.log(`InspectionCommunicationService: Sending message to order ${orderId} from ${senderName}`);
-
-      let communication = await InspectionCommunication.findOne({ orderId });
-
-      if (!communication) {
-        communication = await this.getOrCreateCommunicationThread(orderId);
+      const text = String(content || '').trim();
+      if (!text) throw httpError(400, 'Bitte geben Sie eine Nachricht ein.');
+      if (text.length > MAX_MESSAGE_LENGTH) {
+        throw httpError(400, `Die Nachricht ist zu lang (maximal ${MAX_MESSAGE_LENGTH} Zeichen).`);
       }
 
-      const message = {
-        senderId,
+      const { created } = await this.appendMessage(orderId, {
+        senderId: senderId || undefined,
         senderType,
         senderName,
         senderRole,
         messageType: 'text',
-        content,
-        readBy: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+        content: text,
+        metadata: options.metadata || undefined,
+      }, { clientMessageId: options.clientMessageId });
 
-      communication.messages.push(message);
-      communication.lastMessageAt = new Date();
-      await communication.save();
+      const communication = await this.loadPopulatedThread(orderId);
 
-      // Refetch to ensure all nested documents have proper IDs and timestamps
-      communication = await InspectionCommunication.findOne({ orderId })
-        .populate('messages.senderId', 'name email role avatar')
-        .populate('messages.feedbackRequest.respondedBy', 'name email');
-
-      if (communication && communication.messages && communication.messages.length > 0) {
-        communication.messages.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateA - dateB;
-        });
+      if (created && options.notify !== false) {
+        await this.notifyMessageRecipients(orderId, senderId, senderType, senderName, text);
       }
 
-      await this.notifyMessageRecipients(orderId, senderId, senderType, senderName, content);
-
-      console.log(`InspectionCommunicationService: Message sent successfully`);
-      return communication;
+      return { communication, created };
     } catch (error) {
       console.error(`InspectionCommunicationService: Error sending message: ${error}`);
       throw error;
     }
   }
 
+  // Gastnachricht (Tracking-Link): gleiche Speicherung und Team-Benachrichtigung wie bei
+  // angemeldeten Kunden. Der Gast hat keine senderId.
+  static async sendGuestMessage(orderId, { guestName, guestEmail, content, clientMessageId }) {
+    return this.sendMessageWithResult(orderId, null, guestName, content, 'customer', 'guest', {
+      clientMessageId,
+      metadata: { guestEmail },
+    });
+  }
+
+  // DeviceInspection-ID nur uebernehmen, wenn sie WIRKLICH zu diesem Auftrag gehoert; sonst die
+  // Inspektion des Auftrags (falls vorhanden) oder null. Frueher wurde hier oft die orderId
+  // als "inspectionId" gespeichert (Buchungs-Modal, Auftragsdetail).
+  static async resolveInspectionId(orderId, providedInspectionId) {
+    try {
+      if (providedInspectionId && isObjectIdLike(providedInspectionId)) {
+        const match = await DeviceInspection.findOne({ _id: providedInspectionId, orderId }).select('_id').lean();
+        if (match) return match._id;
+      }
+      const inspection = await DeviceInspection.findOne({ orderId }).select('_id').lean();
+      return inspection ? inspection._id : null;
+    } catch (error) {
+      console.error(`InspectionCommunicationService: Error resolving inspection id: ${error.message || error}`);
+      return null;
+    }
+  }
+
+  // Interne Notizen eines Auftrags (bestehender Speicher Order.staffNotes, Typ 'internal').
+  // NUR fuer Personal - Kunden- und Gastpfade rufen das nie auf.
+  static async getInternalNotes(orderId) {
+    const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true }).select('staffNotes').lean();
+    return (order?.staffNotes || [])
+      .filter((note) => note && note.type === 'internal')
+      .map((note) => ({
+        _id: String(note._id),
+        staffId: note.staffId ? String(note.staffId) : null,
+        staffName: note.staffName || 'Team',
+        note: note.note,
+        createdAt: note.createdAt,
+        visibility: 'internal',
+      }))
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }
+
+  // Interne Notiz speichern: $push in Order.staffNotes (Typ 'internal') OHNE automatische
+  // Mitarbeiterzuweisung, OHNE order.save() und OHNE Kundenbenachrichtigung.
+  // Idempotent: die Notiz-ID wird aus (Auftrag, Mitarbeiter, clientMessageId) abgeleitet.
+  static async addInternalNote(orderId, staffUser, noteText, clientMessageId = '') {
+    const text = String(noteText || '').trim();
+    if (!text) throw httpError(400, 'Bitte geben Sie eine Notiz ein.');
+    if (text.length > MAX_MESSAGE_LENGTH) {
+      throw httpError(400, `Die Notiz ist zu lang (maximal ${MAX_MESSAGE_LENGTH} Zeichen).`);
+    }
+    const key = normalizeClientMessageId(clientMessageId);
+    const noteId = key
+      ? new mongoose.Types.ObjectId(crypto.createHash('sha1')
+        .update(`${orderId}:${staffUser._id}:${key}`).digest('hex').slice(0, 24))
+      : new mongoose.Types.ObjectId();
+
+    const note = {
+      _id: noteId,
+      staffId: staffUser._id,
+      staffName: staffUser.name || staffUser.email || 'Team',
+      note: text,
+      type: 'internal',
+      createdAt: new Date(),
+    };
+    const result = await Order.updateOne(
+      { _id: orderId, 'staffNotes._id': { $ne: noteId } },
+      { $push: { staffNotes: note } }
+    );
+    const internalNotes = await this.getInternalNotes(orderId);
+    return {
+      created: Boolean(result.modifiedCount),
+      internalNote: internalNotes.find((entry) => entry._id === String(noteId)) || null,
+      internalNotes,
+    };
+  }
+
   // Send a feedback request
-  static async sendFeedbackRequest(orderId, inspectionId, senderId, senderName, question, options, senderRole = null) {
+  static async sendFeedbackRequest(orderId, providedInspectionId, senderId, senderName, question, options, senderRole = null, requestOptions = {}) {
     try {
       console.log(`InspectionCommunicationService: Sending feedback request to order ${orderId}`);
 
-      let communication = await InspectionCommunication.findOne({ orderId });
-
-      if (!communication) {
-        communication = await this.getOrCreateCommunicationThread(orderId, inspectionId, senderId, senderName, senderRole);
+      const inspectionId = await this.resolveInspectionId(orderId, providedInspectionId);
+      const cleanQuestion = String(question || '').trim();
+      const cleanOptions = (options || [])
+        .map((option) => ({
+          label: String(option?.label || '').trim(),
+          value: String(option?.value || option?.label || '').trim(),
+        }))
+        .filter((option) => option.label);
+      if (!cleanQuestion || cleanOptions.length < 2) {
+        throw httpError(400, 'Bitte eine Frage und mindestens zwei Antwortoptionen angeben.');
       }
 
       const expirationTime = new Date();
@@ -381,58 +627,44 @@ class InspectionCommunicationService {
         senderName,
         senderRole,
         messageType: 'feedback_request',
-        content: question,
+        content: cleanQuestion,
         feedbackRequest: {
           type: 'agreement',
-          question,
-          options,
+          question: cleanQuestion,
+          options: cleanOptions,
           status: 'pending',
           expiresAt: expirationTime,
         },
-        readBy: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
       };
 
-      communication.messages.push(message);
-      communication.lastMessageAt = new Date();
-      communication.pendingFeedbackCount = (communication.pendingFeedbackCount || 0) + 1;
-      await communication.save();
-
-      // Refetch to ensure all nested documents have proper IDs and timestamps
-      communication = await InspectionCommunication.findOne({ orderId })
-        .populate('messages.senderId', 'name email role avatar')
-        .populate('messages.feedbackRequest.respondedBy', 'name email');
-
-      if (communication && communication.messages && communication.messages.length > 0) {
-        communication.messages.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateA - dateB;
-        });
+      const { created, messageId } = await this.appendMessage(orderId, message, {
+        clientMessageId: requestOptions.clientMessageId,
+        incrementFeedback: 1,
+        threadDefaults: { inspectionId, userId: senderId, userName: senderName, userRole: senderRole },
+      });
+      const communication = await this.loadPopulatedThread(orderId);
+      // Aufrufer (Route) erfaehrt, ob die Nachricht neu war (Wiederholung -> 200 statt 201).
+      if (requestOptions.result && typeof requestOptions.result === 'object') requestOptions.result.created = created;
+      if (!created) {
+        return communication;
       }
 
       // Create notification for customer
       try {
-        const order = await Order.findById(orderId);
+        const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true }).select('customerId').lean();
         if (order && order.customerId) {
           const complaintContext = await this.getComplaintNotificationContext(orderId);
-          // Get the last message to access the generated _id
-          const lastMessage = communication && communication.messages && communication.messages.length > 0
-            ? communication.messages[communication.messages.length - 1]
-            : null;
-
           await NotificationService.createNotification({
             userId: order.customerId,
             title: complaintContext
-              ? 'Rueckmeldung zu Ihrer Reklamation erforderlich'
-              : 'Rueckmeldung zu Ihrer Reparaturpruefung erforderlich',
-            message: question,
+              ? 'Rückmeldung zu Ihrer Reklamation erforderlich'
+              : 'Rückmeldung zu Ihrem Reparaturauftrag erforderlich',
+            message: cleanQuestion,
             type: 'message',
             orderId,
             actionUrl: complaintContext?.actionUrl || `/orders/${orderId}`,
             metadata: {
-              messageId: lastMessage?._id,
+              messageId,
               inspectionId,
               messageType: 'feedback_request',
               complaintId: complaintContext?.complaintId || null,
@@ -454,62 +686,81 @@ class InspectionCommunicationService {
   }
 
   // Respond to feedback request
-  static async respondToFeedback(orderId, messageId, response, responderId, respondedByName) {
+  // Nur offene Rueckfragen (status 'pending') koennen beantwortet werden - atomar, damit eine
+  // Doppel-Antwort weder die Antwort ueberschreibt noch pendingFeedbackCount doppelt senkt.
+  // Rollen-/Besitzpruefung macht die Route (nur der Auftragskunde; Gaeste ueber track-order).
+  // extra.guestEmail: Antwort eines Gastes (Track-Order-Seite, kein Benutzerkonto) - gleicher
+  // atomarer Pfad, die Gast-E-Mail wird wie bisher in metadata.guestResponderEmail vermerkt.
+  static async respondToFeedback(orderId, messageId, response, responderId, respondedByName, extra = {}) {
     try {
       console.log(`InspectionCommunicationService: Recording feedback response from ${respondedByName}`);
 
-      let communication = await InspectionCommunication.findOne({ orderId });
-
-      if (!communication) {
-        throw new Error('Communication thread not found');
+      const thread = await this.findThread(orderId);
+      if (!thread) {
+        throw httpError(404, 'Für diesen Auftrag gibt es noch keine Nachrichten.');
       }
 
-      const messageIndex = communication.messages.findIndex(
-        msg => msg._id && msg._id.toString() === messageId
+      const message = (thread.messages || []).find((msg) => msg._id && msg._id.toString() === String(messageId));
+      if (!message || !message.feedbackRequest) {
+        throw httpError(404, 'Die Rückfrage wurde nicht gefunden.');
+      }
+
+      const chosen = (message.feedbackRequest.options || []).find((option) => (
+        String(option.value) === String(response?.value) || String(option.label) === String(response?.label)
+      ));
+      if (!chosen) {
+        throw httpError(400, 'Bitte wählen Sie eine der angebotenen Antworten.');
+      }
+
+      if (message.feedbackRequest.status !== 'pending') {
+        throw httpError(409, 'Diese Rückfrage wurde bereits beantwortet.');
+      }
+
+      const now = new Date();
+      const update = {
+        $set: {
+          'messages.$[target].feedbackRequest.response': { label: chosen.label, value: chosen.value },
+          'messages.$[target].feedbackRequest.respondedAt': now,
+          'messages.$[target].feedbackRequest.respondedBy': responderId,
+          'messages.$[target].feedbackRequest.status': 'responded',
+          lastMessageAt: now,
+        },
+        $inc: { pendingFeedbackCount: -1 },
+      };
+      if (extra.guestEmail) {
+        const baseMetadata = message.metadata && typeof message.metadata === 'object' ? message.metadata : {};
+        update.$set['messages.$[target].metadata'] = { ...baseMetadata, guestResponderEmail: extra.guestEmail };
+      }
+      const alreadyRead = (message.readBy || []).some((read) => read.userId && read.userId.toString() === String(responderId));
+      if (!alreadyRead && responderId) {
+        update.$push = { 'messages.$[target].readBy': { userId: responderId, readAt: now } };
+      }
+
+      const result = await InspectionCommunication.updateOne(
+        {
+          _id: thread._id,
+          messages: { $elemMatch: { _id: message._id, 'feedbackRequest.status': 'pending' } },
+        },
+        update,
+        { arrayFilters: [{ 'target._id': message._id }] }
+      );
+      if (!result.modifiedCount) {
+        throw httpError(409, 'Diese Rückfrage wurde bereits beantwortet.');
+      }
+      // Zaehler nie negativ (Altdaten mit falschem Zaehler).
+      await InspectionCommunication.updateOne(
+        { _id: thread._id, pendingFeedbackCount: { $lt: 0 } },
+        { $set: { pendingFeedbackCount: 0 } }
       );
 
-      if (messageIndex === -1) {
-        throw new Error('Message not found');
-      }
+      await this.notifyTeamAboutCustomerActivity(orderId, {
+        title: 'Kunde hat eine Rückfrage beantwortet',
+        message: `${respondedByName || 'Der Kunde'} hat die Rückfrage „${message.feedbackRequest.question}“ beantwortet: ${chosen.label}`,
+        messageType: 'feedback_response',
+        senderName: respondedByName,
+      });
 
-      const message = communication.messages[messageIndex];
-
-      if (!message.feedbackRequest) {
-        throw new Error('This message is not a feedback request');
-      }
-
-      message.feedbackRequest.response = response;
-      message.feedbackRequest.respondedAt = new Date();
-      message.feedbackRequest.respondedBy = responderId;
-      message.feedbackRequest.status = 'responded';
-      communication.pendingFeedbackCount = Math.max(0, communication.pendingFeedbackCount - 1);
-      communication.lastMessageAt = new Date();
-
-      // Mark the message as read by the responder (the customer who responded already knows about this message)
-      const hasResponderRead = message.readBy.some(read => read.userId.toString() === responderId.toString());
-      if (!hasResponderRead) {
-        message.readBy.push({
-          userId: responderId,
-          readAt: new Date(),
-        });
-        console.log(`InspectionCommunicationService: Marked feedback request message as read for responder ${respondedByName}`);
-      }
-
-      await communication.save();
-
-      // Refetch to ensure all nested documents are properly populated
-      communication = await InspectionCommunication.findOne({ orderId })
-        .populate('messages.senderId', 'name email role avatar')
-        .populate('messages.feedbackRequest.respondedBy', 'name email');
-
-      if (communication && communication.messages && communication.messages.length > 0) {
-        communication.messages.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateA - dateB;
-        });
-      }
-
+      const communication = await this.loadPopulatedThread(orderId);
       console.log(`InspectionCommunicationService: Feedback response recorded successfully`);
       return communication;
     } catch (error) {
@@ -519,24 +770,21 @@ class InspectionCommunicationService {
   }
 
   // Create a quick action
-  static async createQuickAction(orderId, inspectionId, senderId, senderName, actionType, description = null, metadata = null, senderRole = null) {
+  static async createQuickAction(orderId, providedInspectionId, senderId, senderName, actionType, description = null, metadata = null, senderRole = null, requestOptions = {}) {
     try {
       console.log(`InspectionCommunicationService: Creating quick action ${actionType} for order ${orderId}`);
 
-      let communication = await InspectionCommunication.findOne({ orderId });
-
-      if (!communication) {
-        communication = await this.getOrCreateCommunicationThread(orderId, inspectionId, senderId, senderName, senderRole);
-      }
+      const inspectionId = await this.resolveInspectionId(orderId, providedInspectionId);
 
       // Define action labels
       const actionLabels = {
         part_replacement: 'Teileaustausch erforderlich',
-        incorrect_device: 'Falsches Geraet angegeben',
+        incorrect_device: 'Falsches Gerät angegeben',
         incorrect_unlock_code: 'Falscher Entsperrcode angegeben',
-        additional_costs: 'Zusaetzliche Kosten erforderlich',
+        additional_costs: 'Zusätzliche Kosten erforderlich',
         update_unlock_info: 'Entsperrinformation aktualisieren',
-        customer_defect_info: 'Kunde ueber Defekt informieren',
+        // Kundensichtbarer Titel (Benachrichtigung/Verlauf), keine Mitarbeiteranweisung (NOTIF-7).
+        customer_defect_info: 'Information zu einem Defekt an Ihrem Gerät',
       };
 
       const message = {
@@ -553,39 +801,25 @@ class InspectionCommunicationService {
           metadata,
           status: 'pending',
         },
-        readBy: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
       };
 
-      communication.messages.push(message);
-      communication.lastMessageAt = new Date();
-      communication.pendingActionsCount = (communication.pendingActionsCount || 0) + 1;
-      await communication.save();
-
-      // Refetch to ensure all nested documents have proper IDs and timestamps
-      communication = await InspectionCommunication.findOne({ orderId })
-        .populate('messages.senderId', 'name email role avatar')
-        .populate('messages.feedbackRequest.respondedBy', 'name email');
-
-      if (communication && communication.messages && communication.messages.length > 0) {
-        communication.messages.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateA - dateB;
-        });
+      const { created, messageId } = await this.appendMessage(orderId, message, {
+        clientMessageId: requestOptions.clientMessageId,
+        incrementActions: 1,
+        threadDefaults: { inspectionId, userId: senderId, userName: senderName, userRole: senderRole },
+      });
+      const communication = await this.loadPopulatedThread(orderId);
+      // Aufrufer (Route) erfaehrt, ob die Nachricht neu war (Wiederholung -> 200 statt 201).
+      if (requestOptions.result && typeof requestOptions.result === 'object') requestOptions.result.created = created;
+      if (!created) {
+        return communication;
       }
 
       // Create notification for customer
       try {
-        const order = await Order.findById(orderId);
+        const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true }).select('customerId').lean();
         if (order && order.customerId) {
           const complaintContext = await this.getComplaintNotificationContext(orderId);
-          // Get the last message to access the generated _id
-          const lastMessage = communication && communication.messages && communication.messages.length > 0
-            ? communication.messages[communication.messages.length - 1]
-            : null;
-
           await NotificationService.createNotification({
             userId: order.customerId,
             title: complaintContext
@@ -596,7 +830,7 @@ class InspectionCommunicationService {
             orderId,
             actionUrl: complaintContext?.actionUrl || `/orders/${orderId}`,
             metadata: {
-              messageId: lastMessage?._id,
+              messageId,
               actionType,
               inspectionId,
               messageType: 'quick_action',
@@ -619,14 +853,14 @@ class InspectionCommunicationService {
   }
 
   // Complete a quick action
-  static async completeQuickAction(orderId, messageId) {
+  static async completeQuickAction(orderId, messageId, completedBy = {}) {
     try {
       console.log(`InspectionCommunicationService: Completing quick action in order ${orderId}`);
 
-      let communication = await InspectionCommunication.findOne({ orderId });
+      let communication = await this.findThread(orderId);
 
       if (!communication) {
-        throw new Error('Communication thread not found');
+        throw httpError(404, 'Für diesen Auftrag gibt es noch keine Nachrichten.');
       }
 
       const messageIndex = communication.messages.findIndex(
@@ -634,34 +868,30 @@ class InspectionCommunicationService {
       );
 
       if (messageIndex === -1) {
-        throw new Error('Message not found');
+        throw httpError(404, 'Die Aktion wurde nicht gefunden.');
       }
 
       const message = communication.messages[messageIndex];
 
       if (!message.quickAction) {
-        throw new Error('This message is not a quick action');
+        throw httpError(404, 'Die Aktion wurde nicht gefunden.');
+      }
+      if (message.quickAction.status !== 'pending') {
+        throw httpError(409, 'Diese Aktion ist bereits erledigt.');
       }
 
       message.quickAction.status = 'completed';
       message.quickAction.completedAt = new Date();
+      // Nur eine vom Kunden erledigte Aktion zaehlt als Kunden-Aktivitaet ("Antwort ausstehend").
+      if (completedBy.userId) message.quickAction.completedBy = completedBy.userId;
+      if (completedBy.role) message.quickAction.completedByRole = String(completedBy.role);
       communication.pendingActionsCount = Math.max(0, communication.pendingActionsCount - 1);
       communication.lastMessageAt = new Date();
 
       await communication.save();
 
       // Refetch to ensure all nested documents are properly populated
-      communication = await InspectionCommunication.findOne({ orderId })
-        .populate('messages.senderId', 'name email role avatar')
-        .populate('messages.feedbackRequest.respondedBy', 'name email');
-
-      if (communication && communication.messages && communication.messages.length > 0) {
-        communication.messages.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateA - dateB;
-        });
-      }
+      communication = await this.loadPopulatedThread(orderId);
 
       console.log(`InspectionCommunicationService: Quick action completed successfully`);
       return communication;
@@ -706,8 +936,14 @@ class InspectionCommunicationService {
       // Clear the previous confirmation so admin can re-verify
       order.unlockConfirmation = undefined;
 
-      // Resume from paused state if paused for this reason
-      if (order.status === 'paused' && order.pauseReason === PAUSE_REASON) {
+      // Fortsetzen (HIST-13): nur wenn die LETZTE Statusaenderung die Pause "Rückmeldung des Kunden
+      // erwartet" war - mit Verlaufseintrag 'Order Resumed' (Quelle Kunde) im selben Speichervorgang.
+      // Eine andere Pause (z. B. "Teile fehlen") wird nicht still aufgehoben.
+      // eslint-disable-next-line global-require
+      const OrderHistory = require('../utils/orderHistory');
+      const resumedForCustomer = OrderHistory.resumeIfPausedForCustomer(order, { id: customerId, name: customerName || 'Kunde' });
+      // Altpfad (Feld existiert im Schema nicht; bleibt fuer alte Dokumente wirkungslos-kompatibel).
+      if (!resumedForCustomer && order.status === 'paused' && order.pauseReason === PAUSE_REASON) {
         order.status = 'in-progress';
         order.pauseReason = '';
       }
@@ -715,7 +951,7 @@ class InspectionCommunicationService {
       await order.save();
 
       // Mark pending update_unlock_info quick actions as completed
-      const communication = await InspectionCommunication.findOne({ orderId });
+      const communication = await this.findThread(orderId);
       if (communication) {
         let actionsCompleted = 0;
         communication.messages.forEach((msg) => {
@@ -737,7 +973,7 @@ class InspectionCommunicationService {
       }
 
       // Notify all assigned staff — fetch fresh lean copy so staffId ObjectIds are raw strings
-      const freshOrder = await Order.findById(orderId).select('assignedStaff orderNumber').lean();
+      const freshOrder = await Order.findById(orderId).setOptions({ skipAutoPopulate: true }).select('assignedStaff orderNumber').lean();
       const assignedStaff = freshOrder?.assignedStaff || [];
       const orderRef = freshOrder?.orderNumber ? `#${freshOrder.orderNumber}` : 'dem Auftrag';
 
@@ -771,7 +1007,7 @@ class InspectionCommunicationService {
     try {
       console.log(`InspectionCommunicationService: Fetching communication thread for order ${orderId}`);
 
-      const communication = await InspectionCommunication.findOne({ orderId })
+      const communication = await this.findThread(orderId)
         .populate('messages.senderId', 'name email role avatar')
         .populate('messages.feedbackRequest.respondedBy', 'name email');
 
@@ -802,10 +1038,11 @@ class InspectionCommunicationService {
     try {
       console.log(`InspectionCommunicationService: Marking messages as read for user ${userId} in order ${orderId}`);
 
-      let communication = await InspectionCommunication.findOne({ orderId });
+      let communication = await this.findThread(orderId);
 
       if (!communication) {
-        throw new Error('Communication thread not found');
+        // Noch kein Thread: nichts zu markieren (kein Fehler, kein Anlegen).
+        return null;
       }
 
       const now = new Date();
@@ -833,19 +1070,7 @@ class InspectionCommunicationService {
       console.log(`InspectionCommunicationService: ${markedCount} messages marked as read`);
 
       // Refetch to ensure all nested documents have proper IDs and timestamps, and populate sender info
-      communication = await InspectionCommunication.findOne({ orderId })
-        .populate('messages.senderId', 'name email role avatar')
-        .populate('messages.feedbackRequest.respondedBy', 'name email');
-
-      // Sort messages by createdAt
-      if (communication && communication.messages && communication.messages.length > 0) {
-        communication.messages.sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateA - dateB;
-        });
-        console.log(`InspectionCommunicationService: Sorted ${communication.messages.length} messages by createdAt`);
-      }
+      communication = await this.loadPopulatedThread(orderId);
 
       return communication;
     } catch (error) {
@@ -857,7 +1082,7 @@ class InspectionCommunicationService {
   // Get pending feedback count for an order
   static async getPendingFeedbackCount(orderId) {
     try {
-      const communication = await InspectionCommunication.findOne({ orderId });
+      const communication = await this.findThread(orderId);
       return communication ? communication.pendingFeedbackCount : 0;
     } catch (error) {
       console.error(`InspectionCommunicationService: Error getting pending feedback count: ${error}`);
@@ -868,7 +1093,7 @@ class InspectionCommunicationService {
   // Get pending actions count for an order
   static async getPendingActionsCount(orderId) {
     try {
-      const communication = await InspectionCommunication.findOne({ orderId });
+      const communication = await this.findThread(orderId);
       return communication ? communication.pendingActionsCount : 0;
     } catch (error) {
       console.error(`InspectionCommunicationService: Error getting pending actions count: ${error}`);
@@ -877,82 +1102,39 @@ class InspectionCommunicationService {
   }
 
   // Get unread message counts for multiple orders
+  // Gemeinsame Regel aus utils/communicationReadRules (dieselbe wie Postfach und Dashboard):
+  // Personal zaehlt Kundennachrichten (auch Gaeste) und neue Antworten auf Rueckfragen, nicht
+  // die Nachrichten anderer Mitarbeiter; Kunden zaehlen Team-/Systemnachrichten.
+  // Antwortformat unveraendert: { [orderId]: { unread, senderType, awaitingReply } } nur fuer
+  // Auftraege mit ungelesenen Nachrichten.
   static async getUnreadMessageCounts(orderIds, userId, userRole) {
     try {
-      console.log(`InspectionCommunicationService: Getting unread counts for ${orderIds.length} orders for user ${userId}`);
+      const validIds = (orderIds || []).map(String).filter(isObjectIdLike);
+      if (!validIds.length) return {};
 
-      const communications = await InspectionCommunication.find({
-        orderId: { $in: orderIds }
-      }).populate('messages.feedbackRequest.respondedBy', '_id');
+      const communications = await InspectionCommunication.find({ orderId: { $in: validIds } })
+        .select('orderId messages.senderId messages.senderType messages.messageType messages.readBy messages.createdAt messages.feedbackRequest.status messages.feedbackRequest.respondedAt messages.quickAction.status messages.quickAction.completedAt messages.quickAction.completedByRole')
+        .lean();
 
+      const viewer = { userId, role: userRole };
       const unreadCounts = {};
+      const byOrder = new Map();
+      communications.forEach((comm) => {
+        const key = String(comm.orderId);
+        byOrder.set(key, [...(byOrder.get(key) || []), ...(comm.messages || [])]);
+      });
 
-      communications.forEach(comm => {
-        let unreadCount = 0;
-        let lastUnreadSenderType = null;
-
-        // Count messages that haven't been read by the current user
-        comm.messages.forEach(message => {
-          const hasUserRead = message.readBy.some(
-            readEntry => readEntry.userId && readEntry.userId.toString() === userId.toString()
-          );
-
-          // Check if this is a feedback request message with a response (for admin/staff view)
-          const isFeedbackRequestWithResponse =
-            message.feedbackRequest &&
-            message.feedbackRequest.status === 'responded' &&
-            message.feedbackRequest.respondedBy &&
-            message.feedbackRequest.respondedAt;
-
-          // For admin/staff viewing feedback responses from customers
-          if (userRole && (userRole === 'admin' || userRole === 'staff') && isFeedbackRequestWithResponse) {
-            // Check if this feedback response has been "read" by the current admin/staff user
-            // We consider a feedback response as read if the admin has viewed the message after the response was submitted
-            const hasReadAfterResponse = message.readBy.some(
-              readEntry => {
-                if (!readEntry.userId || readEntry.userId.toString() !== userId.toString()) {
-                  return false;
-                }
-                const readAt = new Date(readEntry.readAt);
-                const respondedAt = new Date(message.feedbackRequest.respondedAt);
-                return readAt >= respondedAt;
-              }
-            );
-
-            if (!hasReadAfterResponse) {
-              // Count this as ONE unread customer message (the response)
-              unreadCount++;
-              // Feedback responses should be marked as customer messages
-              lastUnreadSenderType = 'customer';
-              console.log(`InspectionCommunicationService: Found unread feedback response for order ${comm.orderId} - message ${message._id}`);
-            }
-            // Skip counting this message again as a regular unread message
-            return;
-          }
-
-          // Count regular messages that haven't been read
-          if (!hasUserRead) {
-            // Only count messages not sent by the current user
-            if (message.senderId && message.senderId.toString() !== userId.toString()) {
-              unreadCount++;
-
-              // Track the sender type of the most recent unread message
-              if (!lastUnreadSenderType) {
-                lastUnreadSenderType = message.senderType;
-              }
-            }
-          }
-        });
-
-        if (unreadCount > 0) {
-          unreadCounts[comm.orderId.toString()] = {
-            unread: unreadCount,
-            senderType: lastUnreadSenderType
+      byOrder.forEach((messages, key) => {
+        const summary = summarizeMessages(messages, viewer);
+        if (summary.unreadCount > 0) {
+          unreadCounts[key] = {
+            unread: summary.unreadCount,
+            senderType: isStaffRole(userRole) ? 'customer' : 'staff',
+            awaitingReply: summary.awaitingReply,
           };
         }
       });
 
-      console.log(`InspectionCommunicationService: Found unread messages in ${Object.keys(unreadCounts).length} orders`);
       return unreadCounts;
     } catch (error) {
       console.error(`InspectionCommunicationService: Error getting unread message counts: ${error}`);
@@ -961,11 +1143,12 @@ class InspectionCommunicationService {
   }
 
   // Send a repair offer message into the order communication thread (called when complaint is denied)
-  static async sendRepairOfferMessage(orderId, senderId, senderName, { complaintId, offerAmount, offerDescription }) {
+  // notifyCustomer: false -> nur Verlaufseintrag; der Aufrufer benachrichtigt selbst (Reklamation, NOTIF-11).
+  static async sendRepairOfferMessage(orderId, senderId, senderName, { complaintId, offerAmount, offerDescription, notifyCustomer = true }) {
     try {
       console.log(`InspectionCommunicationService: Sending repair offer message to order ${orderId}`);
 
-      let communication = await InspectionCommunication.findOne({ orderId });
+      let communication = await this.findThread(orderId);
       if (!communication) {
         communication = await this.getOrCreateCommunicationThread(orderId, null, senderId, senderName, 'system');
       }
@@ -995,7 +1178,7 @@ class InspectionCommunicationService {
 
       // Notify customer
       try {
-        const order = await Order.findById(orderId);
+        const order = notifyCustomer ? await Order.findById(orderId) : null;
         if (order && order.customerId) {
           const complaintContext = await this.getComplaintNotificationContext(orderId);
           await NotificationService.createNotification({
@@ -1029,7 +1212,7 @@ class InspectionCommunicationService {
     try {
       console.log(`InspectionCommunicationService: Updating repair offer status to ${status} for order ${orderId}`);
 
-      const communication = await InspectionCommunication.findOne({ orderId });
+      const communication = await this.findThread(orderId);
       if (!communication) return;
 
       const msg = communication.messages.find(

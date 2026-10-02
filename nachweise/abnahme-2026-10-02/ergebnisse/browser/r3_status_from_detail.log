@@ -1,0 +1,36 @@
+  PASS Testbuchung enthaelt genau den eigenen Auftrag :: ORD-2026-075 (Buchung mit 1 Auftrag)
+   Testdaten: Auftrag ORD-2026-075 (6abf837d2a854d3cec756f8f) per Warenkorb + Checkout-API, Status pending
+  PASS Liste 1366x768: kein horizontales Scrollen (Seite und Tabelle) :: {"doc":0,"scrollers":0}
+  PASS "Auftrag öffnen" in der Zeile sichtbar (ohne Scrollen) :: x=1172 y=555
+  PASS Zeile zeigt den Reparaturstatus als Badge (kein Umschalter mehr) :: ORD-2026-075 2.10.2026 Paula Partner partner@e2e.invalid Apple iPhone 15 Diagnose E2E Ausstehend Fortschritt 0 % Offen 47,40 € Nicht zugewiesen Auftrag öffnen
+  PASS kein Inline-Statusumschalter in der Zeile :: 0
+   [shot] 01_liste_gesucht.png
+   [Klick 1] Liste: "Auftrag öffnen"
+  PASS Detail: Status-Menue im Kopf im ersten Sichtbereich :: x=340 y=296 "Ausstehend"
+  PASS Detail: Rueckweg "Zurück zu den Reparaturaufträgen" sichtbar :: 1
+   [shot] 02_detail_kopf.png
+   [Klick 2] Detail: Status-Menue öffnen
+   [shot] 03_status_menue.png
+   [Klick 3] Menue: "In Bearbeitung"
+  PASS Statuswechsel gespeichert + Verlaufseintrag (DB) :: pending->in-progress timeline 2->4
+  PASS Klicks Liste -> Status geändert: 3 (Auftrag öffnen, Menü, Status) :: 3
+  PASS Kopf zeigt sofort den neuen Status "In Bearbeitung" :: true
+   [shot] 04_nach_statuswechsel.png
+  PASS Verlauf (UI) zeigt den Wechsel Ausstehend → In Bearbeitung :: nü für Kunden sichtbar Status geändert: Ausstehend → Reparatur in Bearbeitung Auftragsstatus: Ausstehend → Reparatur in Bearbeitung 
+  PASS Verlauf (UI) nennt den Akteur :: Admin User
+   [shot] 05_verlauf_statuswechsel.png
+  PASS Storno oeffnet den Dialog "Auftrag stornieren?" :: 1
+  PASS ohne Grund: "Auftrag stornieren" gesperrt :: true
+  PASS Dialog: Grund als intern gekennzeichnet, kein Erstattungsversprechen :: Auftrag stornieren? Auftrag ORD-2026-075 wird storniert. Laufende Reparatur-Workflows werden angehalten. Rechnungen und Zahlungen werden dadurch weder storniert noch erstattet. Bitte bei Bedarf in der
+   [shot] 06_storno_dialog_leer.png
+  PASS mit Grund: "Auftrag stornieren" aktiv :: true
+  PASS Storno gespeichert, Grund im Verlaufseintrag (DB) :: cancelled
+  PASS Verlauf (UI) zeigt den Storno-Grund :: atus: Reparatur in Bearbeitung → Storniert Grund: Kunde hat telefonisch abgesagt (E2E 5932869) von Admin User 02.10.2026
+   [shot] 07_verlauf_storno.png
+  PASS Server: Statuswechsel nach Storno abgelehnt (409) :: 409 ORDER_CANCELLED
+  PASS Zurueck zur Liste: Suche bleibt erhalten :: ORD-2026-075
+  PASS Liste zeigt den neuen Status "Storniert" :: ORD-2026-075 2.10.2026 Paula Partner partner@e2e.invalid Apple iPhone 15 Diagnose E2E Storniert Fortschritt 0 % Stornier
+   [shot] 08_liste_zurueck.png
+  PASS netguard_after.log unveraendert (kein externer Aufruf) :: 0 -> 0 Bytes
+   ERGEBNIS Klickzahl: Liste (Suche getippt) -> Status geaendert = 3 Klicks; Storno = +3 Klicks (Menue, "Storniert", "Auftrag stornieren") + Grund tippen.
+==== r3_status_from_detail: 22 bestanden, 0 fehlgeschlagen ====

@@ -6,6 +6,28 @@ export interface CreatedBy {
   role: string;
 }
 
+export interface InternalNote {
+  _id: string;
+  kind: 'internal';
+  visibility: 'internal';
+  content: string;
+  senderName: string;
+  staffId?: string;
+  createdAt: string;
+}
+
+export interface ThreadSummary {
+  unreadCount: number;
+  awaitingReply: boolean;
+  pendingFeedbackCount: number;
+  pendingActionsCount: number;
+  messageCount?: number;
+  lastMessageAt?: string | null;
+}
+
+const errorText = (error: any) =>
+  error?.response?.data?.error || error?.response?.data?.message || error?.message;
+
 export interface RepairCommunication {
   _id: string;
   repairRequestId: string;
@@ -28,23 +50,41 @@ export const getCommunicationThread = async (repairRequestId: string) => {
     return response.data.communication;
   } catch (error) {
     console.error('getCommunicationThread error:', error);
-    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+    throw new Error(errorText(error));
   }
 };
 
-// Description: Send a message in the communication thread
+// Description: Get thread + per-user summary; staff additionally receive internal notes
+//              (RepairRequest.adminNotes) in a SEPARATE field (never inside communication).
+// Endpoint: GET /api/repair-request-communication/:repairRequestId
+// Response: { communication: Object | null, summary: ThreadSummary, internalNotes?: InternalNote[] }
+export const getCommunicationThreadWithMeta = async (repairRequestId: string): Promise<{
+  communication: RepairCommunication | null;
+  summary?: ThreadSummary;
+  internalNotes?: InternalNote[];
+}> => {
+  try {
+    const response = await api.get(`/api/repair-request-communication/${repairRequestId}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(errorText(error));
+  }
+};
+
+// Description: Send a message in the communication thread (idempotent with clientMessageId)
 // Endpoint: POST /api/repair-request-communication/:repairRequestId/message
-// Request: { content: string }
-// Response: { communication: Object }
-export const sendMessage = async (repairRequestId: string, content: string) => {
+// Request: { content: string, clientMessageId?: string }
+// Response: { communication: Object, duplicate: boolean }
+export const sendMessage = async (repairRequestId: string, content: string, clientMessageId?: string) => {
   try {
     const response = await api.post(`/api/repair-request-communication/${repairRequestId}/message`, {
       content,
+      clientMessageId,
     });
     return response.data.communication;
   } catch (error) {
     console.error('sendMessage error:', error);
-    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+    throw new Error(errorText(error));
   }
 };
 
@@ -65,7 +105,7 @@ export const sendFeedbackRequest = async (
     return response.data.communication;
   } catch (error) {
     console.error('sendFeedbackRequest error:', error);
-    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+    throw new Error(errorText(error));
   }
 };
 
@@ -86,7 +126,7 @@ export const respondToFeedback = async (
     return response_obj.data.communication;
   } catch (error) {
     console.error('respondToFeedback error:', error);
-    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+    throw new Error(errorText(error));
   }
 };
 
@@ -109,7 +149,7 @@ export const createQuickAction = async (
     return response.data.communication;
   } catch (error) {
     console.error('createQuickAction error:', error);
-    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+    throw new Error(errorText(error));
   }
 };
 
@@ -123,7 +163,7 @@ export const completeQuickAction = async (repairRequestId: string, messageId: st
     return response.data.communication;
   } catch (error) {
     console.error('completeQuickAction error:', error);
-    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+    throw new Error(errorText(error));
   }
 };
 
@@ -137,7 +177,7 @@ export const markMessagesAsRead = async (repairRequestId: string) => {
     return response.data.communication;
   } catch (error) {
     console.error('markMessagesAsRead error:', error);
-    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+    throw new Error(errorText(error));
   }
 };
 
@@ -151,7 +191,7 @@ export const getPendingFeedbackCount = async (repairRequestId: string) => {
     return response.data.count;
   } catch (error) {
     console.error('getPendingFeedbackCount error:', error);
-    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+    throw new Error(errorText(error));
   }
 };
 
@@ -165,20 +205,20 @@ export const getPendingActionsCount = async (repairRequestId: string) => {
     return response.data.count;
   } catch (error) {
     console.error('getPendingActionsCount error:', error);
-    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+    throw new Error(errorText(error));
   }
 };
 
 // Description: Get unread message count for a repair request
 // Endpoint: GET /api/repair-request-communication/:repairRequestId/unread-count
 // Request: {}
-// Response: { unreadCount: number }
+// Response: { unreadCount: number, awaitingReply: boolean }
 export const getUnreadMessageCount = async (repairRequestId: string) => {
   try {
     const response = await api.get(`/api/repair-request-communication/${repairRequestId}/unread-count`);
     return response.data.unreadCount || 0;
   } catch (error) {
     console.error('getUnreadMessageCount error:', error);
-    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+    throw new Error(errorText(error));
   }
 };

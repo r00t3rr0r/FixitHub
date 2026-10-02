@@ -1,0 +1,24 @@
+   Testdaten: Auftrag 6abf7828dfb63836936d83e5 (angelegt von flow_k11_admin_label_download.js, Kunde partner@e2e.invalid)
+   [shot] 01_admin_390_versand_einsendung.png
+   [shot] 02_admin_390_versand_auslieferung.png
+   [shot] 03_admin_390_versand_ganzseite.png
+   [shot] card_einsendung_390.png, card_auslieferung_390.png (Elementaufnahmen)
+   Admin 390: viewport=390 doc sw/cw=390/390 body sw=390
+  PASS Admin 390 px: Seite ohne horizontales Scrollen (document/body) :: 390/390
+  PASS Admin 390 px: kein Element der Versandkarten ragt über den Viewport / scrollt horizontal :: 0
+  PASS Admin 390 px: kein Shell-Scrollcontainer mit horizontalem Überlauf :: 0
+  PASS Admin 390 px: beide Karten scrollWidth <= clientWidth und innerhalb 390 px :: [{"sw":298,"cw":298,"right":356},{"sw":298,"cw":298,"right":356}]
+  PASS Admin 390 px: beide Karten zeigen Absender + Empfänger :: inbound-sender,inbound-recipient,outbound-sender,outbound-recipient
+   [shot] 04_kunde_390_versand.png
+   [shot] 05_kunde_390_ganzseite.png
+   Kunde 390: Versandkarte vorhanden=true; Treffer Absender/Empfänger/Quelle=0
+  PASS Kunde: Versandkarte des Auftrags wird angezeigt 
+  PASS Kunde: kein Absender/Empfänger-Block (keine data-party-Elemente, keine Team-Quellenangaben) :: 0/0
+  PASS Kunde: Versandstand selbst bleibt sichtbar 
+   Kunde 390: doc sw/cw=390/390
+     ueberstehend (Kunde): cite. r=790..987 sw=0/cw=0
+     ueberstehend (Kunde): b. r=232..464 sw=0/cw=0
+     ueberstehend (Kunde): i. r=621..743 sw=0/cw=0
+  PASS Kunde 390 px: Seite ohne horizontales Scrollen :: 390/390
+  PASS netguard_after.log unverändert :: 0 -> 0 B
+==== r3_k11_390: 10 bestanden, 0 fehlgeschlagen ====

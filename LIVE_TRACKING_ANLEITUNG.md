@@ -11,7 +11,7 @@
 ### 🔐 Admin-Zugang:
 
 **Email:** `admin@example.com`  
-**Passwort:** `admin123`
+**Passwort:** Wert aus `SEED_ADMIN_PASSWORD` (bzw. das beim ersten Seeding einmalig geloggte Passwort)
 
 ### 📍 Zugriff auf Live Tracking Dashboard:
 
@@ -24,7 +24,7 @@
 ```
 URL: http://localhost:5173/login
 Email: admin@example.com
-Passwort: admin123
+Passwort: <SEED_ADMIN_PASSWORD>
 ```
 
 #### 2. Live Tracking öffnen:
@@ -81,7 +81,7 @@ Oder direkt: http://localhost:5173/admin/live-tracking
 ```bash
 curl -X POST 'http://localhost:3000/api/auth/login' \
   -H 'Content-Type: application/json' \
-  -d '{"email":"admin@example.com","password":"admin123"}'
+  -d '{"email":"admin@example.com","password":"<SEED_ADMIN_PASSWORD>"}'
 ```
 
 Erwartetes Ergebnis: JSON mit `accessToken` und `refreshToken`

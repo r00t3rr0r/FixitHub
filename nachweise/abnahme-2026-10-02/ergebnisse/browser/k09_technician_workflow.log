@@ -1,0 +1,63 @@
+   Testdaten: Testkunde k09-kunde@e2e.invalid (Marker E2E-K09) in e2e_after vorhanden/angelegt (Passwort-Hash aus Test-Passwortdatei)
+  PASS Technikerrolle der App: Testbenutzer staff@e2e.invalid hat Rolle "staff" (User.role kennt nur customer/staff/admin) :: staff
+   Testdaten: Auftrag A (Reparatur) = ORD-2026-069 (6abf81872a854d3cec73b7a4) ueber Warenkorb + Checkout-API als k09-kunde@e2e.invalid, Status pending
+   Testdaten: Auftrag B (Storno) = ORD-2026-070 (6abf81882a854d3cec73cbf0) ueber Warenkorb + Checkout-API als k09-kunde@e2e.invalid, Status pending
+   Testdaten: Admin weist ORD-2026-069 dem Techniker zu (API) -> 200
+   Testdaten: Admin weist ORD-2026-070 dem Techniker zu (API) -> 200
+  PASS Techniker oeffnet den eigenen Auftrag ueber "Meine Aufträge" (Suche + Klick) :: /orders/6abf81872a854d3cec73b7a4
+   [shot] 01_A_auftrag_techniker.png
+  PASS Techniker-Navigation zeigt deutsche Bezeichnungen (kein roher Schluessel "staff.menu.dashboard") :: Dashboard Aufträge & Arbeit Zeiterfassung Zeitplan Werkzeuge & Ressourcen Nachrichten Benachrichtigungen 3 Profil
+   [shot] 02_A_inspektion_schritt1.png
+  PASS Schritt 1 "Speichern & Weiter": gespeichert, Schritt 2 (Geräteidentifikation) geoeffnet :: Erfolg Modellprüfung gespeichert
+   [shot] 03_A_inspektion_nach_schritt2.png
+  PASS Schritt 2 "Speichern & Weiter": Meldung "Identifikation gespeichert"; DB enthaelt Schritt-1-Notiz und Seriennummer :: steps=[1,2] currentStep=1 toast2=Erfolg Identifikation gespeichert
+  PASS Auftrag nach Inspektionsstart: "Diagnosebewertung" (diagnostic-assessment) :: diagnostic-assessment
+  PASS nach Reload: Hauptaktion "Inspektion fortsetzen" (Inspektionsstand bleibt erhalten) 
+   [shot] 04_A_workflow_zuweisen_dialog.png
+  PASS Reparatur-Workflow angelegt (Bestaetigung ausstehend) :: pending-confirmation
+   Start-Schalter "Kunde informieren": false (bleibt aus)
+   [shot] 05_A_workflow_bestaetigen.png
+  PASS "Bestätigen & Starten": Workflow laeuft, Auftrag "Reparatur in Bearbeitung" :: wf=in-progress order=in-progress toast=Gespeichert Die Reparatur wurde gestartet. Auftragsstatus: Reparatur in Bearbeitung.
+   [shot] 06_A_workflow_laeuft.png
+  PASS Pausieren ohne Grund gesperrt 
+   [shot] 07_A_pause_dialog.png
+  PASS Pause gespeichert: Workflow pausiert mit Grund, Auftrag "Pausiert" :: wf=paused grund=E2E-K09 Warten auf Ersatzteil (Display) order=paused toast=Gespeichert Die Reparatur wurde pausiert. Auftragsstatus: Pausiert.
+  PASS Pausieren sendet dem Kunden keine E-Mail (Pausengrund ist intern) :: keine
+  PASS nach Reload: Workflow-Karte zeigt "Pausiert" 
+   [shot] 08_A_nach_reload_pausiert.png
+  PASS "Fortsetzen": Workflow + Auftrag wieder in Bearbeitung, Pause mit Grund im Pausenverlauf :: wf=in-progress order=in-progress pausen=1 toast=Gespeichert Die Reparatur wurde fortgesetzt. Auftragsstatus: Reparatur in Bearbeitung.
+  PASS Abschluss-Bestaetigung nennt Zielstatus und dass Rechnungen/Zahlungen unveraendert bleiben :: Reparatur abschließen? Die Zeiterfassung endet. Der Auftrag wechselt auf „Reparatur abgeschlossen – bereit zur Rückgabe“; danach kann die Auslieferung vorbereitet werden. Rechnunge
+   [shot] 09_A_abschluss_bestaetigen.png
+  PASS Workflow abgeschlossen (Zeiterfassung beendet) :: completed totalWorkMs=1481
+  PASS Auftrag "Reparatur abgeschlossen" (ready-for-pickup) - NICHT automatisch abgeschlossen/versendet :: status=ready-for-pickup returnTracking=- toast=-
+  PASS Dialog meldet getrennt: gespeichert / Auftragsstatus "Reparatur abgeschlossen" / Kundenbenachrichtigung :: Gespeichert: Die Reparatur wurde abgeschlossen. Auftragsstatus: Reparatur abgeschlossen – bereit zur Rückgabe Kunde wurde benachrichtigt: Benachrichtigung im Kundenkonto und E-Mail gesendet.
+   Toasts beim Abschluss: Gespeichert Die Reparatur wurde fortgesetzt. Auftragsstatus: Reparatur in Bearbeitung. || Kunde wurde benachrichtigt Benachrichtigung im Kundenkonto und E-Mail gesendet.
+   [shot] 10_A_workflow_abgeschlossen.png
+   Abschluss: Schalter "Kunde informieren" = true; neue E-Mails an Testkunden: 1790935463027-0019-k09-kunde@e2e.invalid.eml
+  PASS "Kunde informieren" AN: genau eine Abschluss-E-Mail an den Testkunden, ohne Pausengrund/interne Notiz :: 1
+  PASS nach Reload: Auftragsdetail (Techniker) zeigt "Reparatur abgeschlossen" 
+   [shot] 11_A_verlauf_techniker.png
+  PASS Verlauf (Techniker): gestartet / pausiert (mit Grund) / fortgesetzt / abgeschlossen :: alle vorhanden
+   Verlauf-API (Personal): Status geändert | Reparatur abgeschlossen | Status geändert | Reparatur fortgesetzt | Status geändert | Reparatur pausiert | Status geändert | Reparatur gestartet | Eingangsprüfung gestartet | Personal zugewiesen | DHL-Einsendelabel erstellt | Änderungsbeleg | Auftrag erhalten
+  PASS Kunde sieht im Browser den Status "Reparatur abgeschlossen" 
+   [shot] 12_A_kunde_verlauf.png
+  PASS Kunden-Verlauf enthaelt "Reparatur abgeschlossen" :: Verlauf Alle Ereignisse Status geändert Neuer Status: Reparatur abgeschlossen – bereit zur Rückgabe 02.10.2026, 12:04 Reparatur abgeschlossen Die Reparatur ist abgeschlossen. 02.10.2026, 12:04 Status geändert Neuer Status: Reparatur in Bearbeitung 02.10.2026, 12:04 Status geändert Neuer Status: Paus
+  PASS Kunde sieht keine internen Angaben (Pausengrund, interne Notiz, Technikername, Inspektionsnotiz) :: keine
+   Testdaten: ORD-2026-070 Inspektion + Reparatur-Workflow per API vorbereitet und gestartet (200/200/200)
+   [shot] 13_B_workflow_laeuft_vor_storno.png
+   Testdaten: Admin storniert ORD-2026-070 per API (Techniker-Dialog ist noch offen) -> 200, Status cancelled
+   [shot] 14_B_abschluss_abgelehnt.png
+  PASS Storniert: "Reparatur abschließen" -> UI zeigt deutsche Ablehnung des Servers :: Nicht gespeichert Der Auftrag ist storniert – die Reparatur kann nicht abgeschlossen werden.
+  PASS Ablehnungsmeldung liegt sichtbar UEBER dem offenen Dialog (nicht vom Overlay verdeckt) :: {"found":true,"onTop":true,"hits":[true,true,true],"topEl":"div.text-sm opacity-90"}
+  PASS Server: Workflow NICHT abgeschlossen, Auftrag bleibt storniert :: wf=paused order=cancelled
+   Auftrag B nach Reload (Auszug): Zurück zu Aufträgen Auftrag ORD-2026-070 · Apple iPhone 15 Kunde: Klara Testkundin k09-kunde@e2e.invalid +49 30 9090909 Buchung BKG-2026-0013 Erstellt am 2.10.2026 Storniert – Inspektion gesperrt Nachricht an Kunden Weitere Aktionen Reparaturstatus Storniert Z
+  PASS Storniert: Dialog nennt die Sperre ("Auftrag storniert – Arbeitsschritte sind gesperrt") :: Reparatur-Workflow Auftrag #ORD-2026-070 · Apple iPhone 15 00:00:09 Pausiert Stefan Staff Apple iPhone 15 02.10.2026, 12:04 NAVIGATION Aktionen Zwischenfälle Pause-Historie 1 Details Schließen Auftrag
+  PASS Storniert: "Fortsetzen" und "Reparatur abschließen" sind gesperrt 
+   [shot] 15_B_schritte_gesperrt.png
+   Pruefung: Fortsetzen direkt per API (die Oberflaeche bietet es nicht mehr an)
+  PASS Server lehnt "Fortsetzen" am stornierten Auftrag ab (409, deutsch) :: 409 Der Auftrag ist storniert – die Reparatur kann nicht fortgesetzt werden.
+  PASS Server: Workflow bleibt durch Storno pausiert (Zeiterfassung laeuft nicht wieder an) :: paused / Auftrag storniert
+  PASS Storno + abgelehnte Workflow-Schritte erzeugen keine Rechnung :: 0
+  PASS keine neue E-Mail enthaelt Pausengrund oder interne Notiz :: 3 neue Mails, davon an Testkunden 3
+  PASS neue E-Mails gehen nur an Testadressen :: nur Testadressen
+==== k09_technician_workflow: 34 bestanden, 0 fehlgeschlagen ====

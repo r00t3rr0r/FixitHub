@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/useToast"
+import { useAuth } from "@/contexts/AuthContext"
 import { getRepairServices, getAddOnServices, RepairService } from "@/api/services"
 import { getDeviceTypes, getManufacturersByDeviceType, getModelsByTypeAndManufacturer, DeviceType, Manufacturer, DeviceModel, searchDevices, SearchResult, getModelById } from "@/api/devices"
 import { createOrder } from "@/api/orders"
@@ -31,7 +32,7 @@ import {
   Plus,
   Check,
   Clock,
-  DollarSign,
+  Euro,
   Star,
   Shield,
   Zap,
@@ -45,7 +46,6 @@ import {
   BookOpen,
   User,
   Mail,
-  Phone,
   ShoppingCart as ShoppingCartIcon,
   ChevronRight,
   Sparkles,
@@ -62,6 +62,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { formatEUR } from '@/lib/utils'
 
 interface OrderForm {
   deviceType: string
@@ -107,6 +108,7 @@ const getDeviceTypeIcon = (deviceType: string) => {
 
 export function NewOrder() {
   const { t } = useTranslation()
+  const { user: authUser } = useAuth()
   const [step, setStep] = useState(1)
   const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([])
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
@@ -1247,8 +1249,8 @@ export function NewOrder() {
                             <span className="font-medium">{service.estimatedTime}</span>
                           </div>
                           <div className="flex items-center gap-1 text-green-600 dark:text-green-400 font-bold">
-                            <DollarSign className="h-3 w-3" />
-                            <span>${service.price}</span>
+                            <Euro className="h-3 w-3" />
+                            <span>{formatEUR(service.price)}</span>
                           </div>
                         </div>
                       </div>
@@ -1322,17 +1324,15 @@ export function NewOrder() {
                       {t('newOrder.detailsStep.customerInfo')}
                     </h4>
                     <div className="space-y-1.5 text-xs">
+                      {/* SEC-DEMO: echte Daten des angemeldeten Nutzers statt fest verdrahtetem Demo-Admin
+                          (vorher sah jeder Besucher "Admin User / admin@example.com / +1 (555) 000-0000"). */}
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <User className="h-2.5 w-2.5" />
-                        <span>Admin User</span>
+                        <span>{[authUser?.firstName, authUser?.lastName].filter(Boolean).join(' ') || '—'}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <Mail className="h-2.5 w-2.5" />
-                        <span>admin@example.com</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Phone className="h-2.5 w-2.5" />
-                        <span>+1 (555) 000-0000</span>
+                        <span>{authUser?.email || '—'}</span>
                       </div>
                     </div>
                   </div>
@@ -1387,7 +1387,7 @@ export function NewOrder() {
                             <p className="text-sm font-semibold">{service.name}</p>
                             <p className="text-xs text-muted-foreground">{service.description}</p>
                           </div>
-                          <Badge variant="outline" className="ml-2 font-bold">${service.price}</Badge>
+                          <Badge variant="outline" className="ml-2 font-bold">{formatEUR(service.price)}</Badge>
                         </div>
                       ))}
                     </div>
@@ -1741,7 +1741,7 @@ export function NewOrder() {
                       <div className="mt-3 pt-3 border-t border-purple-300 dark:border-purple-700">
                         <p className="text-sm font-bold text-purple-900 dark:text-purple-100" dangerouslySetInnerHTML={{ __html: t('newOrder.detailsStep.quantityOrders', { quantity }) }} />
                         <p className="text-xs text-purple-700 dark:text-purple-200 mt-1">
-                          {t('newOrder.detailsStep.quantityTotalCost', { total: (calculateTotal() * quantity).toFixed(2) })}
+                          {t('newOrder.detailsStep.quantityTotalCost', { total: formatEUR(calculateTotal() * quantity) })}
                         </p>
                       </div>
                     )}
@@ -1853,8 +1853,8 @@ export function NewOrder() {
                                   <span className="font-medium">{addOn.estimatedTime || 'N/A'}</span>
                                 </div>
                                 <div className="flex items-center gap-1 text-green-600 dark:text-green-400 font-bold">
-                                  <DollarSign className="h-3 w-3" />
-                                  <span>${addOn.price}</span>
+                                  <Euro className="h-3 w-3" />
+                                  <span>{formatEUR(addOn.price)}</span>
                                 </div>
                               </div>
                             </div>
@@ -1874,14 +1874,14 @@ export function NewOrder() {
                           {addOns.filter(a => selectedAddOns.includes(a._id)).map(addOn => (
                             <div key={addOn._id} className="flex justify-between text-sm">
                               <span className="font-medium">• {addOn.name}</span>
-                              <span className="font-bold text-green-600">${addOn.price}</span>
+                              <span className="font-bold text-green-600">{formatEUR(addOn.price)}</span>
                             </div>
                           ))}
                         </div>
                         <div className="pt-3 border-t border-green-300 dark:border-green-700 flex justify-between font-bold">
                           <span>{t('newOrder.detailsStep.addOnsTotal')}</span>
                           <span className="text-green-600 text-lg">
-                            ${addOns.filter(a => selectedAddOns.includes(a._id)).reduce((sum, a) => sum + a.price, 0)}
+                            {formatEUR(addOns.filter(a => selectedAddOns.includes(a._id)).reduce((sum, a) => sum + a.price, 0))}
                           </span>
                         </div>
                       </div>
@@ -2010,7 +2010,7 @@ export function NewOrder() {
                       {t('newOrder.reviewStep.multipleOrders', { quantity })}
                     </p>
                     <p className="text-purple-900 dark:text-purple-100 font-bold text-lg">
-                      {t('newOrder.reviewStep.totalForAll', { total: (calculateTotal() * quantity).toFixed(2) })}
+                      {t('newOrder.reviewStep.totalForAll', { total: formatEUR(calculateTotal() * quantity) })}
                     </p>
                   </div>
                 </div>
@@ -2030,7 +2030,7 @@ export function NewOrder() {
                           <Check className="h-4 w-4 text-green-600" />
                           {addOn.name}
                         </span>
-                        <span className="font-bold">${addOn.price}</span>
+                        <span className="font-bold">{formatEUR(addOn.price)}</span>
                       </div>
                     ))}
                   </div>
@@ -2131,7 +2131,7 @@ export function NewOrder() {
               <div className="bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 dark:from-yellow-900/20 dark:via-amber-900/20 dark:to-orange-900/20 rounded-xl p-6 space-y-4 border-2 border-yellow-300 dark:border-yellow-600/30 shadow-lg animate-in zoom-in duration-500">
                 <h3 className="font-bold text-lg flex items-center gap-3">
                   <div className="p-2 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg shadow-md">
-                    <DollarSign className="h-5 w-5 text-gray-900" />
+                    <Euro className="h-5 w-5 text-gray-900" />
                   </div>
                   <span>{t('newOrder.reviewStep.orderSummary')}</span>
                 </h3>
@@ -2156,7 +2156,7 @@ export function NewOrder() {
                             <Check className="h-3 w-3 text-green-600" />
                             {service.name}
                           </span>
-                          <span className="font-bold">${service.price}</span>
+                          <span className="font-bold">{formatEUR(service.price)}</span>
                         </div>
                       ))}
                     </div>
@@ -2171,7 +2171,7 @@ export function NewOrder() {
                             <Check className="h-3 w-3 text-green-600" />
                             {addOn.name}
                           </span>
-                          <span className="font-bold">${addOn.price}</span>
+                          <span className="font-bold">{formatEUR(addOn.price)}</span>
                         </div>
                       ))}
                     </div>
@@ -2181,13 +2181,13 @@ export function NewOrder() {
                     {quantity > 1 && (
                       <div className="flex justify-between items-center mb-2 text-sm">
                         <span className="text-muted-foreground">{t('newOrder.reviewStep.costPerOrder')}</span>
-                        <span className="font-semibold">${calculateTotal().toFixed(2)}</span>
+                        <span className="font-semibold">{formatEUR(calculateTotal())}</span>
                       </div>
                     )}
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-lg">{quantity > 1 ? t('newOrder.reviewStep.totalForAllOrders') : t('newOrder.reviewStep.totalCost')}</span>
                       <span className="font-bold text-2xl bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
-                        ${(calculateTotal() * quantity).toFixed(2)}
+                        {formatEUR(calculateTotal() * quantity)}
                       </span>
                     </div>
                   </div>
@@ -2269,7 +2269,7 @@ export function NewOrder() {
                         <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{quantity}</span>
                       </div>
                       <p className="text-xs text-purple-700 dark:text-purple-200 mt-2">
-                        {t('newOrder.reviewStep.multipleOrders', { quantity })} ({t('newOrder.reviewStep.totalForAll', { total: (calculateTotal() * quantity).toFixed(2) })})
+                        {t('newOrder.reviewStep.multipleOrders', { quantity })} ({t('newOrder.reviewStep.totalForAll', { total: formatEUR(calculateTotal() * quantity) })})
                       </p>
                     </div>
                   )}
@@ -2293,7 +2293,7 @@ export function NewOrder() {
                             <Check className="h-3 w-3 text-green-600" />
                             {service.name}
                           </span>
-                          <span className="font-bold">${service.price}</span>
+                          <span className="font-bold">{formatEUR(service.price)}</span>
                         </div>
                       ))}
                     </div>
@@ -2308,7 +2308,7 @@ export function NewOrder() {
                             <Check className="h-3 w-3 text-green-600" />
                             {addOn.name}
                           </span>
-                          <span className="font-bold">${addOn.price}</span>
+                          <span className="font-bold">{formatEUR(addOn.price)}</span>
                         </div>
                       ))}
                     </div>
@@ -2318,13 +2318,13 @@ export function NewOrder() {
                     {quantity > 1 && (
                       <div className="flex justify-between items-center mb-2 text-sm">
                         <span className="text-muted-foreground">{t('newOrder.reviewStep.costPerOrder')}</span>
-                        <span className="font-semibold">${calculateTotal().toFixed(2)}</span>
+                        <span className="font-semibold">{formatEUR(calculateTotal())}</span>
                       </div>
                     )}
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-lg">{quantity > 1 ? t('newOrder.reviewStep.totalForAllOrders') : t('newOrder.reviewStep.totalCost')}</span>
                       <span className="font-bold text-2xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                        ${(calculateTotal() * quantity).toFixed(2)}
+                        {formatEUR(calculateTotal() * quantity)}
                       </span>
                     </div>
                   </div>

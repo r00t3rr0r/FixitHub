@@ -1,24 +1,31 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Link, useSearchParams } from "react-router-dom"
 import { SEO } from '@/components/SEO'
-import { formatEUR } from '@/lib/utils'
 import "./CustomerRepairRequests.css"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/useToast"
-import { useAuth } from "@/contexts/AuthContext"
 import {
   getMyRepairRequests,
   getRepairRequestById,
-  RepairRequest
+  respondToRepairRequestQuote,
+  RepairRequest,
 } from "@/api/repairRequests"
 import {
-  getUnreadMessageCount,
   getCommunicationThread,
   sendMessage,
   markMessagesAsRead,
   respondToFeedback,
   completeQuickAction,
 } from "@/api/repairRequestCommunication"
+import { QuoteResponseCard } from "@/components/repair-request/QuoteResponseCard"
+import {
+  formatDateDe,
+  formatDeviceLabel,
+  formatMoney,
+  newClientMessageId,
+  statusLabel,
+} from "@/components/repair-request/repairRequestFormat"
 import {
   Search,
   Filter,
@@ -34,6 +41,9 @@ import {
   Smartphone,
   ImageIcon,
   Send,
+  RefreshCw,
+  ExternalLink,
+  Plus,
 } from "lucide-react"
 import {
   Select,
@@ -50,150 +60,189 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
+const statusBadgeClass = (status: string) => {
+  switch (status) {
+    case "converted": return "bg-emerald-100 text-emerald-800 ring-emerald-200"
+    case "approved": return "bg-blue-100 text-blue-800 ring-blue-200"
+    case "reviewing": return "bg-amber-100 text-amber-900 ring-amber-200"
+    case "rejected": return "bg-red-100 text-red-800 ring-red-200"
+    default: return "bg-slate-100 text-slate-700 ring-slate-200"
+  }
+}
 
-interface ExtendedRepairRequest extends RepairRequest {
-  unreadMessages?: number
+const statusAccentColor = (status: string) => {
+  switch (status) {
+    case "converted": return "#10b981"
+    case "approved": return "#3b82f6"
+    case "reviewing": return "#f5b800"
+    case "rejected": return "#ef4444"
+    default: return "#94a3b8"
+  }
+}
+
+const StatusIcon = ({ status }: { status: string }) => {
+  switch (status) {
+    case "converted":
+    case "approved": return <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+    case "reviewing": return <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+    case "rejected": return <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+    default: return <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+  }
 }
 
 export function CustomerRepairRequests() {
   const { toast } = useToast()
-  const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  // State management
-  const [requests, setRequests] = useState<ExtendedRepairRequest[]>([])
-  const [filteredRequests, setFilteredRequests] = useState<ExtendedRepairRequest[]>([])
+  // Liste: Laden / Fehler / leer sind getrennte Zustände
+  const [requests, setRequests] = useState<RepairRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
 
-  // Dialog states
+  // Detaildialog
   const [showDetailsDialog, setShowDetailsDialog] = useState(false)
-  const [selectedRequest, setSelectedRequest] = useState<ExtendedRepairRequest | null>(null)
+  const [selectedRequest, setSelectedRequest] = useState<RepairRequest | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
+  const [detailsError, setDetailsError] = useState("")
 
-  // Inline communication thread state
+  // Nachrichten
   const [commThread, setCommThread] = useState<any | null>(null)
   const [commLoading, setCommLoading] = useState(false)
+  const [commError, setCommError] = useState("")
   const [commMessage, setCommMessage] = useState("")
   const [commSending, setCommSending] = useState(false)
-  // Feedback response state
+  const sendingRef = useRef(false)
+  const draftIdRef = useRef<string>(newClientMessageId())
   const [respondingTo, setRespondingTo] = useState<string | null>(null)
   const [pendingFeedbackOption, setPendingFeedbackOption] = useState<{ label: string; value: string } | null>(null)
   const [completingAction, setCompletingAction] = useState<string | null>(null)
 
-  // Fetch customer's repair requests
-  useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        console.log("CustomerRepairRequests: Fetching customer's repair requests...")
-        setLoading(true)
-        const response = await getMyRepairRequests()
-        const requestsData = (response as any).requests || []
-        console.log("CustomerRepairRequests: Requests loaded successfully", requestsData)
-        setRequests(requestsData)
-        setFilteredRequests(requestsData)
-
-        // Fetch unread counts for all requests
-        const counts: Record<string, number> = {}
-        for (const request of requestsData) {
-          try {
-            const count = await getUnreadMessageCount(request._id)
-            counts[request._id] = count
-          } catch (error) {
-            console.error(`Error fetching unread count for request ${request._id}:`, error)
-            counts[request._id] = 0
-          }
-        }
-        setUnreadCounts(counts)
-      } catch (error) {
-        console.error("CustomerRepairRequests: Error fetching repair requests:", error)
-        toast({
-          variant: "destructive",
-          title: "Fehler",
-          description: error instanceof Error ? error.message : "Reparaturanfragen konnten nicht geladen werden"
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchRequests()
-  }, [toast])
-
-  // Apply filters
-  useEffect(() => {
-    let filtered = requests
-
-    // Filter by search term (search by device, request number, or issue description)
-    if (searchTerm) {
-      filtered = filtered.filter(request =>
-        request.deviceBrand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.deviceModel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.requestNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.issueDescription.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    // Filter by status
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(request => request.status === statusFilter)
-    }
-
-    setFilteredRequests(filtered)
-  }, [requests, searchTerm, statusFilter])
-
-  // Open details dialog
-  const openDetailsDialog = async (request: ExtendedRepairRequest) => {
+  const fetchRequests = useCallback(async () => {
     try {
-      console.log("CustomerRepairRequests: Opening details for request:", request._id)
-      setSelectedRequest(request)
-      setDetailsLoading(true)
-      setShowDetailsDialog(true)
-
-      // Fetch full request details
-      const response = await getRepairRequestById(request._id)
-      const fullRequest = (response as any).request
-      if (fullRequest) {
-        setSelectedRequest(fullRequest)
-        console.log("CustomerRepairRequests: Request details loaded")
-      }
+      setLoading(true)
+      setLoadError("")
+      const response: any = await getMyRepairRequests()
+      setRequests(response?.requests || [])
     } catch (error) {
-      console.error("CustomerRepairRequests: Error fetching request details:", error)
-      toast({
-        variant: "destructive",
-        title: "Fehler",
-        description: error instanceof Error ? error.message : "Anfragedetails konnten nicht geladen werden"
-      })
+      setLoadError(error instanceof Error ? error.message : "Reparaturanfragen konnten nicht geladen werden.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchRequests()
+  }, [fetchRequests])
+
+  const filteredRequests = requests.filter((request) => {
+    if (statusFilter === "answer" && !request.responseRequired) return false
+    if (statusFilter !== "all" && statusFilter !== "answer" && request.status !== statusFilter) return false
+    if (!searchTerm) return true
+    const q = searchTerm.toLowerCase()
+    return [request.deviceBrand, request.deviceModel, request.requestNumber, request.issueDescription]
+      .some((value) => String(value || "").toLowerCase().includes(q))
+  })
+
+  const loadDetails = useCallback(async (requestId: string) => {
+    try {
+      setDetailsLoading(true)
+      setDetailsError("")
+      const response: any = await getRepairRequestById(requestId)
+      if (response?.request) setSelectedRequest(response.request)
+    } catch (error) {
+      setDetailsError(error instanceof Error ? error.message : "Anfragedetails konnten nicht geladen werden.")
     } finally {
       setDetailsLoading(false)
     }
+  }, [])
+
+  const openDetailsDialog = (request: RepairRequest) => {
+    setSelectedRequest(request)
+    setShowDetailsDialog(true)
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.set("requestId", request._id)
+      return next
+    }, { replace: true })
+    loadDetails(request._id)
   }
 
-  // Load communication thread when dialog opens for a request
+  const closeDetailsDialog = () => {
+    setShowDetailsDialog(false)
+    setCommThread(null)
+    setCommMessage("")
+    setCommError("")
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.delete("requestId")
+      return next
+    }, { replace: true })
+    // Liste aktualisieren (Antwortstatus, ungelesen)
+    fetchRequests()
+  }
+
+  // Deep-Link aus E-Mail/Benachrichtigung: /my-repair-requests?requestId=<id>
   useEffect(() => {
-    if (!selectedRequest?._id || !showDetailsDialog) return
+    const requestId = searchParams.get("requestId")
+    if (!requestId || showDetailsDialog) return
+    const fromList = requests.find((r) => r._id === requestId)
+    setSelectedRequest(fromList || null)
+    setShowDetailsDialog(true)
+    loadDetails(requestId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  // Thread laden (nur bei geöffnetem Dialog = vollständig sichtbar => als gelesen markieren)
+  useEffect(() => {
+    const id = selectedRequest?._id
+    if (!id || !showDetailsDialog) return
     let cancelled = false
-    const loadThread = async () => {
+    const loadThread = async (initial: boolean) => {
       try {
-        setCommLoading(true)
-        const thread = await getCommunicationThread(selectedRequest._id)
-        if (!cancelled) {
-          setCommThread(thread)
-          await markMessagesAsRead(selectedRequest._id).catch(() => {})
-        }
-      } catch {
-        // silently ignore – thread may not exist yet
+        if (initial) setCommLoading(true)
+        const thread = await getCommunicationThread(id)
+        if (cancelled) return
+        setCommThread(thread)
+        setCommError("")
+        if (thread?.messages?.length) await markMessagesAsRead(id).catch(() => {})
+      } catch (error) {
+        if (!cancelled && initial) setCommError(error instanceof Error ? error.message : "Nachrichten konnten nicht geladen werden.")
       } finally {
-        if (!cancelled) setCommLoading(false)
+        if (!cancelled && initial) setCommLoading(false)
       }
     }
-    loadThread()
-    const interval = setInterval(loadThread, 5000)
+    loadThread(true)
+    const interval = setInterval(() => loadThread(false), 10000)
     return () => { cancelled = true; clearInterval(interval) }
   }, [selectedRequest?._id, showDetailsDialog])
 
-  // Respond to a feedback request
+  const handleQuoteRespond = async (decision: "accept" | "decline", seen: { quoteVersion: number; amount: number }) => {
+    if (!selectedRequest?._id) return
+    const requestId = selectedRequest._id
+    let response: any
+    try {
+      response = await respondToRepairRequestQuote(requestId, decision, seen)
+    } catch (error: any) {
+      // Stand veraltet oder schon beantwortet: aktuellen Kostenvoranschlag laden und anzeigen.
+      if (error?.code === "QUOTE_CHANGED" || error?.code === "QUOTE_NOT_OPEN") {
+        const fresh: any = await getRepairRequestById(requestId).catch(() => null)
+        if (fresh?.request) setSelectedRequest(fresh.request)
+        const thread = await getCommunicationThread(requestId).catch(() => null)
+        if (thread) setCommThread(thread)
+      }
+      throw error
+    }
+    if (response?.request) setSelectedRequest(response.request)
+    const thread = await getCommunicationThread(selectedRequest._id).catch(() => null)
+    if (thread) setCommThread(thread)
+    toast({
+      title: decision === "accept" ? "Kostenvoranschlag angenommen" : "Kostenvoranschlag abgelehnt",
+      description: decision === "accept" ? "Danke! Wir melden uns mit den nächsten Schritten." : "Unser Team meldet sich bei Ihnen.",
+    })
+  }
+
   const handleFeedbackResponse = async (messageId: string, option: { label: string; value: string }) => {
     if (!selectedRequest?._id) return
     try {
@@ -201,12 +250,12 @@ export function CustomerRepairRequests() {
       setCommThread(updated)
       setRespondingTo(null)
       setPendingFeedbackOption(null)
+      toast({ title: "Antwort gesendet", description: `Ihre Antwort: ${option.label}` })
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Fehler", description: error?.message || "Antwort konnte nicht gesendet werden" })
+      toast({ variant: "destructive", title: "Fehler", description: error?.message || "Antwort konnte nicht gesendet werden." })
     }
   }
 
-  // Complete a quick action
   const handleCompleteAction = async (messageId: string) => {
     if (!selectedRequest?._id) return
     try {
@@ -214,117 +263,35 @@ export function CustomerRepairRequests() {
       const updated = await completeQuickAction(selectedRequest._id, messageId)
       setCommThread(updated)
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Fehler", description: error?.message || "Aktion konnte nicht abgeschlossen werden" })
+      toast({ variant: "destructive", title: "Fehler", description: error?.message || "Aktion konnte nicht abgeschlossen werden." })
     } finally {
       setCompletingAction(null)
     }
   }
 
-  // Send message in details dialog
+  // Ein Sende-Weg für Klick und Enter, mit Sperre gegen Doppelsenden und Idempotenzschlüssel
   const handleCommSend = async () => {
-    if (!commMessage.trim() || !selectedRequest?._id) return
+    const text = commMessage.trim()
+    if (!text || !selectedRequest?._id || sendingRef.current) return
+    sendingRef.current = true
+    setCommSending(true)
     try {
-      setCommSending(true)
-      const updated = await sendMessage(selectedRequest._id, commMessage)
+      const updated = await sendMessage(selectedRequest._id, text, draftIdRef.current)
       setCommThread(updated)
       setCommMessage("")
+      draftIdRef.current = newClientMessageId()
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Fehler", description: error?.message || "Nachricht konnte nicht gesendet werden" })
+      toast({ variant: "destructive", title: "Fehler", description: error?.message || "Nachricht konnte nicht gesendet werden." })
     } finally {
+      sendingRef.current = false
       setCommSending(false)
     }
   }
 
-  // Get status icon
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'converted':
-        return <CheckCircle className="h-4 w-4" />
-      case 'approved':
-        return <CheckCircle className="h-4 w-4" />
-      case 'reviewing':
-        return <Clock className="h-4 w-4" />
-      case 'pending':
-        return <AlertCircle className="h-4 w-4" />
-      case 'rejected':
-        return <AlertTriangle className="h-4 w-4" />
-      default:
-        return <Clock className="h-4 w-4" />
-    }
-  }
-
-  // Format date
-  const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('de-DE', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
-
-  const formatStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      pending: 'Ausstehend',
-      reviewing: 'In Pruefung',
-      approved: 'Genehmigt',
-      rejected: 'Abgelehnt',
-      converted: 'In Auftrag umgewandelt'
-    }
-
-    return labels[status] || status
-  }
-
-  const formatPriorityLabel = (priority: string) => {
-    const labels: Record<string, string> = {
-      low: 'Niedrig',
-      medium: 'Mittel',
-      high: 'Hoch',
-      urgent: 'Dringend'
-    }
-
-    return labels[priority] || priority
-  }
-
-  const getStatusBadgeClasses = (status: string) => {
-    switch (status) {
-      case 'converted':
-        return 'bg-emerald-500 text-white'
-      case 'approved':
-        return 'bg-blue-500 text-white'
-      case 'reviewing':
-        return 'bg-[#f5b800] text-[#1a2a5e]'
-      case 'rejected':
-        return 'bg-red-500 text-white'
-      default:
-        return 'bg-slate-500 text-white'
-    }
-  }
-
-  const getStatusAccentColor = (status: string) => {
-    switch (status) {
-      case 'converted':
-        return '#10b981'
-      case 'approved':
-        return '#3b82f6'
-      case 'reviewing':
-        return '#f5b800'
-      case 'rejected':
-        return '#ef4444'
-      default:
-        return '#94a3b8'
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Reparaturanfragen werden geladen...</p>
-        </div>
-      </div>
-    )
-  }
+  const reported = selectedRequest?.reportedDevice
+  const reportedLabel = reported ? formatDeviceLabel(reported.brand, reported.model) : ""
+  const currentLabel = selectedRequest ? formatDeviceLabel(selectedRequest.deviceBrand, selectedRequest.deviceModel) : ""
+  const closed = selectedRequest ? ["converted", "rejected"].includes(selectedRequest.status) : false
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-amber-50/20">
@@ -334,49 +301,57 @@ export function CustomerRepairRequests() {
         canonical="/my-repair-requests"
         noindex={true}
       />
-      <div className="mx-auto w-[calc(100%-2rem)] max-w-[1200px] pb-8 space-y-8 max-[480px]:w-[calc(100%-0.8rem)] max-[360px]:w-[calc(100%-0.5rem)]">
-        {/* Header Section */}
-        <div className="w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-12 text-white max-[480px]:rounded-[12px] max-[480px]:px-3 max-[360px]:px-[10px]">
-          <div className="flex items-start gap-4 sm:items-center max-[480px]:items-start max-[480px]:gap-[10px]">
-            <FileText className="h-12 w-12 flex-shrink-0 text-[#f5b800] max-sm:h-[34px] max-sm:w-[34px]" />
-            <div>
-              <h1 className="m-0 text-[2rem] font-extrabold leading-[1.2] tracking-[-0.5px] max-[480px]:text-[1rem] max-[480px]:leading-[1.25] max-[360px]:text-[0.92rem]">Meine Reparaturanfragen</h1>
-              <p className="mt-1 text-[0.95rem] leading-[1.35] text-[rgba(255,255,255,0.85)] opacity-90 max-[480px]:text-[0.76rem] max-[360px]:text-[0.72rem]">Verfolge und verwalte deine Geraete-Reparaturanfragen</p>
+      <div className="mx-auto w-[calc(100%-2rem)] max-w-[1200px] space-y-6 pb-8 max-[480px]:w-[calc(100%-0.8rem)]">
+        {/* Kopf */}
+        <div className="w-full overflow-hidden rounded-[18px] border-b border-[#2a3f7e] bg-gradient-to-br from-[#1a2a5e] to-[#0f1d45] px-6 py-10 text-white max-[480px]:rounded-[12px] max-[480px]:px-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-start gap-4 sm:items-center">
+              <FileText className="h-11 w-11 flex-shrink-0 text-[#f5b800] max-sm:h-[34px] max-sm:w-[34px]" aria-hidden="true" />
+              <div>
+                <h1 className="m-0 text-[2rem] font-extrabold leading-[1.2] tracking-[-0.5px] max-[480px]:text-[1.25rem]">Meine Reparaturanfragen</h1>
+                <p className="mt-1 text-[0.95rem] text-white/85 max-[480px]:text-[0.8rem]">Status verfolgen, Kostenvoranschläge beantworten und mit unserem Team schreiben.</p>
+              </div>
             </div>
+            <Link
+              to="/repair-request"
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-[#f5b800] px-4 text-sm font-bold text-[#1a2a5e] hover:bg-[#e5ab00]"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" /> Neue Reparaturanfrage
+            </Link>
           </div>
         </div>
 
-        {/* Filter and Search */}
-        <Card className="border-none shadow-lg bg-white">
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center gap-3 flex-wrap">
+        {/* Filter */}
+        <Card className="border-none bg-white shadow-lg">
+          <CardContent className="px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 text-[#1a2a5e]">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#f5b800] to-[#e5ab00] flex items-center justify-center flex-shrink-0">
-                  <Filter className="h-4 w-4 text-white" />
-                </div>
-                <span className="font-bold text-sm uppercase tracking-wide whitespace-nowrap">Filter</span>
+                <Filter className="h-4 w-4" aria-hidden="true" />
+                <span className="whitespace-nowrap text-sm font-bold">Filter</span>
               </div>
-              <div className="flex-1 min-w-[200px]">
+              <div className="min-w-[200px] flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                   <Input
-                    placeholder="Nach Geraet oder Anfragenummer suchen..."
+                    placeholder="Nach Gerät oder Anfragenummer suchen …"
+                    aria-label="Anfragen durchsuchen"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-9 text-sm border-slate-200 focus:border-[#f5b800] focus:ring-[#f5b800]"
+                    className="h-9 border-slate-200 pl-10 text-sm"
                   />
                 </div>
               </div>
-              <div className="min-w-[180px]">
+              <div className="min-w-[200px]">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-9 text-sm border-slate-200 focus:border-[#f5b800] focus:ring-[#f5b800]">
-                    <SelectValue placeholder="Status waehlen" />
+                  <SelectTrigger className="h-9 border-slate-200 text-sm" aria-label="Status filtern">
+                    <SelectValue placeholder="Status wählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Alle Status</SelectItem>
+                    <SelectItem value="all">Alle Anfragen</SelectItem>
+                    <SelectItem value="answer">Antwort erforderlich</SelectItem>
                     <SelectItem value="pending">Ausstehend</SelectItem>
-                    <SelectItem value="reviewing">In Pruefung</SelectItem>
-                    <SelectItem value="approved">Genehmigt</SelectItem>
+                    <SelectItem value="reviewing">In Prüfung</SelectItem>
+                    <SelectItem value="approved">Kostenvoranschlag angenommen</SelectItem>
                     <SelectItem value="rejected">Abgelehnt</SelectItem>
                     <SelectItem value="converted">In Auftrag umgewandelt</SelectItem>
                   </SelectContent>
@@ -386,387 +361,327 @@ export function CustomerRepairRequests() {
           </CardContent>
         </Card>
 
-        {/* Requests Table */}
-        <Card className="border-none shadow-lg bg-white">
+        {/* Liste */}
+        <Card className="border-none bg-white shadow-lg">
           <CardHeader className="border-b border-slate-100 bg-white">
-            <CardTitle className="text-xl font-bold text-[#1a2a5e]">Reparaturanfragen ({filteredRequests.length})</CardTitle>
+            <CardTitle className="text-xl font-bold text-[#1a2a5e]">
+              Reparaturanfragen{!loading && !loadError ? ` (${filteredRequests.length})` : ""}
+            </CardTitle>
             <CardDescription className="text-slate-600">
-              Klicke auf eine Anfrage, um Details zu sehen und mit dem Team zu kommunizieren
+              Mit „Details ansehen“ öffnen Sie Kostenvoranschlag, Verlauf und Nachrichten einer Anfrage.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            {filteredRequests.length === 0 ? (
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 py-16 text-slate-600">
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Wird geladen …
+              </div>
+            ) : loadError ? (
+              <div className="py-14 text-center">
+                <AlertCircle className="mx-auto mb-3 h-9 w-9 text-red-500" aria-hidden="true" />
+                <p className="font-semibold text-slate-800">Reparaturanfragen konnten nicht geladen werden.</p>
+                <p className="mt-1 text-sm text-slate-500">{loadError}</p>
+                <button type="button" onClick={fetchRequests} className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-[#1a2a5e] hover:bg-slate-50">
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" /> Erneut versuchen
+                </button>
+              </div>
+            ) : filteredRequests.length === 0 ? (
               <div className="py-16 text-center">
-                <div className="h-20 w-20 mx-auto rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mb-6">
-                  <AlertCircle className="h-10 w-10 text-slate-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-700 mb-2">
-                  {searchTerm || statusFilter !== 'all'
-                    ? "Keine Reparaturanfragen gefunden"
-                    : "Noch keine Reparaturanfragen"}
+                <AlertCircle className="mx-auto mb-4 h-10 w-10 text-slate-400" aria-hidden="true" />
+                <h3 className="mb-2 text-lg font-semibold text-slate-700">
+                  {requests.length > 0 ? "Keine Anfragen für diesen Filter" : "Noch keine Reparaturanfragen"}
                 </h3>
                 <p className="text-slate-500">
-                  {searchTerm || statusFilter !== 'all'
-                    ? "Passe deine Filter an, um passende Ergebnisse zu finden."
-                    : "Du hast noch keine Reparaturanfrage eingereicht."}
+                  {requests.length > 0 ? "Passen Sie Suche oder Filter an." : "Sie haben noch keine Reparaturanfrage gestellt."}
                 </p>
+                {requests.length > 0 ? (
+                  <button type="button" onClick={() => { setSearchTerm(""); setStatusFilter("all") }} className="mt-4 text-sm font-semibold text-[#1a2a5e] underline">
+                    Filter zurücksetzen
+                  </button>
+                ) : (
+                  <Link to="/repair-request" className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#1a2a5e] px-4 py-2 text-sm font-bold text-white">
+                    <Plus className="h-4 w-4" aria-hidden="true" /> Reparaturanfrage stellen
+                  </Link>
+                )}
               </div>
             ) : (
-              <div className="space-y-3 p-4 sm:p-5">
-                {filteredRequests.map((request) => (
-                  <div
-                    key={request._id}
-                    onClick={() => openDetailsDialog(request)}
-                    className="group bg-white border border-slate-200 rounded-xl p-4 sm:p-5 flex items-center gap-4 cursor-pointer transition-all hover:border-[#f5b800] hover:shadow-md"
-                  >
-                    <div
-                      className="w-1 self-stretch rounded-full"
-                      style={{ background: getStatusAccentColor(request.status) }}
-                    />
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                        <span className="text-xs font-bold tracking-wide text-slate-500 uppercase">{request.requestNumber}</span>
-                        <span className={`status-badge status-${request.status}`}>
-                          {getStatusIcon(request.status)}
-                          <span>{formatStatusLabel(request.status)}</span>
-                        </span>
-                        {unreadCounts[request._id] > 0 && (
-                          <span className="inline-flex items-center rounded-full bg-red-500 text-white text-[11px] font-bold px-2 py-0.5">
-                            {unreadCounts[request._id]} neu
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="text-base font-semibold text-slate-900 truncate mb-1.5">
-                        {request.issueDescription}
-                      </p>
-
-                      <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-600 flex-wrap">
-                        <span className="inline-flex items-center gap-1">
-                          <Smartphone className="h-3.5 w-3.5" />
-                          {request.deviceBrand} {request.deviceModel}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {formatDate(request.createdAt)}
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <span className={`priority-badge priority-${request.priority}`}>
-                            {formatPriorityLabel(request.priority)}
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      className="h-9 w-9 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 group-hover:text-[#1a2a5e] group-hover:border-[#f5b800]"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        openDetailsDialog(request)
-                      }}
+              <ul className="space-y-3 p-4 sm:p-5">
+                {filteredRequests.map((request) => {
+                  const unread = request.communicationSummary?.unreadCount || 0
+                  return (
+                    <li
+                      key={request._id}
+                      className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 transition hover:border-[#f5b800] hover:shadow-md sm:flex-row sm:items-center sm:p-5"
                     >
-                      <Eye className="h-4 w-4" />
-                      <span className="sr-only">Details anzeigen</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
-          )}
-        </CardContent>
-      </Card>
+                      <div className="hidden w-1 self-stretch rounded-full sm:block" style={{ background: statusAccentColor(request.status) }} />
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{request.requestNumber}</span>
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${statusBadgeClass(request.status)}`}>
+                            <StatusIcon status={request.status} /> {request.statusLabel || statusLabel(request.status)}
+                          </span>
+                          {request.responseRequired && (
+                            <span className="inline-flex items-center rounded-full bg-[#f5b800] px-2.5 py-0.5 text-xs font-bold text-[#1a2a5e]">Antwort erforderlich</span>
+                          )}
+                          {unread > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold text-white">
+                              <MessageSquare className="h-3 w-3" aria-hidden="true" /> {unread} {unread === 1 ? "neue Nachricht" : "neue Nachrichten"}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mb-1 truncate text-base font-semibold text-slate-900">{request.issueDescription}</p>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+                          <span className="inline-flex items-center gap-1">
+                            <Smartphone className="h-3.5 w-3.5" aria-hidden="true" /> {request.deviceLabel || formatDeviceLabel(request.deviceBrand, request.deviceModel)}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <Calendar className="h-3.5 w-3.5" aria-hidden="true" /> {formatDateDe(request.createdAt)}
+                          </span>
+                          {request.quote && (
+                            <span className="font-semibold text-[#1a2a5e]">Kostenvoranschlag: {formatMoney(request.quote.amount)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openDetailsDialog(request)}
+                        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-[#1a2a5e] px-4 text-sm font-bold text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white"
+                      >
+                        <Eye className="h-4 w-4" aria-hidden="true" /> Details ansehen
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Details Dialog */}
-      <Dialog open={showDetailsDialog} onOpenChange={(open) => { setShowDetailsDialog(open); if (!open) { setCommThread(null); setCommMessage("") } }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-2xl my-0 sm:my-3 max-h-dvh sm:max-h-[92vh] p-0 gap-0 overflow-hidden border-none rounded-[16px] sm:rounded-[24px] shadow-[0_20px_60px_rgba(26,42,94,0.3)] flex flex-col">
-
-          {/* Header */}
-          <DialogHeader className="relative overflow-hidden flex-shrink-0" style={{ padding: '1.25rem 1.5rem', paddingRight: '3rem', background: 'linear-gradient(to right, #1a2a5e, #2a3f7e)', borderBottom: 'none' }}>
-            <div className="absolute top-0 right-0 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(245,184,0,0.08) 0%, transparent 70%)' }} />
-            <div className="absolute bottom-0 left-0 w-36 h-36 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(245,184,0,0.06) 0%, transparent 70%)' }} />
-            <div className="relative z-10">
-              <DialogTitle className="font-extrabold tracking-tight leading-tight" style={{ color: '#f5b800', fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', marginBottom: '0.25rem' }}>
-                Anfrage #{selectedRequest?.requestNumber}
+        {/* Detaildialog */}
+        <Dialog open={showDetailsDialog} onOpenChange={(open) => { if (!open) closeDetailsDialog() }}>
+          <DialogContent className="my-0 flex max-h-dvh max-w-[95vw] flex-col gap-0 overflow-hidden rounded-[16px] border-none p-0 shadow-[0_20px_60px_rgba(26,42,94,0.3)] sm:my-3 sm:max-h-[92vh] sm:max-w-2xl sm:rounded-[24px]">
+            <DialogHeader className="relative flex-shrink-0 overflow-hidden" style={{ padding: '1.25rem 1.5rem', paddingRight: '3rem', background: 'linear-gradient(to right, #1a2a5e, #2a3f7e)' }}>
+              <DialogTitle className="font-extrabold leading-tight tracking-tight" style={{ color: '#f5b800', fontSize: 'clamp(1.1rem, 3vw, 1.5rem)' }}>
+                Anfrage {selectedRequest?.requestNumber || ""}
               </DialogTitle>
-              <DialogDescription className="font-medium" style={{ color: 'rgba(255,255,255,0.85)', fontSize: 'clamp(0.85rem, 2vw, 1rem)', marginBottom: '0.75rem' }}>
-                {selectedRequest?.deviceBrand} {selectedRequest?.deviceModel}
+              <DialogDescription className="font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                {currentLabel}
               </DialogDescription>
               {selectedRequest && (
-                <div className="flex flex-wrap items-center gap-2 mb-3">
-                  <span className={`status-badge status-${selectedRequest.status}`} style={{ fontSize: '0.8rem', padding: '0.4rem 0.875rem' }}>
-                    {getStatusIcon(selectedRequest.status)}
-                    {formatStatusLabel(selectedRequest.status)}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusBadgeClass(selectedRequest.status)}`}>
+                    <StatusIcon status={selectedRequest.status} /> {selectedRequest.statusLabel || statusLabel(selectedRequest.status)}
                   </span>
-                  <span className="inline-flex items-center rounded-full font-semibold" style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)' }}>
-                    {formatPriorityLabel(selectedRequest.priority)}
-                  </span>
+                  <span className="text-xs text-white/80">Eingereicht am {formatDateDe(selectedRequest.createdAt)}</span>
                 </div>
               )}
-              {selectedRequest && (
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 0.25rem' }}>
-                    <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#bfdbfe', fontWeight: 600, marginBottom: '0.2rem' }}>Eingereicht</p>
-                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff' }}>{formatDate(selectedRequest.createdAt)}</p>
-                  </div>
-                  <div className="rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 0.25rem' }}>
-                    <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#bfdbfe', fontWeight: 600, marginBottom: '0.2rem' }}>Aktualisiert</p>
-                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff' }}>{formatDate(selectedRequest.updatedAt)}</p>
-                  </div>
-                  <div className="rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 0.25rem' }}>
-                    <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#bfdbfe', fontWeight: 600, marginBottom: '0.2rem' }}>Schätzung</p>
-                    <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f5b800' }}>{formatEUR(selectedRequest.estimatedCost)}</p>
-                  </div>
+            </DialogHeader>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f8f9fc]">
+              {detailsLoading && !selectedRequest ? (
+                <div className="flex items-center justify-center gap-2 py-16 text-slate-600"><Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Wird geladen …</div>
+              ) : detailsError && !selectedRequest ? (
+                <div className="py-14 text-center">
+                  <p className="font-semibold text-slate-800">Die Anfrage konnte nicht geladen werden.</p>
+                  <p className="mt-1 text-sm text-slate-500">{detailsError}</p>
                 </div>
-              )}
-            </div>
-          </DialogHeader>
+              ) : selectedRequest ? (
+                <div className="customer-repair-requests" style={{ padding: 0, maxWidth: 'none', background: 'transparent', minHeight: 'auto', margin: 0 }}>
+                  <div className="dialog-body space-y-4">
+                    {/* Kostenvoranschlag zuerst – die wichtigste Aktion */}
+                    {selectedRequest.quote && (
+                      <QuoteResponseCard
+                        quote={selectedRequest.quote}
+                        canRespond={!closed}
+                        onRespond={handleQuoteRespond}
+                      />
+                    )}
 
-          {detailsLoading ? (
-            <div className="flex-1 flex items-center justify-center" style={{ background: '#f8f9fc' }}>
-              <Loader2 className="h-7 w-7 animate-spin" style={{ color: '#1a2a5e' }} />
-            </div>
-          ) : selectedRequest ? (
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-              {/* customer-repair-requests wrapper gives CSS scope for all dialog classes */}
-              <div className="customer-repair-requests" style={{ padding: 0, maxWidth: 'none', background: 'transparent', minHeight: 'auto', margin: 0 }}>
-                <div className="dialog-body">
-
-                  {/* In Auftrag umgewandelt */}
-                  {selectedRequest.status === 'converted' && selectedRequest.convertedToOrderId && (
-                    <div className="converted-alert">
-                      <p className="converted-alert-title">
-                        <CheckCircle />
-                        In Auftrag umgewandelt
-                      </p>
-                      <div className="dialog-info-grid">
-                        <div className="dialog-info-item">
-                          <span className="dialog-info-label">Auftragsnummer</span>
-                          <span className="dialog-info-value">{selectedRequest.convertedToOrderId.orderNumber}</span>
-                        </div>
-                        <div className="dialog-info-item">
-                          <span className="dialog-info-label">Umgewandelt von</span>
-                          <span className="dialog-info-value">{selectedRequest.convertedByStaffName || 'k. A.'}</span>
-                        </div>
-                        {selectedRequest.convertedAt && (
-                          <div className="dialog-info-item">
-                            <span className="dialog-info-label">Umgewandelt am</span>
-                            <span className="dialog-info-value">{formatDate(selectedRequest.convertedAt)}</span>
-                          </div>
+                    {selectedRequest.status === "converted" && (
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                        <p className="flex items-center gap-2 font-bold text-emerald-900"><CheckCircle className="h-4 w-4" aria-hidden="true" /> In Auftrag umgewandelt</p>
+                        <p className="mt-1 text-sm text-emerald-900">
+                          Ihre Anfrage wurde in den Auftrag {selectedRequest.convertedOrder?.orderNumber || selectedRequest.convertedToOrderId?.orderNumber || ""} umgewandelt
+                          {selectedRequest.convertedAt ? ` (am ${formatDateDe(selectedRequest.convertedAt)})` : ""}.
+                        </p>
+                        {selectedRequest.convertedOrder?.path && (
+                          <Link to={selectedRequest.convertedOrder.path} className="mt-3 inline-flex h-10 items-center gap-2 rounded-full bg-[#1a2a5e] px-4 text-sm font-bold text-white">
+                            <ExternalLink className="h-4 w-4" aria-hidden="true" /> Auftrag ansehen
+                          </Link>
                         )}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Gerät & Problem */}
-                  <div className="dialog-section">
-                    <h3 className="dialog-section-title">
-                      <Smartphone />
-                      Gerät & Problem
-                    </h3>
-                    <div className="dialog-info-grid">
-                      <div className="dialog-info-item">
-                        <span className="dialog-info-label">Marke</span>
-                        <span className="dialog-info-value">{selectedRequest.deviceBrand}</span>
-                      </div>
-                      <div className="dialog-info-item">
-                        <span className="dialog-info-label">Modell</span>
-                        <span className="dialog-info-value">{selectedRequest.deviceModel}</span>
-                      </div>
-                      {selectedRequest.modelNumber && (
-                        <div className="dialog-info-item">
-                          <span className="dialog-info-label">Modellnummer</span>
-                          <span className="dialog-info-value">{selectedRequest.modelNumber}</span>
-                        </div>
-                      )}
-                      <div className="dialog-info-item" style={{ gridColumn: '1 / -1' }}>
-                        <span className="dialog-info-label">Problembeschreibung</span>
-                        <span className="dialog-info-value" style={{ lineHeight: 1.6 }}>{selectedRequest.issueDescription}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Zusätzliche Details */}
-                  {(selectedRequest.waterDamage || selectedRequest.itemCondition || selectedRequest.previousRepairDetails) && (
+                    {/* Gerät & Problem */}
                     <div className="dialog-section">
-                      <h3 className="dialog-section-title">
-                        Zusätzliche Details
-                      </h3>
+                      <h3 className="dialog-section-title"><Smartphone aria-hidden="true" /> Gerät & Problem</h3>
                       <div className="dialog-info-grid">
+                        <div className="dialog-info-item">
+                          <span className="dialog-info-label">Gerät</span>
+                          <span className="dialog-info-value">{currentLabel}</span>
+                        </div>
+                        {selectedRequest.deviceType && (
+                          <div className="dialog-info-item">
+                            <span className="dialog-info-label">Gerätetyp</span>
+                            <span className="dialog-info-value">{selectedRequest.deviceType}</span>
+                          </div>
+                        )}
+                        {reportedLabel && reportedLabel !== currentLabel && (
+                          <div className="dialog-info-item" style={{ gridColumn: '1 / -1' }}>
+                            <span className="dialog-info-label">Ihre ursprüngliche Angabe</span>
+                            <span className="dialog-info-value">{reportedLabel}{reported?.source === "manual" ? " (manuell angegeben)" : ""}</span>
+                          </div>
+                        )}
+                        {selectedRequest.modelNumber && (
+                          <div className="dialog-info-item">
+                            <span className="dialog-info-label">Modellnummer</span>
+                            <span className="dialog-info-value">{selectedRequest.modelNumber}</span>
+                          </div>
+                        )}
+                        <div className="dialog-info-item" style={{ gridColumn: '1 / -1' }}>
+                          <span className="dialog-info-label">Problembeschreibung</span>
+                          <span className="dialog-info-value" style={{ lineHeight: 1.6 }}>{selectedRequest.issueDescription}</span>
+                        </div>
                         {selectedRequest.waterDamage && (
                           <div className="dialog-info-item">
-                            <span className="dialog-info-label">Wasserschaden</span>
-                            <span className="dialog-info-value">
-                              {selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Unsicher'}
-                            </span>
-                          </div>
-                        )}
-                        {selectedRequest.itemCondition && (
-                          <div className="dialog-info-item">
-                            <span className="dialog-info-label">Gerätezustand</span>
-                            <span className="dialog-info-value">
-                              {selectedRequest.itemCondition === 'original' ? 'Original' : selectedRequest.itemCondition === 'refurbished' ? 'Generalüberholt' : 'Unsicher'}
-                            </span>
+                            <span className="dialog-info-label">Flüssigkeitsschaden</span>
+                            <span className="dialog-info-value">{selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Nicht sicher'}</span>
                           </div>
                         )}
                         {selectedRequest.previousRepairDetails && (
                           <div className="dialog-info-item" style={{ gridColumn: '1 / -1' }}>
                             <span className="dialog-info-label">Bisherige Reparaturversuche</span>
-                            <span className="dialog-info-value" style={{ lineHeight: 1.6 }}>{selectedRequest.previousRepairDetails}</span>
+                            <span className="dialog-info-value">{selectedRequest.previousRepairDetails}</span>
                           </div>
                         )}
                       </div>
                     </div>
-                  )}
 
-                  {/* Bilder */}
-                  {selectedRequest.images && selectedRequest.images.length > 0 && (
-                    <div className="dialog-section">
-                      <h3 className="dialog-section-title">
-                        <ImageIcon />
-                        Bilder
-                      </h3>
-                      <div className="images-grid">
-                        {selectedRequest.images.map((image, index) => (
-                          <img
-                            key={index}
-                            src={image}
-                            alt={`Gerätebild ${index + 1}`}
-                            className="request-image"
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Kommunikation */}
-                  <div className="dialog-section">
-                    <h3 className="dialog-section-title">
-                      <MessageSquare />
-                      Kommunikation ({commThread?.messages?.length ?? 0})
-                    </h3>
-
-                    {commLoading && !commThread ? (
-                      <div className="crr-comm-empty">
-                        <Loader2 className="h-4 w-4 animate-spin" style={{ margin: '0 auto 0.5rem' }} />
-                        Wird geladen…
-                      </div>
-                    ) : !commThread?.messages?.length ? (
-                      <div className="crr-comm-empty">
-                        Noch keine Nachrichten. Schreib uns deine Fragen oder Anmerkungen.
-                      </div>
-                    ) : (
-                      <div className="crr-comm-thread">
-                        {commThread.messages.map((msg: any) => (
-                          <div
-                            key={msg._id}
-                            className={`crr-comm-item${msg.senderType !== 'customer' ? ' is-staff' : ''}`}
-                          >
-                            <div className="crr-comm-meta">
-                              <span className="crr-comm-author">{msg.senderName}</span>
-                              <span className={`crr-comm-role ${msg.senderType === 'customer' ? 'customer' : 'staff'}`}>
-                                {msg.senderType === 'customer' ? 'Sie' : 'Support'}
-                              </span>
-                              <span className="crr-comm-time">{formatDate(msg.createdAt)}</span>
-                            </div>
-
-                            {msg.messageType === 'feedback_request' && msg.feedbackRequest ? (
-                              <div className="crr-feedback">
-                                <p className="crr-feedback-badge">❓ Feedback erforderlich</p>
-                                <p className="crr-feedback-question">{msg.feedbackRequest.question}</p>
-                                {msg.feedbackRequest.status === 'pending' && respondingTo !== msg._id ? (
-                                  <div className="crr-feedback-options">
-                                    {(msg.feedbackRequest.options || []).map((opt: any) => (
-                                      <button
-                                        key={opt.value}
-                                        className="crr-feedback-option-btn"
-                                        onClick={() => { setRespondingTo(msg._id); setPendingFeedbackOption(opt) }}
-                                      >
-                                        {opt.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                ) : respondingTo === msg._id ? (
-                                  <div className="crr-feedback-confirm">
-                                    <p>Bestätigen: <strong>{pendingFeedbackOption?.label}</strong></p>
-                                    <div className="crr-feedback-confirm-btns">
-                                      <button className="crr-feedback-confirm-ok" onClick={() => handleFeedbackResponse(msg._id, pendingFeedbackOption!)}>Ja, absenden</button>
-                                      <button className="crr-feedback-confirm-cancel" onClick={() => { setRespondingTo(null); setPendingFeedbackOption(null) }}>Abbrechen</button>
-                                    </div>
-                                  </div>
-                                ) : msg.feedbackRequest.response ? (
-                                  <div className="crr-feedback-answered">
-                                    <CheckCircle size={14} />
-                                    <span>Ihre Antwort: <strong>{msg.feedbackRequest.response.label}</strong></span>
-                                  </div>
-                                ) : null}
-                              </div>
-                            ) : msg.messageType === 'quick_action' && msg.quickAction ? (
-                              <div className="crr-quick-action">
-                                <p className="crr-quick-action-badge">⚡ Aktion erforderlich</p>
-                                <p className="crr-quick-action-label">{msg.quickAction.actionLabel}</p>
-                                {msg.quickAction.description && (
-                                  <p className="crr-quick-action-desc">{msg.quickAction.description}</p>
-                                )}
-                                {msg.quickAction.status === 'pending' ? (
-                                  <button
-                                    className="crr-quick-action-btn"
-                                    disabled={completingAction === msg._id}
-                                    onClick={() => handleCompleteAction(msg._id)}
-                                  >
-                                    {completingAction === msg._id ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
-                                    Als erledigt markieren
-                                  </button>
-                                ) : (
-                                  <p className="crr-quick-action-done">✓ Abgeschlossen</p>
-                                )}
-                              </div>
-                            ) : (
-                              <p className="crr-comm-text">{msg.content}</p>
-                            )}
-                          </div>
-                        ))}
+                    {selectedRequest.images && selectedRequest.images.length > 0 && (
+                      <div className="dialog-section">
+                        <h3 className="dialog-section-title"><ImageIcon aria-hidden="true" /> Fotos</h3>
+                        <div className="images-grid">
+                          {selectedRequest.images.map((image, index) => (
+                            <img key={index} src={image} alt={`Gerätefoto ${index + 1}`} className="request-image" />
+                          ))}
+                        </div>
                       </div>
                     )}
 
-                    <div className="crr-comm-composer">
-                      <textarea
-                        rows={3}
-                        placeholder="Nachricht schreiben…"
-                        value={commMessage}
-                        onChange={(e) => setCommMessage(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleCommSend()
-                        }}
-                      />
-                      <div className="crr-comm-composer-footer">
-                        <button
-                          className="crr-comm-send-btn"
-                          onClick={handleCommSend}
-                          disabled={commSending || !commMessage.trim()}
-                        >
-                          {commSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                          Senden
-                        </button>
-                      </div>
+                    {/* Nachrichten */}
+                    <div className="dialog-section">
+                      <h3 className="dialog-section-title"><MessageSquare aria-hidden="true" /> Nachrichten</h3>
+                      {commLoading && !commThread ? (
+                        <div className="crr-comm-empty"><Loader2 className="h-4 w-4 animate-spin" style={{ margin: '0 auto 0.5rem' }} /> Wird geladen …</div>
+                      ) : commError && !commThread ? (
+                        <div className="crr-comm-empty">Nachrichten konnten nicht geladen werden. Bitte später erneut versuchen.</div>
+                      ) : !commThread?.messages?.length ? (
+                        <div className="crr-comm-empty">Noch keine Nachrichten. Schreiben Sie uns Ihre Fragen oder Anmerkungen.</div>
+                      ) : (
+                        <div className="crr-comm-thread">
+                          {commThread.messages.map((msg: any) => {
+                            const isQuoteQuestion = msg.feedbackRequest?.metadata?.kind === "quote"
+                            return (
+                              <div key={msg._id} className={`crr-comm-item${msg.senderType !== 'customer' ? ' is-staff' : ''}`}>
+                                <div className="crr-comm-meta">
+                                  <span className="crr-comm-author">{msg.senderType === 'customer' ? 'Sie' : msg.senderName}</span>
+                                  <span className={`crr-comm-role ${msg.senderType === 'customer' ? 'customer' : 'staff'}`}>
+                                    {msg.senderType === 'customer' ? 'Sie' : 'McRepair-Team'}
+                                  </span>
+                                  <span className="crr-comm-time">{formatDateDe(msg.createdAt, true)}</span>
+                                </div>
+                                {msg.messageType === 'feedback_request' && msg.feedbackRequest ? (
+                                  <div className="crr-feedback">
+                                    <p className="crr-feedback-badge">{isQuoteQuestion ? 'Kostenvoranschlag' : 'Rückfrage an Sie'}</p>
+                                    <p className="crr-feedback-question">{msg.feedbackRequest.question}</p>
+                                    {msg.feedbackRequest.status === 'pending' && isQuoteQuestion ? (
+                                      <p className="text-xs text-slate-600">Bitte antworten Sie oben in der Karte „Kostenvoranschlag“.</p>
+                                    ) : msg.feedbackRequest.status === 'pending' && respondingTo !== msg._id ? (
+                                      <div className="crr-feedback-options">
+                                        {(msg.feedbackRequest.options || []).map((opt: any) => (
+                                          <button key={opt.value} type="button" className="crr-feedback-option-btn" onClick={() => { setRespondingTo(msg._id); setPendingFeedbackOption(opt) }}>
+                                            {opt.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    ) : respondingTo === msg._id ? (
+                                      <div className="crr-feedback-confirm">
+                                        <p>Antwort bestätigen: <strong>{pendingFeedbackOption?.label}</strong></p>
+                                        <div className="crr-feedback-confirm-btns">
+                                          <button type="button" className="crr-feedback-confirm-ok" onClick={() => handleFeedbackResponse(msg._id, pendingFeedbackOption!)}>Ja, Antwort senden</button>
+                                          <button type="button" className="crr-feedback-confirm-cancel" onClick={() => { setRespondingTo(null); setPendingFeedbackOption(null) }}>Abbrechen</button>
+                                        </div>
+                                      </div>
+                                    ) : msg.feedbackRequest.status === 'expired' ? (
+                                      <p className="text-xs text-slate-500">Diese Rückfrage ist nicht mehr gültig.</p>
+                                    ) : msg.feedbackRequest.response ? (
+                                      <div className="crr-feedback-answered">
+                                        <CheckCircle size={14} aria-hidden="true" />
+                                        <span>Ihre Antwort: <strong>{msg.feedbackRequest.response.label}</strong></span>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                ) : msg.messageType === 'quick_action' && msg.quickAction ? (
+                                  <div className="crr-quick-action">
+                                    <p className="crr-quick-action-badge">Aktion erforderlich</p>
+                                    <p className="crr-quick-action-label">{msg.quickAction.actionLabel}</p>
+                                    {msg.quickAction.description && <p className="crr-quick-action-desc">{msg.quickAction.description}</p>}
+                                    {msg.quickAction.status === 'pending' ? (
+                                      <button type="button" className="crr-quick-action-btn" disabled={completingAction === msg._id} onClick={() => handleCompleteAction(msg._id)}>
+                                        {completingAction === msg._id ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle size={13} />}
+                                        Als erledigt markieren
+                                      </button>
+                                    ) : (
+                                      <p className="crr-quick-action-done">Erledigt</p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="crr-comm-text">{msg.content}</p>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {selectedRequest.status !== 'converted' && (
+                        <div className="crr-comm-composer">
+                          <label htmlFor="crr-composer" className="mb-1 block text-xs font-semibold text-slate-700">Nachricht an das Reparaturteam</label>
+                          <textarea
+                            id="crr-composer"
+                            rows={3}
+                            placeholder="Ihre Nachricht …"
+                            value={commMessage}
+                            onChange={(e) => setCommMessage(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                handleCommSend()
+                              }
+                            }}
+                          />
+                          <div className="crr-comm-composer-footer">
+                            <span className="mr-auto text-[11px] text-slate-500">Enter = senden, Umschalt+Enter = neue Zeile</span>
+                            <button type="button" className="crr-comm-send-btn" onClick={handleCommSend} disabled={commSending || !commMessage.trim()}>
+                              {commSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                              Nachricht senden
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-
                 </div>
-              </div>
+              ) : null}
             </div>
-          ) : null}
 
-          {/* Footer */}
-          <div className="customer-repair-requests" style={{ padding: 0, maxWidth: 'none', background: 'transparent', minHeight: 'auto', margin: 0, flexShrink: 0 }}>
-            <div className="dialog-footer">
-              <button className="dialog-close-button" onClick={() => setShowDetailsDialog(false)}>
+            <div className="flex flex-shrink-0 justify-end border-t border-slate-200 bg-white px-5 py-3">
+              <button type="button" className="rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" onClick={closeDetailsDialog}>
                 Schließen
               </button>
             </div>
-          </div>
-
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

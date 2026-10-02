@@ -2,14 +2,24 @@ import api from './api';
 
 export type CheckoutApiError = Error & {
   status?: number;
+  /** Fachlicher Fehlercode des Servers, z. B. CART_EMPTY, HOUSE_NUMBER_REQUIRED */
+  code?: string;
   missingFields?: Record<string, boolean>;
 };
+
+/** Optionen eines Checkout-Abschlusses. checkoutAttemptId = Idempotenzschluessel je Bezahlversuch. */
+export interface CheckoutCompleteOptions {
+  checkoutAttemptId?: string;
+}
 
 const toCheckoutError = (error: any, fallbackMessage: string): CheckoutApiError => {
   const responseData = error?.response?.data || error?.data || {};
   const message = responseData?.error || responseData?.message || error?.message || fallbackMessage;
   const enrichedError = new Error(message) as CheckoutApiError;
   enrichedError.status = error?.response?.status || error?.status;
+  if (responseData?.code) {
+    enrichedError.code = String(responseData.code);
+  }
   if (responseData?.missingFields && typeof responseData.missingFields === 'object') {
     enrichedError.missingFields = responseData.missingFields;
   }
@@ -155,10 +165,15 @@ export const resendCheckoutVerificationEmail = async (email: string) => {
 // Response: { success: boolean, message: string, orders: Order[], orderIds: string[] }
 export const completeCheckout = async (
   paymentMethod?: string,
-  paymentData?: Record<string, string>
+  paymentData?: Record<string, string>,
+  options: CheckoutCompleteOptions = {}
 ) => {
   try {
-    const response = await api.post('/api/checkout/complete', { paymentMethod, paymentData });
+    const response = await api.post('/api/checkout/complete', {
+      paymentMethod,
+      paymentData,
+      ...(options.checkoutAttemptId ? { checkoutAttemptId: options.checkoutAttemptId } : {}),
+    });
     return response.data;
   } catch (error: any) {
     throw toCheckoutError(error, 'Checkout failed');
@@ -173,7 +188,8 @@ export const completeGuestCheckout = async (
   guestInfo: GuestCheckoutData,
   cartData: GuestCartData,
   paymentMethod?: string,
-  paymentData?: Record<string, string>
+  paymentData?: Record<string, string>,
+  options: CheckoutCompleteOptions = {}
 ) => {
   try {
     const response = await api.post('/api/checkout/guest-complete', {
@@ -181,6 +197,7 @@ export const completeGuestCheckout = async (
       cartData,
       paymentMethod,
       paymentData,
+      ...(options.checkoutAttemptId ? { checkoutAttemptId: options.checkoutAttemptId } : {}),
     });
     return response.data;
   } catch (error: any) {

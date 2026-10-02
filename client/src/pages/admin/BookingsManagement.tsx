@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import "./BookingsManagement.css"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,12 +9,13 @@ import { reconcileBookingInboundLabel } from "@/api/shipping"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/useToast"
+import { formatEUR } from "@/lib/utils"
+import { rememberListScroll, restoreListScroll } from "@/lib/listScrollMemory"
 import {
   getAdminBookings,
   getBooking,
   updateBookingStatus,
   updateBookingBillingStatus,
-  cancelBooking,
   getBookingOrders,
   previewBookingInvoice,
   createBookingInvoice,
@@ -24,8 +25,14 @@ import {
   updateReturnStatus,
   downloadBookingShippingLabel,
   downloadBookingReturnLabel,
-  bulkUpdateBookingShippingStatuses
+  bulkUpdateBookingShippingStatuses,
+  getBookingInboundLabel,
+  createBookingInboundLabel,
+  downloadInboundLabel,
+  printInboundLabel,
+  type InboundLabelInfo
 } from "@/api/bookings"
+import { labelFilename } from "@/api/labelPdf"
 import {
   createComplaint,
   getComplaintsByBooking
@@ -43,6 +50,8 @@ import { CreateBookingShippingLabelDialog } from "@/components/admin/CreateBooki
 import { BookingPaymentsDialog } from "@/components/admin/BookingPaymentsDialog"
 import { getBookingPayments } from "@/api/bookingPayments"
 import { ManualRepairOrderDialog } from "@/components/admin/ManualRepairOrderDialog"
+import { BookingCancelDialog } from "@/components/admin/BookingCancelDialog"
+import { OrderCancelDialog } from "@/components/admin/OrderCancelDialog"
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
 import { printInvoice } from "@/lib/invoicePrint"
 import {
@@ -81,7 +90,10 @@ import {
   Activity,
   Hash,
   CreditCard,
-  Home
+  Home,
+  Printer,
+  AlertTriangle,
+  Inbox
 } from "lucide-react"
 import {
   Select,
@@ -113,6 +125,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogBody,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
@@ -158,6 +171,22 @@ interface Booking {
   orderIds?: Array<any>
   repairOrderIds?: Array<any>
   hasComplaintOrders?: boolean
+  // ADMUX-5: Auftraege der Buchung aus der Admin-Listenprojektion (BookingService.getAllBookings).
+  orders?: Array<{
+    _id: string
+    orderNumber?: string
+    // 'product' = Shop-Auftrag (keine Reparatur); device = fertiges Etikett vom Server.
+    type?: 'product' | 'repair'
+    device?: string
+    deviceBrand?: string
+    deviceModel?: string
+    deviceType?: string
+    status?: string
+    progress?: number
+  }>
+  // DHL-5: Einsendelabel ist ein Testlabel (Dummy-Modus, Sendungsnummer DHL-DUMMY-…).
+  inboundLabelPlaceholder?: boolean
+  returnShipmentStatusDescription?: string
   items: Array<{
     _id?: string
     type: string
@@ -262,8 +291,8 @@ const FALLBACK_BOOKING_CUSTOMER = {
   _id: '',
   firstName: '',
   lastName: '',
-  name: 'Unknown customer',
-  email: 'unknown@customer.local',
+  name: 'Unbekannter Kunde',
+  email: '',
   phone: '',
   avatar: ''
 }
@@ -275,7 +304,7 @@ const getSafeBookingCustomer = (booking: Pick<Booking, 'customerId' | 'guestInfo
       _id: '',
       firstName: booking.guestInfo.firstName || '',
       lastName: booking.guestInfo.lastName || '',
-      name: `${booking.guestInfo.firstName || ''} ${booking.guestInfo.lastName || ''}`.trim() || 'Guest',
+      name: `${booking.guestInfo.firstName || ''} ${booking.guestInfo.lastName || ''}`.trim() || 'Gast',
       email: booking.guestInfo.email || '',
       phone: booking.guestInfo.phone || '',
       avatar: ''
@@ -289,29 +318,52 @@ const getCustomerDisplayName = (customer: typeof FALLBACK_BOOKING_CUSTOMER) => {
     return `${customer.firstName} ${customer.lastName || ''}`.trim()
   }
 
-  return customer.name || customer.email || 'Unknown customer'
+  return customer.name || customer.email || 'Unbekannter Kunde'
 }
 
 const hasAddressData = (addr?: AddressFields | null) => Boolean(
   addr && (addr.street || addr.city || addr.zipCode || addr.zip || addr.state || addr.country)
 )
 
+// Listenzustand in der URL (ADMUX-4): Suche, Filter, Seite, Zeilen pro Seite und aufgeklappte
+// Buchungen bleiben erhalten, wenn man aus dem Auftragsdetail zurueckkehrt (backTarget enthaelt
+// location.search) oder die Seite neu laedt. Fremde Parameter (highlightBookingId, openBookingId)
+// bleiben unberuehrt.
+const LIST_PARAM = {
+  search: 'q',
+  status: 'status',
+  billing: 'zahlung',
+  communication: 'komm',
+  from: 'von',
+  to: 'bis',
+  page: 'seite',
+  perPage: 'proSeite',
+  expanded: 'offen',
+} as const
+const ALLOWED_PER_PAGE = [10, 20, 50, 100]
+const LIST_SCROLL_KEY = 'adminBookingsListScroll'
+
+const readPositiveInt = (value: string | null, fallback: number) => {
+  const parsed = parseInt(String(value || ''), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
 export function BookingsManagement() {
-  console.log('BookingsManagement: Component rendered/mounted')
   const { t } = useTranslation()
-  const { user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [bookings, setBookings] = useState<ExpandedBooking[]>([])
   const [filteredBookings, setFilteredBookings] = useState<ExpandedBooking[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [billingStatusFilter, setBillingStatusFilter] = useState("all")
-  const [communicationFilter, setCommunicationFilter] = useState("all")
-  const [dateFrom, setDateFrom] = useState("")
-  const [dateTo, setDateTo] = useState("")
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get(LIST_PARAM.search) || "")
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get(LIST_PARAM.search) || "")
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get(LIST_PARAM.status) || "all")
+  const [billingStatusFilter, setBillingStatusFilter] = useState(() => searchParams.get(LIST_PARAM.billing) || "all")
+  const [communicationFilter, setCommunicationFilter] = useState(() => searchParams.get(LIST_PARAM.communication) || "all")
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get(LIST_PARAM.from) || "")
+  const [dateTo, setDateTo] = useState(() => searchParams.get(LIST_PARAM.to) || "")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [showDetailDialog, setShowDetailDialog] = useState(false)
   const [updateStatusDialog, setUpdateStatusDialog] = useState(false)
@@ -320,7 +372,9 @@ export function BookingsManagement() {
   const [newBillingStatus, setNewBillingStatus] = useState("")
   const [description, setDescription] = useState("")
   const [updating, setUpdating] = useState(false)
-  const [deleting, setDeleting] = useState<string | null>(null)
+  // Storno mit Pflichtgrund (ORD-1): Buchung (BookingCancelDialog) bzw. einzelner Auftrag (OrderCancelDialog).
+  const [cancelBookingTarget, setCancelBookingTarget] = useState<{ id: string; number?: string } | null>(null)
+  const [cancelOrderTarget, setCancelOrderTarget] = useState<{ bookingId: string; orderId: string; orderNumber?: string } | null>(null)
   const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set())
   const [expandedOrdersData, setExpandedOrdersData] = useState<Record<string, any[]>>({})
   const [loadingOrders, setLoadingOrders] = useState<Set<string>>(new Set())
@@ -335,10 +389,20 @@ export function BookingsManagement() {
   const [detailInitialTab, setDetailInitialTab] = useState<"overview" | "invoices">("overview")
   const [detailInvoiceStatusFocus, setDetailInvoiceStatusFocus] = useState<string | null>(null)
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(20)
+  // Pagination state (aus der URL wiederhergestellt)
+  const [currentPage, setCurrentPage] = useState(() => readPositiveInt(searchParams.get(LIST_PARAM.page), 1))
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    const value = readPositiveInt(searchParams.get(LIST_PARAM.perPage), 20)
+    return ALLOWED_PER_PAGE.includes(value) ? value : 20
+  })
   const [totalBookings, setTotalBookings] = useState(0)
+  // DHL-5: konfigurierter Buchungslabel-Modus vom Server ('dummy' | 'live'; leer = unbekannt).
+  const [labelMode, setLabelMode] = useState<'' | 'dummy' | 'live'>('')
+  // Aufgeklappte Buchungen aus der URL, die nach dem Laden wieder geoeffnet werden.
+  const pendingExpandIdsRef = useRef<string[]>(
+    String(searchParams.get(LIST_PARAM.expanded) || '').split(',').map((id) => id.trim()).filter((id) => /^[a-f0-9]{24}$/i.test(id))
+  )
+  const scrollRestoredRef = useRef(false)
 
   // Unread message counts state
   const [unreadCounts, setUnreadCounts] = useState<Record<string, { unread: number; senderType?: string }>>({})
@@ -356,16 +420,44 @@ export function BookingsManagement() {
   const { toast } = useToast()
   const highlightBookingIdFromQuery = useMemo(() => {
     const searchParams = new URLSearchParams(location.search)
-    return searchParams.get("highlightBookingId")
+    // bookingId: aeltere Admin-Hinweise "Einsendelabel fehlt" verlinkten ?bookingId=… (heute openBookingId).
+    return searchParams.get("highlightBookingId") || searchParams.get("bookingId")
   }, [location.search])
 
   useEffect(() => {
+    // Unveraenderte Suche (z. B. beim Wiederherstellen aus der URL) setzt die Seite NICHT zurueck.
+    if (searchTerm === debouncedSearch) return
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm)
       setCurrentPage(1)
     }, 500)
     return () => clearTimeout(timer)
   }, [searchTerm])
+
+  // Listenzustand -> URL (replace, kein neuer Verlaufseintrag).
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+    const put = (key: string, value: string, defaultValue: string) => {
+      if (value && value !== defaultValue) next.set(key, value)
+      else next.delete(key)
+    }
+    put(LIST_PARAM.search, debouncedSearch.trim(), '')
+    put(LIST_PARAM.status, statusFilter, 'all')
+    put(LIST_PARAM.billing, billingStatusFilter, 'all')
+    put(LIST_PARAM.communication, communicationFilter, 'all')
+    put(LIST_PARAM.from, dateFrom, '')
+    put(LIST_PARAM.to, dateTo, '')
+    put(LIST_PARAM.page, String(currentPage), '1')
+    put(LIST_PARAM.perPage, String(itemsPerPage), '20')
+    // Solange die aus der URL gemerkten Buchungen noch nicht wieder aufgeklappt sind, bleibt der
+    // Parameter stehen (sonst ueberholt das Entfernen beim ersten Rendern das spaetere Setzen).
+    if (pendingExpandIdsRef.current.length === 0) {
+      put(LIST_PARAM.expanded, Array.from(expandedBookings).slice(0, 10).join(','), '')
+    }
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [debouncedSearch, statusFilter, billingStatusFilter, communicationFilter, dateFrom, dateTo, currentPage, itemsPerPage, expandedBookings])
 
   useEffect(() => {
     const normalizedSearch = String(debouncedSearch || '').trim().toLowerCase().replace(/^#/, '')
@@ -552,7 +644,15 @@ export function BookingsManagement() {
       return
     }
 
-    // Start from a neutral list state so the highlighted booking can be shown.
+    // Start from a neutral list state so the highlighted booking can be shown - but only on the
+    // first entry (e.g. from the dashboard). When the URL already carries list params, the admin
+    // filtered/paged after the highlight and is returning from a detail page: keep that state.
+    const currentParams = new URLSearchParams(location.search)
+    // (Dashboard/Finanzen link only highlightBookingId/openBookingId, never list params.)
+    const hasListParams = Object.values(LIST_PARAM).some((key) => currentParams.has(key))
+    if (hasListParams) {
+      return
+    }
     setSearchTerm("")
     setStatusFilter("all")
     setBillingStatusFilter("all")
@@ -593,13 +693,6 @@ export function BookingsManagement() {
 
     return () => window.clearTimeout(timer)
   }, [activeHighlightedBookingId])
-
-  useEffect(() => {
-    // Ensure admins always land on the full booking list by default.
-    if (user?.role === 'admin' && statusFilter === 'pending') {
-      setStatusFilter('all')
-    }
-  }, [user?.role, statusFilter])
 
   // Fetch unread counts when bookings change and set up periodic refresh
   useEffect(() => {
@@ -658,19 +751,20 @@ export function BookingsManagement() {
         filters.endDate = dateTo
       }
 
-      console.log('Fetching bookings with filters:', filters)
       const response = await getAdminBookings(filters)
 
       const bookingsData = (response as any).bookings || []
       const total = (response as any).total || 0
 
-      console.log('Received bookings:', bookingsData.length, 'Total:', total)
-
       setBookings(bookingsData)
       setTotalBookings(total)
+      const responseLabelMode = (response as any).labelMode
+      setLabelMode(responseLabelMode === 'dummy' || responseLabelMode === 'live' ? responseLabelMode : '')
       setFilteredBookings(bookingsData)
+      setLoadError(null)
     } catch (error) {
       console.error("Error fetching bookings:", error)
+      setLoadError("Buchungen konnten nicht geladen werden.")
       toast({
         title: t('common.error'),
         description: "Buchungen konnten nicht geladen werden",
@@ -680,6 +774,28 @@ export function BookingsManagement() {
       setLoading(false)
     }
   }
+
+  // Nach dem Laden: aus der URL gemerkte Buchungen wieder aufklappen und die Scrollposition
+  // wiederherstellen (Rueckkehr aus dem Auftragsdetail).
+  useEffect(() => {
+    if (loading || bookings.length === 0) return
+    const pending = pendingExpandIdsRef.current
+    if (pending.length > 0) {
+      pendingExpandIdsRef.current = []
+      pending
+        .filter((id) => bookings.some((booking) => booking._id === id) && !expandedBookings.has(id))
+        .forEach((id) => { void toggleExpandBooking(id) })
+    }
+    if (!scrollRestoredRef.current) {
+      scrollRestoredRef.current = true
+      restoreListScroll(LIST_SCROLL_KEY, location.search)
+    }
+  }, [loading, bookings])
+
+  // Merkt Scrollposition + URL, bevor ein Auftrag geoeffnet wird.
+  const rememberListPosition = () => rememberListScroll(LIST_SCROLL_KEY, location.search)
+
+  const orderDetailsState = () => buildOrderDetailsState(location, { label: 'Zurück zu den Buchungen' })
 
   const handleBulkShippingUpdate = async () => {
     try {
@@ -881,24 +997,20 @@ export function BookingsManagement() {
     }
   }
 
-  const handleCancelBooking = async (bookingId: string) => {
+  // Buchungs-Storno nur über den Dialog mit Pflichtgrund (Server: 400 ohne Grund, 409 bei offenen Aufträgen).
+  const handleCancelBooking = (bookingId: string, bookingNumber?: string) => {
+    setCancelBookingTarget({ id: bookingId, number: bookingNumber })
+  }
+
+  // Nach einem Auftrags-Storno die aufgeklappten Aufträge der Buchung und die Liste neu laden.
+  const refreshBookingOrders = async (bookingId: string) => {
     try {
-      setDeleting(bookingId)
-      await cancelBooking(bookingId)
-      toast({
-        title: t('common.success'),
-        description: "Buchung erfolgreich storniert"
-      })
-      fetchBookings()
+      const response = await getBookingOrders(bookingId)
+      setExpandedOrdersData(prev => ({ ...prev, [bookingId]: response.orders || [] }))
     } catch (error) {
-      toast({
-        title: t('common.error'),
-        description: "Buchung konnte nicht storniert werden",
-        variant: "destructive"
-      })
-    } finally {
-      setDeleting(null)
+      console.error("Error reloading booking orders:", error)
     }
+    fetchBookings()
   }
 
   const handleQuickSetPaid = async (booking: Booking) => {
@@ -1036,9 +1148,66 @@ export function BookingsManagement() {
     if (!unreadItem?.orderId) return null
 
     const matchingOrder = expandedOrdersData[booking._id]?.find((order: any) => order.orderId === unreadItem.orderId)
+    const projectedOrder = booking.orders?.find((order) => String(order._id) === String(unreadItem.orderId))
     return {
       orderId: unreadItem.orderId,
-      orderNumber: matchingOrder?.orderNumber,
+      orderNumber: matchingOrder?.orderNumber || projectedOrder?.orderNumber,
+    }
+  }
+
+  // Spalte "Geraete / Auftraege": je Auftrag Geraet + Auftragsnummer (Link ins Detail).
+  // Quelle: Admin-Listenprojektion (booking.orders); Altantworten ohne orders -> booking.items.
+  const getBookingDeviceLines = (booking: Booking) => {
+    const fromOrders = (booking.orders || []).map((order) => {
+      const isProduct = order.type === 'product' || order.deviceType === 'Shop Products'
+      const productItem = isProduct
+        ? (booking.items || []).find((item) => String(item.orderId || '') === String(order._id))
+        : null
+      const productNames = productItem?.products?.map((product) => product.name).filter(Boolean).join(', ')
+      return {
+        key: String(order._id),
+        orderId: String(order._id),
+        orderNumber: order.orderNumber || '',
+        isProduct,
+        device: isProduct
+          ? (order.device || productNames || 'Shop-Artikel')
+          : (order.device || [order.deviceBrand, order.deviceModel].filter(Boolean).join(' ') || 'Gerät'),
+      }
+    })
+    if (fromOrders.length > 0) return fromOrders
+    return (booking.items || []).map((item, index) => ({
+      key: String(item.orderId || item._id || index),
+      orderId: item.orderId ? String(item.orderId) : '',
+      orderNumber: '',
+      isProduct: item.type !== 'repair',
+      device: item.type === 'repair'
+        ? (item.device || 'Gerätereparatur')
+        : (item.products?.map((product) => product.name).join(', ') || 'Produkt'),
+    }))
+  }
+
+  // Spalte "Einsendung" (Kunde -> McRepair): Einsendelabel im Buchungsplatz oder DHL-Retoure.
+  const getInboundListSummary = (booking: Booking) => {
+    const placeholder = Boolean(booking.inboundLabelPlaceholder)
+    if (booking.shippingLabelCreationInProgress) {
+      return { label: 'Abgleich nötig', className: 'bg-amber-100 text-amber-900', placeholder, title: 'Ergebnis der DHL-Labelerstellung unklar oder Erstellung läuft – in den Details (Versand) prüfen.' }
+    }
+    const hasRetoure = Boolean(booking.returnTrackingNumber || (booking.returnShipmentStatus && booking.returnShipmentStatus !== 'pending'))
+    const status = hasRetoure ? booking.returnShipmentStatus : (booking.trackingNumber ? (booking.shippingStatus || 'label-created') : '')
+    if (!hasRetoure && !booking.trackingNumber) {
+      return { label: 'Kein Label', className: 'bg-gray-100 text-gray-700', placeholder, title: 'Für diese Buchung ist noch kein Einsendelabel hinterlegt.' }
+    }
+    switch (status) {
+      case 'delivered':
+        return { label: 'Eingegangen', className: 'bg-green-100 text-green-800', placeholder, title: 'Paket laut DHL bei McRepair zugestellt.' }
+      case 'in-transit':
+      case 'shipped':
+      case 'out-for-delivery':
+        return { label: 'Unterwegs', className: 'bg-blue-100 text-blue-800', placeholder, title: 'Paket ist unterwegs zu McRepair.' }
+      case 'failed':
+        return { label: 'Fehlgeschlagen', className: 'bg-red-100 text-red-800', placeholder, title: 'Die Sendung meldet einen Fehler.' }
+      default:
+        return { label: 'Label erstellt', className: 'bg-yellow-100 text-yellow-800', placeholder, title: hasRetoure ? 'DHL-Retoure erstellt.' : 'DHL-Einsendelabel erstellt.' }
     }
   }
 
@@ -1160,37 +1329,20 @@ export function BookingsManagement() {
     return invoiceStatuses.includes(candidate) ? candidate : booking.billingStatus
   }
 
-  const getShippingStatusLabel = (status?: string) => {
-    switch (status) {
-      case 'pending':
-        return 'Ausstehend'
-      case 'label-created':
-        return 'Label erstellt'
-      case 'shipped':
-        return 'Versendet'
-      case 'in-transit':
-        return 'Unterwegs'
-      case 'out-for-delivery':
-        return 'In Zustellung'
-      case 'delivered':
-        return 'Zugestellt'
-      case 'failed':
-        return 'Fehlgeschlagen'
-      default:
-        return status || 'Unbekannt'
-    }
-  }
-
   const getOrderProgressStatusLabel = (status: string) => {
     switch (status) {
       case 'pending':
         return 'Ausstehend'
+      case 'diagnostic-assessment':
+        return 'Diagnosebewertung'
       case 'in-progress':
         return 'In Arbeit'
+      case 'paused':
+        return 'Pausiert'
       case 'quality-check':
         return 'Qualitätsprüfung'
       case 'ready-for-pickup':
-        return 'Abholbereit'
+        return 'Reparatur abgeschlossen'
       case 'completed':
         return 'Abgeschlossen'
       case 'cancelled':
@@ -1200,12 +1352,8 @@ export function BookingsManagement() {
     }
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('de-DE', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(value)
-  }
+  // Gemeinsame, NaN-sichere Formatierung (lib/utils formatEUR) statt einer lokalen Kopie.
+  const formatCurrency = (value: unknown) => formatEUR(value)
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('de-DE', {
@@ -1229,6 +1377,14 @@ export function BookingsManagement() {
   // (booking.paymentBalance: open / overpaid / received). Hier wird nicht mehr
   // "Gesamt - bezahlt" nachgerechnet. Eine Überzahlung ist eine offene ERSTATTUNG an den
   // Kunden, keine Gutschrift auf den Beleg.
+  // "Gesamt (brutto)" der Buchung: derselbe Bezugswert wie der offene Betrag (paymentBalance.reference),
+  // sonst totalCost. finalCost ist kein Schemafeld (nur Altdaten) und ueberschreibt den Wert nicht.
+  const getBookingGrossTotal = (booking: Booking) => {
+    const reference = Number(booking.paymentBalance?.reference ?? booking.paymentBalance?.total)
+    if (booking.paymentBalance && Number.isFinite(reference)) return reference
+    return Number(booking.totalCost || 0)
+  }
+
   const getBookingOpenAmountInfo = (booking: Booking) => {
     const balance = booking.paymentBalance
     // Ausdrücklich unbekannt (Saldenberechnung auf dem Server fehlgeschlagen): nichts erfinden.
@@ -1267,7 +1423,7 @@ export function BookingsManagement() {
         <div className="container">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'var(--primary-blue)' }}></div>
-            <p className="mt-4" style={{ color: 'var(--gray-500)', fontSize: '0.95rem' }}>Buchungen werden geladen...</p>
+            <p className="mt-4" style={{ color: 'var(--gray-500)', fontSize: '0.95rem' }}>Buchungen werden geladen …</p>
           </div>
         </div>
       </div>
@@ -1280,8 +1436,8 @@ export function BookingsManagement() {
         <div className="section-title bookings-page-header" style={{ marginBottom: '20px' }}>
           <div className="bookings-page-heading-row">
             <div>
-              <h1 className="bookings-page-title" style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--white)', marginBottom: '4px' }}>Buchungsverwaltung</h1>
-              <p className="bookings-page-subtitle" style={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.82rem' }}>Verwalte und überwache alle buchungsbezogenen Aufgaben</p>
+              <h1 className="bookings-page-title" style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--white)', marginBottom: '4px' }}>Buchungen</h1>
+              <p className="bookings-page-subtitle" style={{ color: 'rgba(255,255,255,0.88)', fontSize: '0.875rem' }}>Kundenbuchungen (BKG-…) mit ihren Reparaturaufträgen – Status, Zahlung, Einsendung und Nachrichten auf einen Blick</p>
             </div>
             <Button type="button" className="manual-repair-trigger" onClick={() => setShowManualRepairDialog(true)}>
               <Wrench className="h-4 w-4" /> Reparaturauftrag anlegen
@@ -1291,50 +1447,51 @@ export function BookingsManagement() {
         </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3" style={{ marginBottom: '16px' }}>
-        <div style={{ 
-          background: 'var(--white)', 
-          border: '1px solid var(--gray-200)', 
-          borderRadius: 'var(--radius-lg)', 
-          padding: '12px',
+      {/* Kompakte Kennzahlen (eine Zeile je Kachel), damit die Liste bei 1366x768 frueher beginnt */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2" style={{ marginBottom: '10px' }}>
+        <div style={{
+          background: 'var(--white)',
+          border: '1px solid var(--gray-200)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '8px 12px',
           boxShadow: 'var(--shadow-sm)',
           transition: 'var(--transition)'
-        }} className="hover:shadow-md">
-          <div style={{ color: 'var(--gray-500)', fontSize: '0.74rem', fontWeight: '600', marginBottom: '4px' }}>Buchungen gesamt</div>
-          <div style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--primary-blue)' }}>{bookings.length}</div>
+        }} className="booking-kpi-tile hover:shadow-md">
+          <div style={{ color: 'var(--gray-500)', fontSize: '0.75rem', fontWeight: '600', marginBottom: '4px' }}>Buchungen gesamt (Filter)</div>
+          <div style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--primary-blue)' }}>{totalBookings}</div>
         </div>
-        <div style={{ 
-          background: 'var(--white)', 
-          border: '1px solid var(--gray-200)', 
-          borderRadius: 'var(--radius-lg)', 
-          padding: '12px',
+        <div style={{
+          background: 'var(--white)',
+          border: '1px solid var(--gray-200)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '8px 12px',
           boxShadow: 'var(--shadow-sm)',
           transition: 'var(--transition)'
-        }} className="hover:shadow-md">
-          <div style={{ color: 'var(--gray-500)', fontSize: '0.74rem', fontWeight: '600', marginBottom: '4px' }}>Ausstehend</div>
+        }} className="booking-kpi-tile hover:shadow-md">
+          <div style={{ color: 'var(--gray-500)', fontSize: '0.74rem', fontWeight: '600', marginBottom: '4px' }}>Ausstehend (diese Seite)</div>
           <div style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--accent-yellow)' }}>{bookings.filter(b => b.status === 'pending').length}</div>
         </div>
-        <div style={{ 
-          background: 'var(--white)', 
-          border: '1px solid var(--gray-200)', 
-          borderRadius: 'var(--radius-lg)', 
-          padding: '12px',
+        <div style={{
+          background: 'var(--white)',
+          border: '1px solid var(--gray-200)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '8px 12px',
           boxShadow: 'var(--shadow-sm)',
           transition: 'var(--transition)'
-        }} className="hover:shadow-md">
-          <div style={{ color: 'var(--gray-500)', fontSize: '0.74rem', fontWeight: '600', marginBottom: '4px' }}>Zahlung ausstehend</div>
+        }} className="booking-kpi-tile hover:shadow-md">
+          <div style={{ color: 'var(--gray-500)', fontSize: '0.74rem', fontWeight: '600', marginBottom: '4px' }}>Zahlung ausstehend (diese Seite)</div>
           <div style={{ fontSize: '1.35rem', fontWeight: '700', color: '#ff9800' }}>{bookings.filter(b => b.status === 'payment-pending').length}</div>
         </div>
-        <div style={{ 
-          background: 'var(--white)', 
-          border: '1px solid var(--gray-200)', 
-          borderRadius: 'var(--radius-lg)', 
-          padding: '12px',
+        <div style={{
+          background: 'var(--white)',
+          border: '1px solid var(--gray-200)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '8px 12px',
           boxShadow: 'var(--shadow-sm)',
           transition: 'var(--transition)'
-        }} className="hover:shadow-md">
-          <div style={{ color: 'var(--gray-500)', fontSize: '0.74rem', fontWeight: '600', marginBottom: '4px' }}>Gesamtumsatz</div>
-          <div style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--success)' }}>{formatCurrency(bookings.reduce((sum, b) => sum + (b.finalCost || b.totalCost || 0), 0))}</div>
+        }} className="booking-kpi-tile hover:shadow-md">
+          <div style={{ color: 'var(--gray-500)', fontSize: '0.74rem', fontWeight: '600', marginBottom: '4px' }}>Buchungswert dieser Seite (brutto)</div>
+          <div style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--success)' }}>{formatCurrency(bookings.reduce((sum, b) => sum + getBookingGrossTotal(b), 0))}</div>
         </div>
       </div>
 
@@ -1343,11 +1500,11 @@ export function BookingsManagement() {
         background: 'var(--white)',
         border: '1px solid var(--gray-200)',
         borderRadius: 'var(--radius-lg)',
-        padding: '14px',
+        padding: '10px 14px',
         boxShadow: 'var(--shadow-sm)',
-        marginBottom: '14px'
+        marginBottom: '10px'
       }}>
-        <h2 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--gray-800)', marginBottom: '10px' }}>Filter</h2>
+        <h2 className="sr-only">Filter</h2>
         <div className="flex flex-col md:flex-row gap-3 flex-wrap">
           <div className="flex-1 min-w-[200px]">
             <label style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>Suche</label>
@@ -1495,371 +1652,343 @@ export function BookingsManagement() {
         </div>
       </div>
 
+      {/* DHL-5: Banner nach dem KONFIGURIERTEN Buchungslabel-Modus (GET /api/bookings -> labelMode).
+          Im Live-Modus mit alten Testlabels auf der Seite nur ein Hinweis auf diese Testlabels. */}
+      {labelMode === 'dummy' ? (
+        <div className="booking-dummy-banner" role="status">
+          <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
+          <p>
+            <span className="font-semibold">Dummy-Modus aktiv – Labels sind Testlabels.</span>{' '}
+            Neue Einsendelabels sind keine echten DHL-Labels und dürfen nicht für den Versand verwendet werden.
+            Umschalten: Systemkonfiguration → Integrationen → DHL → Buchungslabel-Modus „Live“.
+          </p>
+        </div>
+      ) : filteredBookings.some((booking) => booking.inboundLabelPlaceholder) ? (
+        <div className="booking-dummy-banner" role="status">
+          <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
+          <p>
+            <span className="font-semibold">Auf dieser Seite gibt es Testlabels (kein echtes DHL-Label).</span>{' '}
+            Buchungen mit dem Hinweis „Testlabel“ stammen aus dem Dummy-Modus; das PDF darf nicht für den Versand verwendet werden.
+          </p>
+        </div>
+      ) : null}
+
       {/* Bookings Table */}
-      <div style={{ 
-        background: 'var(--white)', 
-        border: '1px solid var(--gray-200)', 
-        borderRadius: 'var(--radius-lg)', 
+      <div style={{
+        background: 'var(--white)',
+        border: '1px solid var(--gray-200)',
+        borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-sm)',
         overflow: 'hidden'
       }}>
         <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <div>
             <h2 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--primary-blue)', marginBottom: '2px' }}>Buchungsliste</h2>
-            <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
-              {loading ? 'Wird geladen…' : `${filteredBookings.length} Buchungen gefunden`}
+            <p style={{ fontSize: '0.8125rem', color: 'var(--gray-500)' }}>
+              {loading ? 'Wird geladen …' : `${totalBookings} Buchung${totalBookings === 1 ? '' : 'en'} gefunden`}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              console.log('BookingsManagement: Manually refreshing unread counts')
-              fetchUnreadCounts()
-            }}
-            disabled={loadingUnreadCounts}
-            title="Nachrichtenanzahl aktualisieren"
-            style={{
-              border: '1px solid var(--gray-200)',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--white)',
-              color: 'var(--gray-700)',
-              padding: '6px 12px',
-              fontSize: '0.78rem',
-              fontWeight: '500'
-            }}
-          >
-            <RefreshCw className={`h-4 w-4 ${loadingUnreadCounts ? 'animate-spin' : ''}`} />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleBulkShippingUpdate}
-            disabled={loadingBulkShippingUpdate}
-            title="Versandstatus aller aktiven Sendungen über DHL API prüfen und aktualisieren"
-            style={{
-              border: '1px solid var(--gray-200)',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--white)',
-              color: 'var(--gray-700)',
-              padding: '6px 12px',
-              fontSize: '0.78rem',
-              fontWeight: '500',
-              gap: '6px',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <Truck className={`h-4 w-4 ${loadingBulkShippingUpdate ? 'animate-pulse' : ''}`} />
-            Versandstatus prüfen
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchUnreadCounts()}
+              disabled={loadingUnreadCounts}
+              title="Nachrichtenanzahl aktualisieren"
+              aria-label="Nachrichtenanzahl aktualisieren"
+            >
+              <RefreshCw className={`h-4 w-4 ${loadingUnreadCounts ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkShippingUpdate}
+              disabled={loadingBulkShippingUpdate}
+              title="Versandstatus aller aktiven Sendungen über die DHL-Schnittstelle prüfen und aktualisieren"
+              className="gap-1.5"
+            >
+              <Truck className={`h-4 w-4 ${loadingBulkShippingUpdate ? 'animate-pulse' : ''}`} />
+              Versandstatus prüfen
+            </Button>
+          </div>
         </div>
         <div style={{ padding: '10px 12px' }}>
-          {filteredBookings.length === 0 ? (
-            <div className="text-center py-8" style={{ color: 'var(--gray-400)' }}>
+          {loadError && filteredBookings.length === 0 ? (
+            <div className="text-center py-8" role="alert">
+              <AlertCircle className="h-10 w-10 mx-auto mb-3 text-red-500" aria-hidden="true" />
+              <p style={{ fontSize: '0.95rem', color: 'var(--gray-700)' }}>{loadError}</p>
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => fetchBookings()}>
+                <RefreshCw className="h-4 w-4 mr-1" /> Erneut versuchen
+              </Button>
+            </div>
+          ) : filteredBookings.length === 0 ? (
+            <div className="text-center py-8" style={{ color: 'var(--gray-500)' }}>
               <Package className="h-12 w-12 mx-auto mb-4 opacity-40" />
-              <p style={{ fontSize: '0.95rem' }}>Keine Buchungen gefunden</p>
+              <p style={{ fontSize: '0.95rem' }}>
+                {(debouncedSearch || statusFilter !== 'all' || billingStatusFilter !== 'all' || communicationFilter !== 'all' || dateFrom || dateTo)
+                  ? 'Keine Buchungen für diese Filter gefunden.'
+                  : 'Noch keine Buchungen vorhanden.'}
+              </p>
             </div>
           ) : (
-            <div className="w-full overflow-x-auto bookings-list-table-wrap">
-              <Table className="w-full min-w-full bookings-list-table">
-                <TableHeader style={{ background: 'var(--primary-blue)', borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0' }}>
-                  <TableRow>
-                    <TableHead className="w-12 flex-shrink-0" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}></TableHead>
-                    <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Buchungs-ID</TableHead>
-                    <TableHead className="min-w-[150px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Kunde</TableHead>
-                    <TableHead className="min-w-[90px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Status</TableHead>
-                    <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Zahlungsstatus</TableHead>
-                    <TableHead className="min-w-[120px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Offener Betrag</TableHead>
-                    <TableHead className="min-w-[110px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }} title="DHL-Retoure: Kunde → McRepair">Retoure</TableHead>
-                    <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Fortschritt</TableHead>
-                    <TableHead className="min-w-[90px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Gesamtkosten</TableHead>
-                    <TableHead className="min-w-[70px] text-center" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Orders</TableHead>
-                    <TableHead className="min-w-[60px] text-center" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Positionen</TableHead>
-                    <TableHead className="min-w-[70px] text-center" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Msgs</TableHead>
-                    <TableHead className="min-w-[100px]" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Erstellt</TableHead>
-                    <TableHead className="text-right min-w-[120px] flex-shrink-0" style={{ color: 'var(--white)', fontWeight: '600', fontSize: '0.85rem' }}>Aktionen</TableHead>
+            <div className="w-full bookings-list-table-wrap">
+              <Table className="w-full bookings-list-table">
+                <TableHeader style={{ background: 'var(--primary-blue)' }}>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="booking-col-toggle"><span className="sr-only">Aufträge aufklappen</span></TableHead>
+                    <TableHead>Buchung</TableHead>
+                    <TableHead>Kunde</TableHead>
+                    <TableHead>Geräte / Aufträge</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Zahlung</TableHead>
+                    <TableHead className="hidden xl:table-cell" title="DHL-Einsendelabel bzw. DHL-Retoure: Kunde → McRepair">Einsendung</TableHead>
+                    <TableHead className="text-right">Aktionen</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredBookings.map((booking) => {
                     const customer = getSafeBookingCustomer(booking)
                     const customerDisplayName = getCustomerDisplayName(customer)
-                    const customerInitial = (customer.firstName || customer.name || customer.email || 'U').charAt(0).toUpperCase()
+                    const isGuestBooking = !booking.customerId && Boolean(booking.guestInfo?.isGuest || booking.guestInfo?.email)
                     const openAmountInfo = getBookingOpenAmountInfo(booking)
+                    const unreadInfo = getBookingUnreadCount(booking)
+                    const firstUnreadOrder = unreadInfo.total > 0 ? getFirstUnreadOrderForBooking(booking) : null
+                    const deviceLines = getBookingDeviceLines(booking)
+                    const inbound = getInboundListSummary(booking)
+                    const progress = getBookingProgress(booking._id, booking.overallProgress || 0)
+                    const isExpanded = expandedBookings.has(booking._id)
+                    const effectivePaymentStatus = getEffectivePaymentStatus(booking)
 
                     return (
                     <React.Fragment key={booking._id}>
                     <TableRow
                       data-booking-row-id={booking._id}
-                      className={`hover:bg-muted/50 cursor-pointer ${activeHighlightedBookingId === booking._id ? 'booking-row-highlight' : ''}`}
-                      onClick={() => toggleExpandBooking(booking._id)}
+                      className={`hover:bg-muted/50 ${activeHighlightedBookingId === booking._id ? 'booking-row-highlight' : ''}`}
                     >
-                      <TableCell className="w-12">
+                      <TableCell className="booking-col-toggle">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleExpandBooking(booking._id)
-                          }}
+                          className="h-8 w-8 p-0"
+                          onClick={() => toggleExpandBooking(booking._id)}
                           disabled={loadingOrders.has(booking._id)}
+                          aria-expanded={isExpanded}
+                          aria-label={isExpanded ? 'Aufträge der Buchung zuklappen' : 'Aufträge der Buchung anzeigen'}
+                          title={isExpanded ? 'Aufträge zuklappen' : 'Aufträge und Leistungen anzeigen'}
                         >
-                          {expandedBookings.has(booking._id) ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </Button>
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell>
                         <div className="flex flex-col gap-1">
-                          <span>#{booking._id.slice(-8).toUpperCase()}</span>
-                          {(booking as any).hasComplaintOrders && (
-                            <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-[10px] px-1.5 py-0 h-4 w-fit font-medium">
+                          <span className="font-semibold whitespace-nowrap">{booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`}</span>
+                          <span className="booking-meta">{formatDate(booking.createdAt)}</span>
+                          {booking.hasComplaintOrders && (
+                            <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-xs px-1.5 py-0 w-fit font-medium">
                               Reklamation
                             </Badge>
                           )}
+                          {unreadInfo.total > 0 && firstUnreadOrder?.orderId && (
+                            <button
+                              type="button"
+                              className={`booking-unread-chip ${unreadInfo.hasCustomerMessages ? '' : 'is-staff'}`}
+                              onClick={() => openOrderCommunication(firstUnreadOrder.orderId, firstUnreadOrder.orderNumber)}
+                              title="Kundenkommunikation öffnen"
+                            >
+                              <MessageSquare className="h-3 w-3" aria-hidden="true" />
+                              {unreadInfo.total > 99 ? '99+' : unreadInfo.total} {unreadInfo.total === 1 ? 'neue Nachricht' : 'neue Nachrichten'}
+                            </button>
+                          )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={customer.avatar} />
-                            <AvatarFallback>{customerInitial}</AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{customerDisplayName}</p>
-                            <p className="text-xs text-foreground/60 truncate">{customer.email}</p>
-                          </div>
+                      <TableCell className="booking-cell-customer">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate" title={customerDisplayName}>{customerDisplayName}</p>
+                          {customer.email && <p className="booking-meta truncate" title={customer.email}>{customer.email}</p>}
+                          {isGuestBooking && (
+                            <Badge variant="outline" className="mt-1 text-xs px-1.5 py-0 w-fit">Gast</Badge>
+                          )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(booking.status)}>
-                          {getBookingStatusLabel(booking.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            className="booking-payment-status-anchor"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              void handleViewDetails(booking, {
-                                initialTab: "invoices",
-                                invoiceStatusFocus: getEffectivePaymentStatus(booking)
-                              })
-                            }}
-                            title="Zum passenden Rechnungsstatus springen"
-                          >
-                            <Badge className={getBillingStatusColor(getEffectivePaymentStatus(booking))}>
-                              {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
-                            </Badge>
-                          </button>
-
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {openAmountInfo.type === 'unknown' ? (
-                          <span className="text-xs" style={{ color: 'var(--gray-500)' }} title="Der Zahlungsstand konnte nicht ermittelt werden.">–</span>
-                        ) : openAmountInfo.type === 'credit' ? (
-                          <div className="flex flex-col leading-tight" title="Offenes Gutschriftsguthaben des Kunden.">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#475569' }}>
-                              Gutschrift
-                            </span>
-                            <span className="text-sm font-semibold" style={{ color: '#475569' }}>
-                              {formatCurrency(openAmountInfo.amount)}
-                            </span>
-                          </div>
-                        ) : openAmountInfo.type === 'settled' ? (
-                          <div className="flex flex-col leading-tight">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--gray-500)' }}>
-                              Ausgeglichen
-                            </span>
-                            <span className="text-xs font-semibold" style={{ color: 'var(--gray-500)' }}>
-                              {formatCurrency(0)}
-                            </span>
-                          </div>
-                        ) : openAmountInfo.type === 'refund' ? (
-                          <div className="flex flex-col leading-tight" title="Der Kunde hat mehr gezahlt als gefordert – der Betrag ist zu erstatten.">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#6d28d9' }}>
-                              Überzahlt · Erstattung offen
-                            </span>
-                            <span className="text-sm font-semibold" style={{ color: '#6d28d9' }}>
-                              {formatCurrency(openAmountInfo.amount)}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col leading-tight">
-                            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#dc2626' }}>
-                              {openAmountInfo.type === 'partial' ? 'Teilbezahlt · offen' : 'Offen'}
-                            </span>
-                            <span className="text-sm font-semibold" style={{ color: '#dc2626' }}>
-                              {formatCurrency(openAmountInfo.amount)}
-                            </span>
-                            {openAmountInfo.type === 'partial' && (
-                              <span className="text-[11px]" style={{ color: 'var(--gray-500)' }}>
-                                Eingegangen: {formatCurrency(openAmountInfo.received)}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {booking.returnShipmentStatus ? (
-                          <Badge className={
-                            booking.returnShipmentStatus === 'delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                            booking.returnShipmentStatus === 'in-transit' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                            booking.returnShipmentStatus === 'label-created' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                            booking.returnShipmentStatus === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                          }>
-                            <Truck className="h-3 w-3 mr-1" />
-                            {getShippingStatusLabel(booking.returnShipmentStatus)}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-foreground/50">Keine Retoure</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 min-w-[120px]">
-                          <div className="flex-1 bg-muted rounded-full h-2">
-                            <div
-                              className="bg-primary h-2 rounded-full transition-all"
-                              style={{ width: `${getBookingProgress(booking._id, booking.overallProgress || 0)}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-xs font-semibold whitespace-nowrap">
-                            {getBookingProgress(booking._id, booking.overallProgress || 0)}%
+                      <TableCell className="booking-cell-devices">
+                        <div className="flex flex-col gap-1">
+                          {deviceLines.slice(0, 2).map((line) => (
+                            <div key={line.key} className="booking-device-line text-sm">
+                              <span className="min-w-0">{line.device}</span>
+                              {line.orderId ? (
+                                <Link
+                                  to={getOrderDetailsPath(line.orderId)}
+                                  state={orderDetailsState()}
+                                  onClick={rememberListPosition}
+                                  className="booking-order-link text-xs"
+                                  title={`Reparaturauftrag ${line.orderNumber || ''} öffnen`}
+                                >
+                                  {line.orderNumber || 'Auftrag öffnen'}
+                                </Link>
+                              ) : null}
+                            </div>
+                          ))}
+                          {deviceLines.length > 2 && (
+                            <button type="button" className="booking-meta text-left underline underline-offset-2 w-fit" onClick={() => { if (!isExpanded) void toggleExpandBooking(booking._id) }}>
+                              + {deviceLines.length - 2} weitere
+                            </button>
+                          )}
+                          {deviceLines.length === 0 && <span className="booking-meta">Keine Aufträge</span>}
+                          <span className="booking-meta">
+                            {booking.items.length} Position{booking.items.length === 1 ? '' : 'en'}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(booking.finalCost || booking.totalCost)}
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge className={`${getStatusColor(booking.status)} w-fit`}>
+                            {getBookingStatusLabel(booking.status)}
+                          </Badge>
+                          <span className="booking-meta whitespace-nowrap">Fortschritt {progress} %</span>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-center">
-                        {(booking.orderIds?.length || 0)}
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <button
+                            type="button"
+                            className="booking-payment-status-anchor w-fit"
+                            onClick={() => {
+                              void handleViewDetails(booking, {
+                                initialTab: "invoices",
+                                invoiceStatusFocus: effectivePaymentStatus
+                              })
+                            }}
+                            title="Rechnungen und Zahlungen dieser Buchung öffnen"
+                          >
+                            <Badge className={getBillingStatusColor(effectivePaymentStatus)}>
+                              {getBillingStatusLabel(effectivePaymentStatus)}
+                            </Badge>
+                          </button>
+                          {openAmountInfo.type === 'unknown' ? (
+                            <span className="booking-meta" title="Der Zahlungsstand konnte nicht ermittelt werden.">Zahlungsstand unbekannt</span>
+                          ) : openAmountInfo.type === 'credit' ? (
+                            <span className="text-sm font-semibold whitespace-nowrap" style={{ color: '#475569' }} title="Offenes Gutschriftsguthaben des Kunden.">
+                              Gutschrift {formatCurrency(openAmountInfo.amount)}
+                            </span>
+                          ) : openAmountInfo.type === 'settled' ? (
+                            <span className="booking-meta whitespace-nowrap">Ausgeglichen</span>
+                          ) : openAmountInfo.type === 'refund' ? (
+                            <span className="text-sm font-semibold" style={{ color: '#6d28d9' }} title="Der Kunde hat mehr gezahlt als gefordert – der Betrag ist zu erstatten.">
+                              Überzahlt · Erstattung offen {formatCurrency(openAmountInfo.amount)}
+                            </span>
+                          ) : (
+                            <span className="text-sm font-semibold whitespace-nowrap" style={{ color: '#dc2626' }}>
+                              {formatCurrency(openAmountInfo.amount)} offen
+                            </span>
+                          )}
+                          <span className="booking-meta whitespace-nowrap">Gesamt {formatCurrency(getBookingGrossTotal(booking))}</span>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-center">
-                        {booking.items.length}
+                      <TableCell className="hidden xl:table-cell">
+                        <div className="flex flex-col gap-1">
+                          <Badge className={`${inbound.className} w-fit`} title={inbound.title}>
+                            <Truck className="h-3 w-3 mr-1" aria-hidden="true" />
+                            {inbound.label}
+                          </Badge>
+                          {inbound.placeholder && (
+                            <Badge variant="outline" className="w-fit border-amber-400 bg-amber-50 text-amber-800 text-xs" title="Dummy-Modus: kein echtes DHL-Label">
+                              Testlabel
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-center">
-                        {(() => {
-                          const unreadInfo = getBookingUnreadCount(booking)
-                          if (unreadInfo.total > 0) {
-                            const firstUnreadOrder = getFirstUnreadOrderForBooking(booking)
-                            return (
-                              <div className="flex items-center justify-center gap-2">
-                                <button
-                                  type="button"
-                                  className={`
-                                    relative inline-flex items-center justify-center
-                                    w-8 h-8 rounded-full
-                                    font-semibold text-xs
-                                    shadow-md
-                                    ring-2 ring-offset-2
-                                    transition-all duration-200
-                                    ${unreadInfo.hasCustomerMessages
-                                      ? 'bg-red-500 dark:bg-red-600 text-white ring-red-200 dark:ring-red-800 hover:scale-110 hover:shadow-lg animate-pulse'
-                                      : 'bg-orange-500 dark:bg-orange-600 text-white ring-orange-200 dark:ring-orange-800 hover:scale-110 hover:shadow-lg animate-pulse'
-                                    }
-                                  `}
-                                  title={`${unreadInfo.total} total unread message${unreadInfo.total > 1 ? 's' : ''} from ${unreadInfo.hasCustomerMessages ? 'customer' : 'staff'}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    if (firstUnreadOrder?.orderId) {
-                                      openOrderCommunication(firstUnreadOrder.orderId, firstUnreadOrder.orderNumber)
-                                    }
-                                  }}
-                                >
-                                  {unreadInfo.total > 99 ? '99+' : unreadInfo.total}
-                                </button>
-                                <MessageSquare className="h-3 w-3 text-foreground/60 hidden sm:inline" />
-                              </div>
-                            )
-                          }
-                          return <span className="text-xs text-foreground/40">—</span>
-                        })()}
-                      </TableCell>
-                      <TableCell className="text-sm text-foreground/60">
-                        {formatDate(booking.createdAt)}
-                      </TableCell>
-                      <TableCell className="text-right sticky right-0 bg-background" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56 z-50">
-                            <DropdownMenuItem onClick={() => handleViewDetails(booking)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              Details anzeigen
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={async () => {
-                              try {
-                                const response = await getBooking(booking._id)
-                                setSelectedBooking(response?.booking || booking)
-                              } catch (error) {
-                                console.error('BookingsManagement: Failed to load full booking for invoice dialog:', error)
-                                setSelectedBooking(booking)
-                              }
-                              setShowInvoiceDialog(true)
-                            }}>
-                              <FileText className="h-4 w-4 mr-2" />
-                              Rechnung erstellen
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedBooking(booking)
-                              setShowPaymentsDialog(true)
-                            }}>
-                              <CreditCard className="h-4 w-4 mr-2" />
-                              Zahlungen
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedBooking(booking)
-                              setShowReminderDialog(true)
-                            }}>
-                              <Bell className="h-4 w-4 mr-2" />
-                              Erinnerung erstellen
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedBooking(booking)
-                              setShowComplaintDialog(true)
-                            }}>
-                              <MessageSquare className="h-4 w-4 mr-2" />
-                              Reklamation erfassen
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setSelectedBooking(booking)
-                              setShowCreateShippingLabelDialog(true)
-                            }}>
-                              <Truck className="h-4 w-4 mr-2" />
-                              Einsendelabel erstellen (Kunde → McRepair)
-                            </DropdownMenuItem>
-                            {(booking.orderIds?.length || 0) > 0 && (
-                              <DropdownMenuItem onClick={() => {
-                                window.location.href = `/admin/orders?bookingId=${booking._id}`
-                              }}>
-                                <ExternalLink className="h-4 w-4 mr-2" />
-                                Aufträge anzeigen
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="booking-row-action h-8 px-2 border-slate-300 text-[#1a2a5e]"
+                            onClick={() => handleViewDetails(booking)}
+                            title="Buchungsdetails öffnen (Übersicht, Versand, Rechnungen, Verlauf)"
+                          >
+                            Details
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Weitere Aktionen" title="Weitere Aktionen">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-64 z-50">
+                              <DropdownMenuItem onClick={() => handleViewDetails(booking)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Details ansehen
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleCancelBooking(booking._id)}
-                              disabled={deleting === booking._id || booking.status === 'cancelled'}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Buchung stornieren
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              <DropdownMenuItem onClick={() => { if (!isExpanded) void toggleExpandBooking(booking._id) }}>
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Aufträge der Buchung anzeigen
+                              </DropdownMenuItem>
+                              {deviceLines.some((line) => line.orderId && !line.isProduct) && (
+                                <DropdownMenuItem onClick={() => {
+                                  const first = firstUnreadOrder || deviceLines.find((line) => line.orderId && !line.isProduct)
+                                  if (first?.orderId) openOrderCommunication(first.orderId, first.orderNumber)
+                                }}>
+                                  <MessageSquare className="h-4 w-4 mr-2" />
+                                  Kundenkommunikation öffnen
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                try {
+                                  const response = await getBooking(booking._id)
+                                  setSelectedBooking(response?.booking || booking)
+                                } catch (error) {
+                                  console.error('BookingsManagement: Failed to load full booking for invoice dialog:', error)
+                                  setSelectedBooking(booking)
+                                }
+                                setShowInvoiceDialog(true)
+                              }}>
+                                <FileText className="h-4 w-4 mr-2" />
+                                Rechnung erstellen
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedBooking(booking)
+                                setShowPaymentsDialog(true)
+                              }}>
+                                <CreditCard className="h-4 w-4 mr-2" />
+                                Zahlungen
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedBooking(booking)
+                                setShowReminderDialog(true)
+                              }}>
+                                <Bell className="h-4 w-4 mr-2" />
+                                Erinnerung erstellen
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedBooking(booking)
+                                setShowComplaintDialog(true)
+                              }}>
+                                <MessageSquare className="h-4 w-4 mr-2" />
+                                Reklamation erfassen
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedBooking(booking)
+                                setShowCreateShippingLabelDialog(true)
+                              }}>
+                                <Truck className="h-4 w-4 mr-2" />
+                                Einsendelabel erstellen (Kunde → McRepair)
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleCancelBooking(booking._id, booking.bookingNumber)}
+                                disabled={booking.status === 'cancelled' || cancelBookingTarget?.id === booking._id}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Buchung stornieren
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
 
-                        {/* Hidden Dialog for View Details */}
+                        {/* Buchungsdetail-Dialog */}
                         <Dialog open={selectedBooking?._id === booking._id && showDetailDialog} onOpenChange={(open) => {
                           if (!open) {
                             setShowDetailDialog(false)
@@ -1881,197 +2010,130 @@ export function BookingsManagement() {
                                 setDetailInvoiceStatusFocus(null)
                                 fetchBookings()
                               }}
+                              onChanged={() => {
+                                // Dialog bleibt offen (z. B. nach "DHL-Einsendelabel erstellen"):
+                                // Liste und Buchung neu laden, damit Download/Druck sofort sichtbar sind.
+                                fetchBookings()
+                                getBooking(booking._id)
+                                  .then((response) => {
+                                    if (response?.booking) {
+                                      setSelectedBooking((current) => (current && current._id === booking._id ? response.booking : current))
+                                    }
+                                  })
+                                  .catch((error) => console.error('BookingsManagement: Failed to refresh booking:', error))
+                              }}
                             />
                           )}
                         </Dialog>
                       </TableCell>
                     </TableRow>
 
-                    {/* Expanded Row with Orders/Repair Jobs */}
-                    {expandedBookings.has(booking._id) && (
-                      <TableRow className="bg-muted/30">
-                        <TableCell colSpan={13}>
-                          <div className="p-4 space-y-4">
-                            {/* Booking Status Summary */}
-                            <div className="bg-muted/50 p-3 rounded-lg border">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-semibold text-foreground/60 uppercase">Buchungsstatus</span>
-                                <Badge className={getStatusColor(booking.status)}>
-                                  {getBookingStatusLabel(booking.status)}
-                                </Badge>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-                                <div>
-                                  <span className="text-foreground/60">Zahlungsstatus:</span>
-                                  <Badge className={`${getBillingStatusColor(getEffectivePaymentStatus(booking))} ml-2`}>
-                                    {getBillingStatusLabel(getEffectivePaymentStatus(booking))}
-                                  </Badge>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-foreground/60">Total: </span>
-                                  <span className="font-semibold">{formatCurrency(booking.totalCost)}</span>
-                                </div>
-                              </div>
-                              <div>
-                                  <span className="text-xs text-foreground/60 mb-1 block">Gesamtfortschritt:</span>
-                                <div className="flex items-center gap-2">
-                                  <div className="flex-1 bg-muted rounded-full h-3">
-                                    <div
-                                      className="bg-primary h-3 rounded-full transition-all"
-                                      style={{ width: `${getBookingProgress(booking._id, booking.overallProgress || 0)}%` }}
-                                    ></div>
-                                  </div>
-                                  <span className="text-sm font-semibold whitespace-nowrap">
-                                    {getBookingProgress(booking._id, booking.overallProgress || 0)}%
-                                  </span>
-                                </div>
-                              </div>
+                    {/* Aufgeklappt: Auftraege der Buchung als umbrechende Zeilen (keine 1400px-Untertabelle) */}
+                    {isExpanded && (
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell colSpan={8} className="p-0">
+                          <div className="p-3 space-y-3">
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+                              <span><span className="booking-meta">Buchungsstatus </span>{getBookingStatusLabel(booking.status)}</span>
+                              <span><span className="booking-meta">Zahlung </span>{getBillingStatusLabel(effectivePaymentStatus)}</span>
+                              <span><span className="booking-meta">Gesamt (brutto) </span><span className="font-semibold">{formatCurrency(getBookingGrossTotal(booking))}</span></span>
+                              <span><span className="booking-meta">Gesamtfortschritt </span>{progress} %</span>
+                              <span className="xl:hidden"><span className="booking-meta">Einsendung </span>{inbound.label}{inbound.placeholder ? ' (Testlabel)' : ''}</span>
                             </div>
 
                             {loadingOrders.has(booking._id) ? (
-                              <div className="text-center py-4">
-                                <p className="text-sm text-foreground/60">Aufträge werden geladen...</p>
-                              </div>
+                              <p className="text-sm text-foreground/60 py-2">Aufträge werden geladen …</p>
                             ) : expandedOrdersData[booking._id] && expandedOrdersData[booking._id].length > 0 ? (
-                              <div className="space-y-4">
-                                <h4 className="font-semibold text-sm mb-3">Zugeordnete Aufträge und Reparaturen</h4>
-                                <div className="border rounded-lg overflow-hidden">
-                                  <Table className="text-sm">
-                                    <TableHeader>
-                                      <TableRow className="bg-muted/50">
-                                        <TableHead>Auftragsnummer</TableHead>
-                                        <TableHead>Typ</TableHead>
-                                        <TableHead>Gerät/Produkt</TableHead>
-                                        <TableHead>Leistungen/Details</TableHead>
-                                        <TableHead className="text-center">Fortschritt</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-center">Nachrichten</TableHead>
-                                        <TableHead className="text-right">Kosten</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {expandedOrdersData[booking._id].map((item: any) => {
-                                        const isOrderSearchMatch = (orderSearchMatches[booking._id] || []).includes(
-                                          String(item.orderId || item._id || '')
-                                        )
+                              <div className="booking-orders-list" aria-label="Zugeordnete Aufträge">
+                                {expandedOrdersData[booking._id].map((item: any) => {
+                                  const itemOrderId = String(item.orderId || item._id || '')
+                                  const isOrderSearchMatch = (orderSearchMatches[booking._id] || []).includes(itemOrderId)
+                                  const itemUnread = item.orderId ? unreadCounts[item.orderId] : undefined
 
-                                        return (
-                                        <TableRow
-                                          key={item.orderId || item._id}
-                                          className="hover:bg-muted/50 cursor-pointer transition-colors"
-                                          onClick={() => item.orderId && navigate(`/orders/${item.orderId}`)}
-                                        >
-                                          <TableCell className={`font-medium ${isOrderSearchMatch ? 'booking-order-search-match' : ''}`}>
-                                            <div className="text-sm font-semibold">
-                                              {item.orderNumber}
-                                            </div>
-                                          </TableCell>
-                                          <TableCell>
-                                            <Badge className={getOrderTypeBadgeClass(item)}>
-                                              {item.type === 'repair'
-                                                ? (item.isComplaintFollowup ? 'Reklamationsreparatur' : 'Reparatur')
-                                                : 'Produkt'}
-                                            </Badge>
-                                          </TableCell>
-                                          <TableCell>
-                                            <div className="text-sm">
-                                              {item.type === 'repair' ? (
-                                                <span>{item.device || 'Gerätereparatur'}</span>
-                                              ) : (
-                                                <span>{item.products?.map((p: any) => p.name).join(', ') || 'Produktposition'}</span>
-                                              )}
-                                            </div>
-                                          </TableCell>
-                                          <TableCell>
-                                            <div className="text-sm space-y-1">
-                                              {item.type === 'repair' && item.services && item.services.length > 0 ? (
-                                                <div>
-                                                  {item.services.map((service: any, sidx: number) => (
-                                                    <div key={sidx} className="text-xs text-foreground/70 flex items-center justify-between gap-2">
-                                                      <span>• {service.name} {service.price && `($${service.price})`}</span>
-                                                      {service.status && (
-                                                        <span className="text-xs px-1 py-0 rounded bg-muted text-foreground/60">
-                                                          {service.status}
-                                                        </span>
-                                                      )}
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              ) : item.type === 'product' && item.products && item.products.length > 0 ? (
-                                                <div>
-                                                  {item.products.map((product: any, pidx: number) => (
-                                                    <div key={pidx} className="text-xs text-foreground/70">
-                                                      • {product.name} × {product.quantity}
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              ) : (
-                                                <span className="text-xs text-foreground/50">Keine Details</span>
-                                              )}
-                                            </div>
-                                          </TableCell>
-                                          <TableCell className="text-center">
-                                            <div className="flex items-center justify-center gap-2">
-                                              <div className="w-16 bg-muted rounded-full h-2">
-                                                <div
-                                                  className="bg-primary h-2 rounded-full transition-all"
-                                                  style={{ width: `${item.progress || 0}%` }}
-                                                ></div>
-                                              </div>
-                                              <span className="text-xs font-semibold whitespace-nowrap">
-                                                {item.progress || 0}%
-                                              </span>
-                                            </div>
-                                          </TableCell>
-                                          <TableCell>
-                                            <Badge className={getOrderStatusColor(item.status || 'pending')}>
-                                              {getOrderProgressStatusLabel(item.status || 'pending')}
-                                            </Badge>
-                                          </TableCell>
-                                          <TableCell className="text-center">
-                                            {item.orderId && unreadCounts[item.orderId] ? (
-                                              <div className="flex items-center justify-center">
-                                                <button
-                                                  type="button"
-                                                  className={`
-                                                    relative inline-flex items-center justify-center
-                                                    w-8 h-8 rounded-full
-                                                    ${unreadCounts[item.orderId].senderType === 'customer'
-                                                      ? 'bg-blue-500 dark:bg-blue-600'
-                                                      : 'bg-orange-500 dark:bg-orange-600'
-                                                    }
-                                                    text-white font-semibold text-xs
-                                                    shadow-lg
-                                                    animate-pulse
-                                                    hover:scale-110 transition-transform cursor-pointer
-                                                  `}
-                                                  title={`Open customer communication (${unreadCounts[item.orderId].unread} unread message${unreadCounts[item.orderId].unread > 1 ? 's' : ''})`}
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    openOrderCommunication(item.orderId, item.orderNumber)
-                                                  }}
-                                                >
-                                                  {unreadCounts[item.orderId].unread > 99 ? '99+' : unreadCounts[item.orderId].unread}
-                                                </button>
-                                              </div>
-                                            ) : (
-                                              <span className="text-xs text-foreground/40">—</span>
-                                            )}
-                                          </TableCell>
-                                          <TableCell className="text-right font-medium">
-                                            ${item.cost?.toFixed(2) || '0.00'}
-                                          </TableCell>
-                                        </TableRow>
-                                        )
-                                      })}
-                                    </TableBody>
-                                  </Table>
-                                </div>
+                                  return (
+                                    <div key={itemOrderId || item.orderNumber} className={`booking-order-row ${isOrderSearchMatch ? 'booking-order-search-match' : ''}`}>
+                                      <div className="flex flex-col gap-1">
+                                        <span className="font-semibold text-sm">{item.orderNumber || 'Auftrag'}</span>
+                                        <Badge className={`${getOrderTypeBadgeClass(item)} w-fit`}>
+                                          {item.type === 'repair'
+                                            ? (item.isComplaintFollowup ? 'Reklamationsreparatur' : 'Reparatur')
+                                            : 'Produkt'}
+                                        </Badge>
+                                      </div>
+                                      <div className="text-sm min-w-0">
+                                        <p className="font-medium">
+                                          {item.type === 'repair'
+                                            ? (item.device || 'Gerätereparatur')
+                                            : (item.products?.map((p: any) => p.name).join(', ') || 'Produktposition')}
+                                        </p>
+                                        {item.type === 'repair' && item.services && item.services.length > 0 ? (
+                                          <ul className="mt-0.5 space-y-0.5">
+                                            {item.services.map((service: any, sidx: number) => (
+                                              <li key={sidx} className="booking-meta">
+                                                {service.name}{service.price ? ` (${formatEUR(service.price)})` : ''}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        ) : item.type === 'product' && item.products && item.products.length > 0 ? (
+                                          <ul className="mt-0.5 space-y-0.5">
+                                            {item.products.map((product: any, pidx: number) => (
+                                              <li key={pidx} className="booking-meta">{product.name} × {product.quantity}</li>
+                                            ))}
+                                          </ul>
+                                        ) : null}
+                                      </div>
+                                      <div className="flex flex-col gap-1">
+                                        <Badge className={`${getOrderStatusColor(item.status || 'pending')} w-fit`}>
+                                          {getOrderProgressStatusLabel(item.status || 'pending')}
+                                        </Badge>
+                                        <span className="booking-meta">Fortschritt {item.progress || 0} % · {formatCurrency(Number(item.cost || 0))}</span>
+                                        {itemUnread && itemUnread.unread > 0 && (
+                                          <button
+                                            type="button"
+                                            className={`booking-unread-chip ${itemUnread.senderType === 'customer' ? '' : 'is-staff'}`}
+                                            onClick={() => openOrderCommunication(item.orderId, item.orderNumber)}
+                                          >
+                                            <MessageSquare className="h-3 w-3" aria-hidden="true" />
+                                            {itemUnread.unread > 99 ? '99+' : itemUnread.unread} {itemUnread.unread === 1 ? 'neue Nachricht' : 'neue Nachrichten'}
+                                          </button>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-col items-start gap-1.5">
+                                        {item.orderId && (
+                                          <Link
+                                            to={getOrderDetailsPath(item.orderId)}
+                                            state={orderDetailsState()}
+                                            onClick={rememberListPosition}
+                                            className="booking-order-link text-sm"
+                                          >
+                                            Details ansehen
+                                          </Link>
+                                        )}
+                                        {item.orderId && (
+                                          <button
+                                            type="button"
+                                            className="text-xs text-foreground/70 underline underline-offset-2"
+                                            onClick={() => openOrderCommunication(item.orderId, item.orderNumber)}
+                                          >
+                                            Nachrichten
+                                          </button>
+                                        )}
+                                        {item.orderId && !['cancelled', 'completed'].includes(String(item.status || 'pending')) && (
+                                          <button
+                                            type="button"
+                                            className="text-xs text-red-700 underline underline-offset-2"
+                                            onClick={() => setCancelOrderTarget({ bookingId: booking._id, orderId: String(item.orderId), orderNumber: item.orderNumber })}
+                                          >
+                                            Auftrag stornieren
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
                               </div>
                             ) : (
-                              <div className="text-center py-4">
-                                <p className="text-sm text-foreground/60">Keine zugeordneten Aufträge gefunden</p>
-                              </div>
+                              <p className="text-sm text-foreground/60 py-2">Keine zugeordneten Aufträge gefunden.</p>
                             )}
                           </div>
                         </TableCell>
@@ -2084,7 +2146,6 @@ export function BookingsManagement() {
               </Table>
             </div>
           )}
-
           {/* Pagination Controls */}
           {filteredBookings.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 6px', borderTop: '1px solid var(--gray-100)', flexWrap: 'wrap', gap: '10px' }}>
@@ -2190,39 +2251,50 @@ export function BookingsManagement() {
               }
             }}
           >
-            <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden p-0">
-              <DialogHeader className="px-6 pt-6 pb-0">
-                <DialogTitle className="sr-only">Kundenkommunikation</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Kundenkommunikation für den ausgewählten Auftrag einsehen und verwalten.
+            {/* ADMUX-3: EIN Dialog (Rückfrage/Aktion sind Composer-Modi im Panel), feste Kopfzeile,
+                Verlauf scrollt, Eingabe bleibt unten sichtbar. COMMS-13: keine Auftrags-ID als inspectionId. */}
+            {/* Feste Hoehe (Chatfenster): nur so ist die Hoehe "definit" und der Verlauf schrumpft,
+                waehrend die Eingabe unten sichtbar bleibt (mit reinem max-h wuerde der Body scrollen). */}
+            <DialogContent className="max-w-4xl h-[min(780px,calc(100dvh-2rem))] gap-0 p-0 overflow-clip">
+              <DialogHeader className="border-b px-6 py-4 pr-12 text-left">
+                <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
+                  <MessageSquare className="h-4 w-4 text-[#1a2a5e]" aria-hidden="true" />
+                  Kundenkommunikation{selectedCommunicationOrder?.orderNumber ? ` · ${selectedCommunicationOrder.orderNumber}` : ''}
+                </DialogTitle>
+                <DialogDescription>
+                  Nachrichten an den Kunden erscheinen im Kundenkonto und werden per E-Mail angekündigt. Interne Notizen sieht nur das Team.
                 </DialogDescription>
+                {selectedCommunicationOrder && (
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
+                    <Link
+                      to={getOrderDetailsPath(selectedCommunicationOrder.orderId)}
+                      state={orderDetailsState()}
+                      onClick={rememberListPosition}
+                      className="inline-flex items-center gap-1 font-semibold text-[#1a2a5e] underline underline-offset-2"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> Im Auftrag öffnen
+                    </Link>
+                    <Link
+                      to={`/messages?thread=order:${selectedCommunicationOrder.orderId}`}
+                      onClick={rememberListPosition}
+                      className="inline-flex items-center gap-1 font-semibold text-[#1a2a5e] underline underline-offset-2"
+                    >
+                      <Inbox className="h-3.5 w-3.5" aria-hidden="true" /> Im Postfach öffnen
+                    </Link>
+                  </div>
+                )}
               </DialogHeader>
 
               {selectedCommunicationOrder && (
-                <div className="px-6 pb-6">
-                  <div className="border-t pt-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-blue-600" />
-                        <h4 className="font-medium text-sm">Kundenkommunikation</h4>
-                      </div>
-                      {selectedCommunicationOrder.orderNumber && (
-                        <Badge variant="outline" className="text-xs">
-                          {selectedCommunicationOrder.orderNumber}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Kundenfeedback, Anfragen und Rückfragen zentral verwalten.
-                    </p>
-                    <div className="rounded-lg border p-2 bg-background">
-                      <CommunicationPanel
-                        orderId={selectedCommunicationOrder.orderId}
-                        inspectionId={selectedCommunicationOrder.orderId}
-                      />
-                    </div>
-                  </div>
-                </div>
+                <DialogBody className="flex flex-col px-6 py-4">
+                  <CommunicationPanel
+                    orderId={selectedCommunicationOrder.orderId}
+                    entityType="order"
+                    layout="fill"
+                    hideTitle
+                    onSent={() => fetchUnreadCounts()}
+                  />
+                </DialogBody>
               )}
             </DialogContent>
           </Dialog>
@@ -2296,6 +2368,26 @@ export function BookingsManagement() {
         onCreated={fetchBookings}
       />
 
+      {cancelBookingTarget && (
+        <BookingCancelDialog
+          open={Boolean(cancelBookingTarget)}
+          onOpenChange={(open) => { if (!open) setCancelBookingTarget(null) }}
+          bookingId={cancelBookingTarget.id}
+          bookingNumber={cancelBookingTarget.number}
+          onCancelled={fetchBookings}
+        />
+      )}
+
+      {cancelOrderTarget && (
+        <OrderCancelDialog
+          open={Boolean(cancelOrderTarget)}
+          onOpenChange={(open) => { if (!open) setCancelOrderTarget(null) }}
+          orderId={cancelOrderTarget.orderId}
+          orderNumber={cancelOrderTarget.orderNumber}
+          onCancelled={() => { void refreshBookingOrders(cancelOrderTarget.bookingId) }}
+        />
+      )}
+
       {selectedBooking && (
         <BookingPaymentsDialog
           bookingId={selectedBooking._id}
@@ -2322,11 +2414,10 @@ export function BookingsManagement() {
             }
           }}
           onSuccess={() => {
-            toast({
-              title: "Erfolg",
-              description: "Versandlabel erfolgreich erstellt"
-            })
+            // Der Dialog meldet den Erfolg selbst ("Einsendelabel erstellt") - kein zweiter,
+            // widersprüchlicher Toast. Liste neu laden, damit die Spalte "Einsendung" stimmt.
             setShowCreateShippingLabelDialog(false)
+            fetchBookings()
             // Refresh booking details
             if (selectedBooking) {
               getBooking(selectedBooking._id).then(response => {
@@ -2351,30 +2442,100 @@ function BookingDetailDialog({
   navigate,
   initialTab,
   invoiceStatusFocus,
-  onStatusUpdate
+  onStatusUpdate,
+  onChanged
 }: {
   booking: Booking;
   navigate: any;
   initialTab?: "overview" | "invoices";
   invoiceStatusFocus?: string | null;
-  onStatusUpdate: () => void
+  onStatusUpdate: () => void;
+  // Nur neu laden, Dialog offen lassen (Label-Aktionen im Versand-Tab).
+  onChanged?: () => void
 }) {
+  const refreshKeepOpen = onChanged || onStatusUpdate
   const { t } = useTranslation()
   const location = useLocation()
   const customer = getSafeBookingCustomer(booking)
   const customerDisplayName = getCustomerDisplayName(customer)
-  const [activeTab, setActiveTab] = useState(initialTab || "overview")
+  const [activeTab, setActiveTab] = useState<string>(initialTab || "overview")
   const [updating, setUpdating] = useState(false)
   const [newStatus, setNewStatus] = useState(booking.status)
   const [newBillingStatus, setNewBillingStatus] = useState(booking.billingStatus)
   const [description, setDescription] = useState("")
   const [showReturnLabelDialog, setShowReturnLabelDialog] = useState(false)
+  const [showBookingCancelDialog, setShowBookingCancelDialog] = useState(false)
   const [detailOrders, setDetailOrders] = useState<any[]>([])
   const [loadingRepairJobs, setLoadingRepairJobs] = useState(true)
   const { toast } = useToast()
   const { user: currentUser } = useAuth()
   const [reconcileTracking, setReconcileTracking] = useState('')
   const [reconcilingInbound, setReconcilingInbound] = useState(false)
+  // Einsendestatus aus dem DHL-Lesemodell (GET /api/bookings/:id/inbound-label): Zustand,
+  // Sendungsnummer, Download-Adresse, Testlabel-Kennzeichen.
+  const [inboundInfo, setInboundInfo] = useState<InboundLabelInfo | null>(null)
+  const [inboundLoadState, setInboundLoadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [inboundReloadToken, setInboundReloadToken] = useState(0)
+  const [labelBusy, setLabelBusy] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (activeTab !== 'shipping') return
+    let cancelled = false
+    setInboundLoadState('loading')
+    getBookingInboundLabel(booking._id)
+      .then((view) => {
+        if (cancelled) return
+        setInboundInfo(view?.inbound || null)
+        setInboundLoadState('ready')
+      })
+      .catch(() => {
+        if (cancelled) return
+        setInboundLoadState('error')
+      })
+    return () => { cancelled = true }
+  }, [booking._id, activeTab, inboundReloadToken])
+
+  // DHL-2: jeder Label-Download mit try/catch und deutscher Meldung (Helfer werfen deutsche Fehler).
+  const runLabelAction = async (key: string, action: () => Promise<void>) => {
+    if (labelBusy) return
+    try {
+      setLabelBusy(key)
+      await action()
+    } catch (error: any) {
+      toast({
+        title: 'Label konnte nicht geladen werden',
+        description: error?.message || 'Bitte erneut versuchen.',
+        variant: 'destructive'
+      })
+    } finally {
+      setLabelBusy(null)
+    }
+  }
+
+  const handleCreateInboundLabel = async () => {
+    if (labelBusy) return
+    try {
+      setLabelBusy('create-inbound')
+      const view = await createBookingInboundLabel(booking._id)
+      setInboundInfo(view?.inbound || null)
+      toast({
+        title: view?.alreadyExists ? 'Einsendelabel war bereits vorhanden' : 'DHL-Einsendelabel erstellt',
+        description: view?.inbound?.placeholder
+          ? 'Hinweis: Testlabel (Dummy-Modus) – nicht für den Versand verwenden.'
+          : (view?.inbound?.message || 'Das Einsendelabel steht zum Download bereit.')
+      })
+      refreshKeepOpen()
+    } catch (error: any) {
+      toast({
+        title: 'Einsendelabel konnte nicht erstellt werden',
+        description: error?.message || 'Bitte erneut versuchen.',
+        variant: 'destructive'
+      })
+      setInboundReloadToken((value) => value + 1)
+    } finally {
+      setLabelBusy(null)
+    }
+  }
 
   // Abgleich nach unklarer DHL-Antwort beim Einsendelabel (nur Administratoren).
   const handleReconcileInbound = async (resolution: 'not-created' | 'created') => {
@@ -2384,7 +2545,8 @@ function BookingDetailDialog({
       await reconcileBookingInboundLabel(booking._id, { resolution, trackingNumber: reconcileTracking.trim() || undefined })
       setReconcileTracking('')
       toast({ title: 'Abgleich abgeschlossen', description: resolution === 'created' ? 'Die Sendungsnummer wurde übernommen.' : 'Das Einsendelabel kann neu erstellt werden.' })
-      onStatusUpdate()
+      setInboundReloadToken((value) => value + 1)
+      refreshKeepOpen()
     } catch (error: any) {
       toast({ title: 'Abgleich fehlgeschlagen', description: error?.message || 'Bitte erneut versuchen.', variant: 'destructive' })
     } finally {
@@ -2440,6 +2602,11 @@ function BookingDetailDialog({
   }
 
   const handleStatusUpdate = async () => {
+    // "Storniert" nur über den Storno-Dialog mit Pflichtgrund (gleiche Serverregel wie im Aktionsmenü).
+    if (newStatus === 'cancelled') {
+      setShowBookingCancelDialog(true)
+      return
+    }
     try {
       setUpdating(true)
       await updateBookingStatus(booking._id, newStatus as any, description)
@@ -2449,10 +2616,10 @@ function BookingDetailDialog({
       })
       setDescription("")
       onStatusUpdate()
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Fehler",
-        description: "Status konnte nicht aktualisiert werden",
+        description: error?.message || "Status konnte nicht aktualisiert werden",
         variant: "destructive"
       })
     } finally {
@@ -2480,12 +2647,8 @@ function BookingDetailDialog({
     }
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('de-DE', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(value)
-  }
+  // Gemeinsame, NaN-sichere Formatierung (lib/utils formatEUR) statt einer lokalen Kopie.
+  const formatCurrency = (value: unknown) => formatEUR(value)
 
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString('de-DE', {
@@ -2654,7 +2817,7 @@ function BookingDetailDialog({
       case 'paused': return 'Pausiert'
       case 'on-hold': return 'Angehalten'
       case 'quality-check': return 'Qualitätsprüfung'
-      case 'ready-for-pickup': return 'Abholbereit'
+      case 'ready-for-pickup': return 'Reparatur abgeschlossen'
       case 'completed': return 'Abgeschlossen'
       case 'cancelled': return 'Storniert'
       default: return status
@@ -2678,13 +2841,15 @@ function BookingDetailDialog({
     }
   }
 
+  // Ein reiner Statustext (z. B. "Einsendelabel konnte nicht automatisch erstellt werden" nach
+  // einem fehlgeschlagenen Automatiklauf) ist KEIN Label - der Fehler steht in der Einsendung-Karte
+  // (lastError) und der Block "DHL-Einsendelabel" bliebe sonst leer.
   const hasOutboundShippingInfo = Boolean(
     booking.trackingNumber ||
     booking.shippingLabelUrl ||
     booking.shippingCreatedAt ||
     booking.estimatedDelivery ||
     booking.actualDelivery ||
-    booking.shippingStatusDescription ||
     (booking.shippingStatus && booking.shippingStatus !== 'pending')
   )
 
@@ -2706,9 +2871,36 @@ function BookingDetailDialog({
   // Variablennamen 'outbound*' sind historisch und bezeichnen diesen Buchungs-Block.
   // Die Auslieferung (McRepair -> Kunde) liegt je Auftrag und wird separat angezeigt.
   const isOutboundShippingLabel = booking.shippingLabelDirection === 'outbound'
+  // DHL-3: Existiert bereits ein Einsendelabel (Buchungsplatz, Kunde -> McRepair) oder laeuft die
+  // Erstellung, wird KEINE DHL-Retoure angeboten - der Server lehnt sie mit 409 ab und ein zweites
+  // Label waere doppelt bezahlt. Ausnahme: der Buchungsplatz traegt ein altes Rueckweg-Label.
+  const inboundLabelExists = Boolean(
+    booking.shippingLabelCreationInProgress ||
+    (!isOutboundShippingLabel && (booking.trackingNumber || booking.shippingLabelUrl)) ||
+    (inboundInfo && ['ready', 'registered', 'creating', 'review'].includes(inboundInfo.state))
+  )
+  const canOfferRetoure = !hasReturnShippingInfo && !inboundLabelExists
+  // DHL-6: Standard ist das DHL-Einsendelabel (Parcel DE, Karte "Einsendung" oben). Die DHL-Retoure
+  // wird in BEIDEN Zweigen gleich und nur als nachrangige Alternative (outline) angeboten.
+  const retoureIsAlternative = Boolean(inboundInfo?.canCreate)
+  const retoureOffer = canOfferRetoure ? (
+    <div className="rounded-md border bg-white p-3 text-sm space-y-2" style={{ color: 'var(--gray-600, #4a5568)' }}>
+      <p>
+        {retoureIsAlternative
+          ? 'Standard ist das DHL-Einsendelabel (oben unter „Einsendung“). Nur wenn das nicht möglich ist, kann stattdessen eine DHL-Retoure (Kunde → McRepair) erstellt werden – nie beides.'
+          : 'Für diese Buchung ist noch kein Einsendelabel (Kunde → McRepair) vorhanden. Sie können eine DHL-Retoure (Kunde → McRepair) erstellen.'}
+      </p>
+      <Button variant="outline" size="sm" onClick={() => setShowReturnLabelDialog(true)}>
+        <Truck className="h-4 w-4 mr-2" aria-hidden="true" />
+        {retoureIsAlternative ? 'Alternative: DHL-Retoure erstellen (Kunde → McRepair)' : 'DHL-Retoure erstellen (Kunde → McRepair)'}
+      </Button>
+    </div>
+  ) : null
+  const inboundIsPlaceholder = Boolean(inboundInfo?.placeholder || booking.inboundLabelPlaceholder || String(booking.trackingNumber || '').startsWith('DHL-DUMMY-'))
+  const inboundFileReference = booking.bookingNumber || booking._id
   const outboundShippingTitle = isOutboundShippingLabel
     ? 'Rückweg-Label an den Kunden (McRepair → Kunde, Altbestand)'
-    : 'Versand zum Reparaturbetrieb (Kunde → McRepair)'
+    : 'DHL-Einsendelabel (Kunde → McRepair)'
   const outboundShippingHistoryTitle = isOutboundShippingLabel
     ? 'Versandverlauf (McRepair → Kunde)'
     : 'Versandverlauf (Kunde → McRepair)'
@@ -2830,7 +3022,7 @@ function BookingDetailDialog({
           color: '#c8d0e7',
           fontWeight: '500'
         }}>
-          Buchungs-ID: #{booking._id.slice(-8).toUpperCase()}
+          Buchung {booking.bookingNumber || `#${booking._id.slice(-8).toUpperCase()}`} · {customerDisplayName}
         </DialogDescription>
       </DialogHeader>
 
@@ -3164,7 +3356,7 @@ function BookingDetailDialog({
                 </div>
                 {booking.finalCost !== undefined && booking.finalCost !== booking.totalCost && (
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>Endbetrag</span>
+                    <span className="font-semibold text-sm" style={{ color: 'var(--gray-700, #2d3748)' }} title="Gespeicherter Endbetrag aus älteren Daten – maßgeblich ist der Gesamtbetrag oben">Endbetrag (Altdaten)</span>
                     <span className="font-bold text-lg" style={{ color: 'var(--success, #38a169)' }}>{formatCurrency(booking.finalCost)}</span>
                   </div>
                 )}
@@ -3294,7 +3486,7 @@ function BookingDetailDialog({
               </Select>
               {newStatus !== booking.status && (
                 <>
-                  <Textarea
+                  {newStatus !== 'cancelled' && <Textarea
                     placeholder="Beschreibung hinzufügen (optional)"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -3305,7 +3497,7 @@ function BookingDetailDialog({
                       borderRadius: 'var(--radius-sm, 6px)',
                       fontSize: '0.9rem'
                     }}
-                  />
+                  />}
                   <Button
                     onClick={handleStatusUpdate}
                     disabled={updating}
@@ -3321,7 +3513,7 @@ function BookingDetailDialog({
                       transition: 'var(--transition, all 0.25s cubic-bezier(0.4, 0, 0.2, 1))'
                     }}
                   >
-                    Status aktualisieren
+                    {newStatus === 'cancelled' ? 'Buchung stornieren …' : 'Status aktualisieren'}
                   </Button>
                 </>
               )}
@@ -3649,6 +3841,89 @@ function BookingDetailDialog({
         </TabsContent>
 
         <TabsContent value="shipping" className="space-y-4 mt-4">
+          {/* Einsendung (Kunde -> McRepair) laut DHL-Lesemodell - getrennt von der Auslieferung */}
+          {inboundIsPlaceholder && (
+            <div className="rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900" role="status">
+              <p className="font-semibold flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                Testmodus – Dummy-Label (kein echtes DHL-Label)
+              </p>
+              <p className="text-xs mt-1">
+                Dieses Einsendelabel ist ein Testlabel und darf nicht für den Versand verwendet werden. Umschalten unter Systemkonfiguration → Integrationen → DHL → Buchungslabel-Modus „Live“.
+              </p>
+            </div>
+          )}
+          <div className="rounded-lg border bg-white p-4 space-y-2" style={{ borderLeft: '4px solid var(--primary-blue, #1a2a5e)' }}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-semibold text-base flex items-center gap-2" style={{ color: 'var(--primary-blue, #1a2a5e)' }}>
+                <Package className="h-4 w-4" aria-hidden="true" />
+                Einsendung (Kunde → McRepair)
+              </h3>
+              <div className="flex flex-wrap gap-1">
+                {inboundIsPlaceholder && (
+                  <Badge variant="outline" className="border-amber-400 bg-amber-50 text-amber-800">Testlabel</Badge>
+                )}
+                {inboundInfo?.deviceReceived && (
+                  <Badge className="bg-green-100 text-green-800">Gerät eingegangen</Badge>
+                )}
+              </div>
+            </div>
+            {inboundLoadState === 'loading' && <p className="text-sm text-muted-foreground">Einsendestatus wird geladen …</p>}
+            {inboundLoadState === 'error' && (
+              <div className="flex flex-wrap items-center gap-2 text-sm" role="alert">
+                <span className="text-destructive">Der Einsendestatus konnte nicht geladen werden.</span>
+                <Button size="sm" variant="outline" onClick={() => setInboundReloadToken((value) => value + 1)}>Erneut versuchen</Button>
+              </div>
+            )}
+            {inboundLoadState === 'ready' && inboundInfo && (
+              <>
+                <p className="text-sm" style={{ color: 'var(--gray-700, #2d3748)' }}>{inboundInfo.message}</p>
+                {inboundInfo.trackingNumber && (
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">Sendungsnummer </span>
+                    <span className="font-mono font-semibold">{inboundInfo.trackingNumber}</span>
+                    {inboundInfo.source === 'booking-retoure' ? ' · DHL-Retoure' : ''}
+                  </p>
+                )}
+                {inboundInfo.lastError && (
+                  <p className="text-xs text-red-700">Letzter Fehler: {inboundInfo.lastError}</p>
+                )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {inboundInfo.state === 'ready' && inboundInfo.downloadUrl && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={labelBusy !== null}
+                        className="border-slate-300 text-[#1a2a5e]"
+                        onClick={() => void runLabelAction('inbound-download', () => downloadInboundLabel(inboundInfo))}
+                      >
+                        <Download className="h-4 w-4 mr-2" aria-hidden="true" />
+                        {inboundIsPlaceholder ? 'Testlabel herunterladen' : 'Einsendelabel herunterladen'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={labelBusy !== null}
+                        className="border-slate-300 text-[#1a2a5e]"
+                        onClick={() => void runLabelAction('inbound-print', () => printInboundLabel(inboundInfo))}
+                      >
+                        <Printer className="h-4 w-4 mr-2" aria-hidden="true" />
+                        Drucken
+                      </Button>
+                    </>
+                  )}
+                  {inboundInfo.canCreate && !inboundLabelExists && (
+                    <Button size="sm" disabled={labelBusy !== null} onClick={() => void handleCreateInboundLabel()}>
+                      <Truck className="h-4 w-4 mr-2" aria-hidden="true" />
+                      {labelBusy === 'create-inbound' ? 'Wird erstellt …' : 'DHL-Einsendelabel erstellen'}
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
           {booking.shippingLabelCreationInProgress && (
             <div className="rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 space-y-2">
               <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
@@ -3820,14 +4095,21 @@ function BookingDetailDialog({
                         <div className="flex items-start gap-3">
                           <FileText className="h-5 w-5 mt-1 flex-shrink-0" style={{ color: 'var(--primary-blue, #1a2a5e)' }} />
                           <div className="flex-1">
-                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>Versandlabel (PDF)</p>
+                            <p className="text-sm mb-2" style={{ color: 'var(--gray-500, #636e85)', fontWeight: '600' }}>
+                              {isOutboundShippingLabel ? 'Versandlabel an Kunden (PDF)' : 'DHL-Einsendelabel (PDF)'}
+                              {inboundIsPlaceholder && !isOutboundShippingLabel ? ' – Testlabel' : ''}
+                            </p>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => downloadBookingShippingLabel(booking._id, `shipping-label-${booking.bookingNumber || booking._id}.pdf`)}
+                              disabled={labelBusy !== null}
+                              onClick={() => void runLabelAction('booking-shipping-label', () => downloadBookingShippingLabel(
+                                booking._id,
+                                labelFilename(isOutboundShippingLabel ? 'outbound' : 'inbound', inboundFileReference, inboundIsPlaceholder && !isOutboundShippingLabel)
+                              ))}
                             >
                               <Download className="h-4 w-4 mr-2" />
-                              Versandlabel herunterladen
+                              {isOutboundShippingLabel ? 'Versandlabel herunterladen' : (inboundIsPlaceholder ? 'Testlabel herunterladen' : 'Einsendelabel herunterladen')}
                             </Button>
                           </div>
                         </div>
@@ -3874,41 +4156,16 @@ function BookingDetailDialog({
                 </div>
               )}
 
-              {!hasReturnShippingInfo && (
-                <div
-                  className="text-center py-8"
-                  style={{
-                    background: 'var(--white, #ffffff)',
-                    border: '1px solid var(--gray-200, #d8dce6)',
-                    borderRadius: 'var(--radius-lg, 16px)',
-                    padding: '40px'
-                  }}
-                >
-                  <Truck className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--gray-300, #b0b8c9)', opacity: '0.4' }} />
-                  <p style={{ color: 'var(--gray-600, #4a5568)' }}>Noch kein DHL-Retourenlabel (Kunde → McRepair) für diese Buchung vorhanden</p>
-                </div>
+              {!hasReturnShippingInfo && inboundLabelExists && (
+                <p className="text-xs rounded-md border bg-white p-3" style={{ color: 'var(--gray-600, #4a5568)' }}>
+                  Keine DHL-Retoure nötig: Für diese Buchung existiert bereits ein DHL-Einsendelabel (Kunde → McRepair). Ein zweites Label würde doppelt berechnet und wird vom Server abgelehnt.
+                </p>
               )}
 
               {/* DHL-Retoure: der KUNDE ist Absender, McRepair Empfänger - also eine Einsendung,
-                  kein Versand an den Kunden. Der Server liefert ein vorhandenes Label zurück statt
-                  ein zweites zu erzeugen, daher nur anbieten, solange keines existiert. */}
-              {!hasReturnShippingInfo && (
-              <div className="flex justify-center">
-                <Button
-                  onClick={() => setShowReturnLabelDialog(true)}
-                  style={{
-                    background: 'var(--primary-blue, #1a2a5e)',
-                    color: 'var(--white, #ffffff)',
-                    borderRadius: 'var(--radius-sm, 6px)',
-                    fontWeight: '600',
-                    padding: '10px 20px'
-                  }}
-                >
-                  <Truck className="h-4 w-4 mr-2" />
-                  Retourenlabel erstellen (Kunde → McRepair)
-                </Button>
-              </div>
-              )}
+                  kein Versand an den Kunden. Nur anbieten, solange weder Retoure noch Einsendelabel
+                  existiert (DHL-3); gleiche Darstellung wie im leeren Zweig. */}
+              {retoureOffer}
 
               {hasReturnShippingInfo && (
                 <div
@@ -3970,7 +4227,11 @@ function BookingDetailDialog({
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => downloadBookingReturnLabel(booking._id, `return-label-${booking.bookingNumber || booking._id}.pdf`)}
+                              disabled={labelBusy !== null}
+                              onClick={() => void runLabelAction('booking-return-label', () => downloadBookingReturnLabel(
+                                booking._id,
+                                labelFilename('inbound', inboundFileReference, String(booking.returnTrackingNumber || '').startsWith('DHL-DUMMY-'))
+                              ))}
                             >
                               <Download className="h-4 w-4 mr-2" />
                               Retouren-Label herunterladen
@@ -4073,21 +4334,14 @@ function BookingDetailDialog({
             >
               <Truck className="h-12 w-12 mx-auto mb-4" style={{ color: 'var(--gray-300, #b0b8c9)', opacity: '0.4' }} />
               <p style={{ color: 'var(--gray-600, #4a5568)' }}>Für diese Buchung ist noch kein Einsendelabel (Kunde → McRepair) vorhanden</p>
-              <p className="text-sm mt-2" style={{ color: 'var(--gray-400, #8892a8)' }}>Einsendelabel und DHL-Retoure erscheinen hier, sobald sie erstellt wurden</p>
-              <Button
-                onClick={() => setShowReturnLabelDialog(true)}
-                className="mt-4"
-                style={{
-                  background: 'var(--primary-blue, #1a2a5e)',
-                  color: 'var(--white, #ffffff)',
-                  borderRadius: 'var(--radius-sm, 6px)',
-                  fontWeight: '600',
-                  padding: '10px 20px'
-                }}
-              >
-                <Truck className="h-4 w-4 mr-2" />
-                Retourenlabel erstellen (Kunde → McRepair)
-              </Button>
+              <p className="text-sm mt-2" style={{ color: 'var(--gray-500, #636e85)' }}>Einsendelabel und DHL-Retoure erscheinen hier, sobald sie erstellt wurden</p>
+              {canOfferRetoure ? (
+                <div className="mt-4 text-left">{retoureOffer}</div>
+              ) : (
+                <p className="text-xs mt-3" style={{ color: 'var(--gray-500, #636e85)' }}>
+                  Eine DHL-Retoure wird nicht angeboten, solange die Erstellung des Einsendelabels läuft oder ein Einsendelabel existiert.
+                </p>
+              )}
             </div>
           )}
         </TabsContent>
@@ -4161,6 +4415,17 @@ function BookingDetailDialog({
           )}
         </TabsContent>
       </Tabs>
+
+      <BookingCancelDialog
+        open={showBookingCancelDialog}
+        onOpenChange={setShowBookingCancelDialog}
+        bookingId={booking._id}
+        bookingNumber={booking.bookingNumber}
+        onCancelled={() => {
+          setDescription("")
+          onStatusUpdate()
+        }}
+      />
 
       {/* Return Label Dialog */}
       {showReturnLabelDialog && (
@@ -4291,12 +4556,8 @@ function InvoicesTabContent({ booking, navigate, highlightStatus }: { booking: B
     }
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('de-DE', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(value)
-  }
+  // Gemeinsame, NaN-sichere Formatierung (lib/utils formatEUR) statt einer lokalen Kopie.
+  const formatCurrency = (value: unknown) => formatEUR(value)
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('de-DE', {
@@ -4752,6 +5013,19 @@ function InvoiceDialog({
         invoiceMode,
         orderId: invoiceMode === 'order' ? selectedOrderId : undefined,
       })
+      // FIN-3: Rechnung erstellt, Versand fehlgeschlagen -> 201 + warning. Nie still als Erfolg zeigen.
+      if (response?.warning) {
+        toast({
+          title: 'Rechnung erstellt, aber nicht versendet',
+          description: String(response.warning),
+          variant: 'destructive'
+        })
+      } else if (sendImmediately && response?.sent) {
+        toast({
+          title: 'Rechnung erstellt und versendet',
+          description: `Rechnung ${response?.invoice?.invoiceNumber || ''} wurde per E-Mail mit PDF versendet (vom Mailserver angenommen).`.replace('  ', ' ')
+        })
+      }
       await printInvoice(response?.invoice)
       onSuccess()
     } catch (error) {
@@ -4770,12 +5044,8 @@ function InvoiceDialog({
     }
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('de-DE', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(value)
-  }
+  // Gemeinsame, NaN-sichere Formatierung (lib/utils formatEUR) statt einer lokalen Kopie.
+  const formatCurrency = (value: unknown) => formatEUR(value)
 
   const renderAddressBlock = (title: string, address?: AddressFields | null, fallback?: string) => {
     const hasAddress = hasAddressData(address)
@@ -4826,7 +5096,7 @@ function InvoiceDialog({
             <div className="text-center py-8">
               <p className="text-sm font-medium text-[#1a2a5e]">Rechnungserstellung noch nicht verfügbar</p>
               <p className="text-sm text-foreground/60 mt-1">
-                Für diese Buchung ist noch kein Auftrag mit Status "completed" vorhanden.
+                Für diese Buchung ist noch kein Auftrag mit dem Status „Abgeschlossen“ vorhanden.
               </p>
             </div>
           ) : canCreateAnyInvoice ? (

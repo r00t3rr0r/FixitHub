@@ -53,7 +53,11 @@ router.get('/payments', requireUser, requireRole(['admin']), async (req, res) =>
       dateFrom: req.query.dateFrom,
       dateTo: req.query.dateTo,
       page: req.query.page,
-      limit: req.query.limit
+      limit: req.query.limit,
+      // Buchungs-/Auftrags-/Rechnungsnummer oder Kunde (FIN-9)
+      search: req.query.search,
+      // 'pruefung' = Zahlungen in Pruefung (gleiche Regel wie der Dashboard-Zaehler)
+      review: req.query.review
     };
 
     const result = await FinancialService.getPayments(filters);
@@ -63,11 +67,7 @@ router.get('/payments', requireUser, requireRole(['admin']), async (req, res) =>
       ...result
     });
   } catch (error) {
-    console.error('Error getting payments:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to get payments'
-    });
+    return respondWithError(res, error, 'Error getting payments', 'Die Zahlungen konnten nicht geladen werden.');
   }
 });
 
@@ -206,6 +206,8 @@ router.get('/invoices', requireUser, requireRole(['admin']), async (req, res) =>
       // Belegnummer (verankert, indexgestuetzt) und Freitext (Nummer/Kunde/E-Mail).
       invoiceNumber: req.query.invoiceNumber,
       search: req.query.search,
+      // 'offen' | 'ueberfaellig' = offene Forderungen (gleiche Regel wie der Dashboard-Zaehler)
+      receivable: req.query.receivable,
       page: req.query.page,
       limit: req.query.limit
     };
@@ -284,11 +286,7 @@ router.get('/reports', requireUser, requireRole(['admin']), async (req, res) => 
       report
     });
   } catch (error) {
-    console.error('Error getting financial reports:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to get financial reports'
-    });
+    return respondWithError(res, error, 'Error getting financial reports', 'Der Finanzbericht konnte nicht geladen werden.');
   }
 });
 
@@ -349,22 +347,43 @@ router.post('/invoices/from-repairs', requireUser, requireRole(['admin']), async
   console.log('POST /api/admin/financial/invoices/from-repairs - Generating invoice from repair orders');
 
   try {
-    const { repairOrderIds, options } = req.body;
+    // repairOrderIds: Auftragsnummern (ORD-...) ODER interne IDs. options.dryRun = true
+    // liefert nur die Vorschau (Umfang, Betraege, bereits berechnete Auftraege) und
+    // speichert nichts (FIN-10).
+    const { repairOrderIds, options } = req.body || {};
 
     if (!repairOrderIds || !Array.isArray(repairOrderIds) || repairOrderIds.length === 0) {
-      return res.status(400).json({ success: false, error: 'repairOrderIds array is required' });
+      return res.status(400).json({ success: false, error: 'Bitte mindestens einen Auftrag auswählen.', code: 'ORDER_IDS_REQUIRED' });
     }
 
-    const invoice = await FinancialService.generateFromRepairOrders(repairOrderIds, options || {});
+    // enforceCompletion setzt ausschliesslich der Server: nicht abgeschlossene Auftraege
+    // werden nur mit ausdruecklicher Bestaetigung (confirmIncompleteOrders) berechnet.
+    const safeOptions = { ...(options && typeof options === 'object' ? options : {}), enforceCompletion: true };
+    if (safeOptions.dryRun === true) {
+      const preview = await FinancialService.previewInvoiceFromRepairOrders(repairOrderIds, safeOptions);
+      return res.status(200).json({ success: true, preview });
+    }
+
+    const invoice = await FinancialService.generateFromRepairOrders(repairOrderIds, safeOptions);
     return res.status(201).json({ success: true, message: 'Rechnung wurde erstellt.', invoice });
   } catch (error) {
-    console.error('Error generating invoice from repair orders:', error);
     // 409 (Auftrag bereits berechnet) samt bestehender Rechnung durchreichen.
-    return res.status(Number(error?.statusCode) || 400).json({
+    const statusCode = Number(error?.statusCode);
+    if (Number.isFinite(statusCode) && statusCode >= 400 && statusCode < 600) {
+      console.warn('Error generating invoice from repair orders:', error.message);
+      return res.status(statusCode).json({
+        success: false,
+        error: error.message,
+        code: error.code,
+        existingInvoice: error.existingInvoice,
+        incompleteOrders: error.incompleteOrders,
+      });
+    }
+    console.error('Error generating invoice from repair orders:', error);
+    return res.status(500).json({
       success: false,
-      error: error.message || 'Die Rechnung konnte nicht erstellt werden.',
-      code: error.code,
-      existingInvoice: error.existingInvoice,
+      error: germanCreateError(error, 'Die Rechnung konnte nicht erstellt werden.'),
+      code: 'INTERNAL_ERROR',
     });
   }
 });
@@ -671,6 +690,11 @@ router.post('/bookings/:bookingId/payment-request', requireUser, requireRole(['a
     );
     return res.status(200).json(result);
   } catch (error) {
+    // 409 PAYMENT_REQUEST_RECENT: letzte Aufforderung mitliefern, damit die Oberflaeche
+    // "Zuletzt am … an … gesendet – trotzdem erneut senden?" fragen kann.
+    if (error?.code === 'PAYMENT_REQUEST_RECENT') {
+      return res.status(409).json({ success: false, error: error.message, code: error.code, recentRequest: error.recentRequest });
+    }
     return respondWithError(res, error, 'Error sending payment request', 'Die Zahlungsaufforderung konnte nicht gesendet werden.');
   }
 });

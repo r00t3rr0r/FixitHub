@@ -22,7 +22,7 @@ import {
   Mail,
   Phone,
   Calendar,
-  DollarSign,
+  Euro,
   Package,
   Eye,
   Edit,
@@ -101,6 +101,7 @@ import {
 } from "@/components/ui/pagination"
 import { UserDetailsDialog } from "@/components/admin/UserDetailsDialog"
 import { EditUserDialog } from "@/components/admin/EditUserDialog"
+import { formatEUR } from '@/lib/utils'
 
 type SortField = 'name' | 'email' | 'role' | 'status' | 'createdAt' | 'lastActivity' | 'totalOrders' | 'totalSpent'
 type SortDirection = 'asc' | 'desc'
@@ -773,13 +774,13 @@ export function UserManagement() {
           <Card className="stat-card stat-converted">
             <CardContent className="p-0">
               <div className="stat-card-header">
-                <div className="stat-card-title">{t('orders.totalCost')}</div>
+                <div className="stat-card-title">Auftragswert gesamt</div>
                 <div className="stat-card-icon">
-                  <DollarSign className="h-4 w-4" />
+                  <Euro className="h-4 w-4" />
                 </div>
               </div>
               <div className="stat-card-value">
-                ${users.reduce((sum, u) => sum + (u.totalSpent || 0), 0).toFixed(2)}
+                {formatEUR(users.reduce((sum, u) => sum + (u.totalSpent || 0), 0))}
               </div>
             </CardContent>
           </Card>
@@ -1062,15 +1063,15 @@ export function UserManagement() {
                             <div className="flex items-center gap-1 text-sm">
                               <Package className="h-3 w-3 text-muted-foreground" />
                               <span className="font-medium">{user.totalOrders || 0}</span>
-                              <span className="text-muted-foreground">orders</span>
+                              <span className="text-muted-foreground">Aufträge</span>
                             </div>
                             <div className="flex items-center gap-1 text-sm">
-                              <DollarSign className="h-3 w-3 text-muted-foreground" />
-                              <span className="font-medium">${(user.totalSpent || 0).toFixed(2)}</span>
+                              <Euro className="h-3 w-3 text-muted-foreground" />
+                              <span className="font-medium" title="Auftragswert gesamt">{formatEUR(user.totalSpent || 0)}</span>
                             </div>
                             {(user.totalOrders || 0) > 0 && (
                               <div className="text-xs text-muted-foreground">
-                                Avg: ${((user.totalSpent || 0) / (user.totalOrders || 1)).toFixed(2)}
+                                Ø je Auftrag: {formatEUR((user.totalSpent || 0) / (user.totalOrders || 1))}
                               </div>
                             )}
                           </div>

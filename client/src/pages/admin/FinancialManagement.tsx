@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +26,8 @@ import { printInvoice, type PrintableInvoice } from '@/lib/invoicePrint';
 import { getInvoiceItemServiceName } from '@/lib/invoiceItems';
 import { buildOrderDetailsState, getOrderDetailsPath } from '@/lib/orderDetailsNavigation';
 import { downloadInvoicePdf } from '@/api/invoices';
+import { formatMoney } from '@/lib/utils';
+import { parseDecimalInput } from '@/lib/parseDecimalInput';
 import { getAdminBookings } from '@/api/bookings';
 import { getAdminOrders } from '@/api/adminOrders';
 import { getBookingPayments, type BookingPaymentOverview } from '@/api/bookingPayments';
@@ -42,6 +44,8 @@ import {
   getDunningRunById,
   getDunningRuns,
   generateInvoiceFromRepairs,
+  previewInvoiceFromRepairs,
+  FinancialApiError,
   getFinancialReports,
   getInvoiceDetails,
   getInvoices,
@@ -72,7 +76,8 @@ import {
   type InvoiceStatus,
   type Payment,
   type PaymentGateway,
-  type PaymentRequestRecord
+  type PaymentRequestRecord,
+  type RepairInvoicePreview
 } from '@/api/financial';
 import {
   getSystemConfig,
@@ -189,8 +194,8 @@ const trackedPaymentMethodOptions = [
   { value: 'cash', label: 'Bar' },
 ] as const;
 
-const formatCurrencyValue = (value: number, currency = 'EUR') =>
-  new Intl.NumberFormat('de-DE', { style: 'currency', currency }).format(Number(value || 0));
+// Gemeinsamer Formatter (lib/utils formatMoney): Waehrung aus den Daten, Format de-DE.
+const formatCurrencyValue = (value: number, currency = 'EUR') => formatMoney(value, currency);
 
 const formatDate = (value?: string) => {
   if (!value) return '-';
@@ -259,7 +264,10 @@ const getInvoiceOpenAmount = (invoice?: Partial<Invoice> | null): number => {
   if (!invoice) return 0;
   const open = Number(invoice.balance?.open);
   if (invoice.balance && Number.isFinite(open)) return Math.max(0, open);
-  return getInvoiceOpenAmount(invoice);
+  // FIN-15: frueher rief sich die Funktion hier selbst auf (Endlosrekursion bei einer
+  // Antwort ohne balance, z. B. frisch erstellte Rechnung).
+  const gross = Number(invoice.invoiceGrossTotal ?? invoice.total ?? 0);
+  return Math.max(0, (Number.isFinite(gross) ? gross : 0) - Math.max(0, Number(invoice.paidAmount || 0)));
 };
 
 const getInvoicePaidAmount = (invoice?: Partial<Invoice> | null): number => {
@@ -363,8 +371,13 @@ const PaymentMoneyFlow = ({ payment, onReconcile }: {
           ))}
         </div>
       )}
-      {unallocated > 0.009 && (
-        <div className="text-rose-800">Nicht zugeordnet: {formatCurrencyValue(unallocated, currency)} · Überzahlung/Erstattung prüfen</div>
+      {unallocated > 0.009 && payment.unallocatedKind === 'prepayment' && (
+        <div className="text-amber-800">Vorauszahlung – Rechnung folgt: {formatCurrencyValue(unallocated, currency)}</div>
+      )}
+      {unallocated > 0.009 && payment.unallocatedKind !== 'prepayment' && (
+        <div className="text-rose-800">
+          {payment.unallocatedKind === 'unassigned' ? 'Keinem Vorgang zugeordnet' : 'Nicht zugeordnet – Überzahlung prüfen'}: {formatCurrencyValue(unallocated, currency)}
+        </div>
       )}
     </div>
   );
@@ -574,7 +587,11 @@ const createInvoiceFormState = (settings: FinancialSettingsState) => ({
 });
 
 const createFromRepairFormState = (settings: FinancialSettingsState) => ({
-  repairOrderIds: '',
+  // FIN-10: Auftragsnummern (ORD-…) aus der Auftragssuche statt eingetippter Mongo-IDs.
+  orderRefs: [] as string[],
+  orderSearch: '',
+  // Steuer gilt aus dem Kundenprofil; nur mit overrideTax wird sie abweichend gesetzt.
+  overrideTax: false,
   taxRate: String(settings.defaults.taxRate),
   // ZUSATZrabatt in EURO. Der Kundengruppenrabatt steckt bereits im Auftrag
   // (order.discount) und wird vom Server uebernommen - ein Vorschlagswert hier wuerde
@@ -587,6 +604,10 @@ const createFromRepairFormState = (settings: FinancialSettingsState) => ({
   customerVatId: '',
   sellerVatId: settings.invoiceMetadata?.sellerVatId || 'DE318981969',
   reverseChargeNotice: 'Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge',
+  // Wie bisher standardmaessig sofort per E-Mail senden - aber genau EINE Mail.
+  sendNow: true,
+  printAfter: false,
+  confirmIncomplete: false,
 });
 
 const createPaymentFormState = (
@@ -1038,6 +1059,84 @@ function BookingSearchAutocomplete({
   );
 }
 
+// SET-5: kurze Hilfetexte (Einheit, Wirkung, Geltung) und ehrliche Kennzeichnung von
+// Feldern ohne Wirkung ("Vorbelegung – derzeit ohne Wirkung"; nicht entfernt).
+const SettingHelp = ({ children }: { children: ReactNode }) => (
+  <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{children}</p>
+);
+
+const NoEffectHint = ({ children }: { children?: ReactNode }) => (
+  <p className="mt-1 text-[11px] leading-snug text-amber-700">
+    <span className="font-semibold">Vorbelegung – derzeit ohne Wirkung.</span>{children ? <> {children}</> : null}
+  </p>
+);
+
+// Ungueltige Eingaben der Finanzeinstellungen sperren "Finanzeinstellungen speichern"
+// (sonst wuerde still der letzte gueltige Wert gespeichert, waehrend das Feld etwas anderes zeigt).
+const DecimalSettingValidityContext = createContext<((fieldId: string, invalid: boolean) => void) | null>(null);
+
+/**
+ * SP-9: Dezimalfeld mit Text-Entwurf. type="number" mit geparster Zahl als Wert
+ * verlor in deutschem Chrome Trennzeichen ("7.5" -> 5). Der Text bleibt beim Tippen
+ * erhalten; nur gueltige Zahlen im Bereich werden uebernommen, sonst Hinweis.
+ */
+function DecimalSettingInput({ id, value, onCommit, min, max, integer = false }: {
+  id: string;
+  value: number;
+  onCommit: (value: number) => void;
+  min?: number;
+  max?: number;
+  integer?: boolean;
+}) {
+  const format = (num: number) => (Number.isFinite(num) ? String(num).replace('.', ',') : '');
+  const [draft, setDraft] = useState(() => format(Number(value)));
+  const [focused, setFocused] = useState(false);
+  const [error, setError] = useState('');
+  const reportValidity = useContext(DecimalSettingValidityContext);
+  useEffect(() => {
+    // Ungueltige Eingabe bleibt mit Hinweis sichtbar statt still ersetzt zu werden.
+    if (!focused && !error) setDraft(format(Number(value)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, focused]);
+  useEffect(() => {
+    reportValidity?.(id, Boolean(error));
+  }, [error, id, reportValidity]);
+  useEffect(() => () => reportValidity?.(id, false), [id, reportValidity]);
+  const handleChange = (text: string) => {
+    setDraft(text);
+    const parsed = parseDecimalInput(text);
+    if (parsed === null) {
+      setError('Bitte eine Zahl eingeben, z. B. 19 oder 7,5.');
+      return;
+    }
+    if (integer && !Number.isInteger(parsed)) {
+      setError('Bitte eine ganze Zahl eingeben.');
+      return;
+    }
+    if ((min !== undefined && parsed < min) || (max !== undefined && parsed > max)) {
+      setError(`Erlaubt: ${min ?? '–'} bis ${max ?? '–'}.`);
+      return;
+    }
+    setError('');
+    onCommit(parsed);
+  };
+  return (
+    <>
+      <Input
+        id={id}
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        aria-invalid={Boolean(error)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => { setFocused(false); if (!error) setDraft(format(Number(value))); }}
+        onChange={(event) => handleChange(event.target.value)}
+      />
+      {error && <p className="mt-1 text-[11px] text-red-700" role="alert">{error}</p>}
+    </>
+  );
+}
+
 export type FinancialManagementMode = 'invoices' | 'creditNotes';
 
 export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialManagementMode }) {
@@ -1056,6 +1155,21 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   const [handledHighlightInvoiceKey, setHandledHighlightInvoiceKey] = useState<string | null>(null);
   const [systemConfig, setSystemConfig] = useState<SystemConfig | null>(null);
   const [savingFinancialSettings, setSavingFinancialSettings] = useState(false);
+  const [invalidFinancialSettingFields, setInvalidFinancialSettingFields] = useState<string[]>([]);
+  const reportFinancialSettingValidity = useCallback((fieldId: string, invalid: boolean) => {
+    setInvalidFinancialSettingFields((current) => {
+      const has = current.includes(fieldId);
+      if (invalid) return has ? current : [...current, fieldId];
+      return has ? current.filter((entry) => entry !== fieldId) : current;
+    });
+  }, []);
+  // Lade-/Fehlerzustand NUR der Finanzeinstellungen (SET-3).
+  const [settingsLoadState, setSettingsLoadState] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const [settingsLoadError, setSettingsLoadError] = useState('');
+  // FIN-9: Suche in der Zahlungsliste (Buchung, Auftrag, Rechnung, Kunde) - serverseitig.
+  const [paymentSearch, setPaymentSearch] = useState('');
+  const [paymentsTotalCount, setPaymentsTotalCount] = useState(0);
+  const [paymentSearchLoading, setPaymentSearchLoading] = useState(false);
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -1064,8 +1178,16 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [overdueInvoices, setOverdueInvoices] = useState<Invoice[]>([]);
 
-  const [invoiceFilters, setInvoiceFilters] = useState({ status: 'all', taxType: 'all', dateFrom: '', dateTo: '', correctionType: 'all', originalInvoiceNumber: '' });
-  const [paymentFilters, setPaymentFilters] = useState({ status: 'all', method: 'all', dateFrom: '', dateTo: '' });
+  // receivable / review kommen aus Dashboard-Links (?forderung=offen|ueberfaellig, ?zahlungen=pruefung);
+  // der Server filtert mit derselben Regel wie der Dashboard-Zähler (ORD-4).
+  const [invoiceFilters, setInvoiceFilters] = useState(() => {
+    const forderung = new URLSearchParams(location.search).get('forderung') || '';
+    return { status: 'all', taxType: 'all', dateFrom: '', dateTo: '', correctionType: 'all', originalInvoiceNumber: '', receivable: ['offen', 'ueberfaellig'].includes(forderung) ? forderung : '' };
+  });
+  const [paymentFilters, setPaymentFilters] = useState(() => ({
+    status: 'all', method: 'all', dateFrom: '', dateTo: '',
+    review: new URLSearchParams(location.search).get('zahlungen') === 'pruefung' ? 'pruefung' : '',
+  }));
 
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [invoiceDetailsDialogOpen, setInvoiceDetailsDialogOpen] = useState(false);
@@ -1092,6 +1214,13 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     return params.get('highlightInvoiceId');
   }, [location.search]);
 
+  // ?action=paymentRequest (z. B. aus dem Zahlungsdialog der Buchung): oeffnet zur
+  // markierten Rechnung den Bestaetigungsdialog "Zahlungsaufforderung per E-Mail".
+  const highlightActionFromQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('action');
+  }, [location.search]);
+
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [invoiceDetailPayments, setInvoiceDetailPayments] = useState<Payment[]>([]);
   const [invoiceDetailCreditNotes, setInvoiceDetailCreditNotes] = useState<Partial<Invoice>[]>([]);
@@ -1109,6 +1238,10 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   const [invoiceForm, setInvoiceForm] = useState(() => createInvoiceFormState(DEFAULT_FINANCIAL_SETTINGS));
 
   const [fromRepairForm, setFromRepairForm] = useState(() => createFromRepairFormState(DEFAULT_FINANCIAL_SETTINGS));
+  const [repairPreview, setRepairPreview] = useState<RepairInvoicePreview | null>(null);
+  const [repairPreviewLoading, setRepairPreviewLoading] = useState(false);
+  const [repairPreviewError, setRepairPreviewError] = useState('');
+  const [repairSubmitting, setRepairSubmitting] = useState(false);
 
   const [statusForm, setStatusForm] = useState<{
     status: InvoiceStatus;
@@ -1699,9 +1832,10 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       if (invoiceFilters.dateTo) params.dateTo = invoiceFilters.dateTo;
       if (invoiceFilters.taxType === 'reverse_charge') params.isReverseCharge = 'true';
       if (invoiceFilters.taxType === 'regular') params.isReverseCharge = 'false';
+      if (invoiceFilters.receivable && !isCreditNoteView) params.receivable = invoiceFilters.receivable;
       return params;
     },
-    [invoiceScopeParams, invoiceFilters.status, invoiceFilters.dateFrom, invoiceFilters.dateTo, invoiceFilters.taxType]
+    [invoiceScopeParams, invoiceFilters.status, invoiceFilters.dateFrom, invoiceFilters.dateTo, invoiceFilters.taxType, invoiceFilters.receivable, isCreditNoteView]
   );
 
   const loadInvoicePage = useCallback(
@@ -1755,12 +1889,34 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     });
   }, [invoices, isCreditNoteView, applyInvoiceScope, invoiceFilters.correctionType, invoiceFilters.originalInvoiceNumber, getOriginalInvoiceNumber]);
 
+  // SET-3: Jede Datenquelle wird einzeln geladen (Promise.allSettled). Frueher brach
+  // ein einziger fehlerhafter Endpunkt (z. B. Mahnlaeufe) das ganze Laden ab - der
+  // Einstellungsreiter zeigte dann still die Standardwerte und "Speichern" blieb grau.
+  const loadSystemConfigSection = async () => {
+    setSettingsLoadState('loading');
+    setSettingsLoadError('');
+    try {
+      const systemConfigRes = await getSystemConfig();
+      if (!systemConfigRes?.config) throw new Error('Keine Einstellungen erhalten.');
+      setSystemConfig(systemConfigRes.config);
+      setSettingsLoadState('loaded');
+    } catch (error: unknown) {
+      setSystemConfig(null);
+      setSettingsLoadState('error');
+      setSettingsLoadError(error instanceof Error ? error.message : 'Unbekannter Fehler');
+    }
+  };
+
   const fetchFinancialData = async () => {
     setLoading(true);
+    setSettingsLoadState((prev) => (prev === 'loaded' ? prev : 'loading'));
     try {
-      const [paymentsRes, invoicesRes, reportRes, gatewaysRes, overdueRes, dunningRunsRes, systemConfigRes] = await Promise.all([
-        getPayments(),
-        getInvoices(invoiceScopeParams),
+      const [paymentsRes, invoicesRes, reportRes, gatewaysRes, overdueRes, dunningRunsRes, systemConfigRes] = await Promise.allSettled([
+        getPayments({
+          ...(paymentSearch.trim() ? { search: paymentSearch.trim() } : {}),
+          ...(paymentFilters.review ? { review: paymentFilters.review } : {}),
+        }),
+        getInvoices(invoiceFilters.receivable && !isCreditNoteView ? { ...invoiceScopeParams, receivable: invoiceFilters.receivable } : invoiceScopeParams),
         getFinancialReports(),
         getPaymentGateways(),
         getOverdueInvoices(),
@@ -1768,20 +1924,36 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
         getSystemConfig()
       ]);
 
-      setPayments(paymentsRes?.payments || []);
-      receiveInvoiceList(invoicesRes);
-      setReport(reportRes?.report || reportRes || null);
-      setGateways(gatewaysRes?.gateways || []);
-      setOverdueInvoices(overdueRes?.invoices || []);
-      setDunningRuns(dunningRunsRes?.runs || []);
-      setSystemConfig(systemConfigRes?.config || null);
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('financialManagement.failedToLoadPayments');
-      toast({
-        title: t('common.error'),
-        description: msg,
-        variant: 'destructive'
-      });
+      const failed: string[] = [];
+      if (paymentsRes.status === 'fulfilled') {
+        setPayments(paymentsRes.value?.payments || []);
+        setPaymentsTotalCount(Number(paymentsRes.value?.totalCount ?? (paymentsRes.value?.payments || []).length));
+      } else failed.push('Zahlungen');
+      if (invoicesRes.status === 'fulfilled') receiveInvoiceList(invoicesRes.value); else failed.push('Rechnungen');
+      if (reportRes.status === 'fulfilled') setReport(reportRes.value?.report || reportRes.value || null); else failed.push('Berichte');
+      if (gatewaysRes.status === 'fulfilled') setGateways(gatewaysRes.value?.gateways || []); else failed.push('Zahlungsanbieter');
+      if (overdueRes.status === 'fulfilled') setOverdueInvoices(overdueRes.value?.invoices || []); else failed.push('Überfällige Rechnungen');
+      if (dunningRunsRes.status === 'fulfilled') setDunningRuns(dunningRunsRes.value?.runs || []); else failed.push('Mahnläufe');
+      if (systemConfigRes.status === 'fulfilled' && systemConfigRes.value?.config) {
+        setSystemConfig(systemConfigRes.value.config);
+        setSettingsLoadState('loaded');
+        setSettingsLoadError('');
+      } else {
+        setSystemConfig(null);
+        setSettingsLoadState('error');
+        setSettingsLoadError(systemConfigRes.status === 'rejected' && systemConfigRes.reason instanceof Error
+          ? systemConfigRes.reason.message
+          : 'Keine Einstellungen erhalten.');
+        failed.push('Finanzeinstellungen');
+      }
+
+      if (failed.length > 0) {
+        toast({
+          title: t('common.error'),
+          description: `Nicht geladen: ${failed.join(', ')}. Die übrigen Bereiche sind aktuell.`,
+          variant: 'destructive'
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -1840,6 +2012,10 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     setActiveTab('invoices');
     setActiveHighlightedInvoiceId(targetInvoice._id);
     setHandledHighlightInvoiceKey(highlightInvoiceIdFromQuery);
+    if (highlightActionFromQuery === 'paymentRequest' && !targetInvoice.isCreditNote) {
+      // Definiert weiter unten; der Effekt laeuft erst nach dem Rendern.
+      openPaymentRequestForInvoice(targetInvoice);
+    }
 
     const scrollTimer = window.setTimeout(() => {
       const row = document.querySelector<HTMLElement>(`[data-finance-invoice-row-id="${targetInvoice._id}"]`);
@@ -1856,6 +2032,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       window.clearTimeout(scrollTimer);
       window.clearTimeout(clearHighlightTimer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightInvoiceIdFromQuery, invoices, handledHighlightInvoiceKey]);
 
   useEffect(() => {
@@ -1874,7 +2051,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     });
 
     setFromRepairForm((prev) => {
-      const hasEdited = Boolean(prev.repairOrderIds || prev.notes);
+      const hasEdited = Boolean(prev.orderRefs.length > 0 || prev.notes);
       return hasEdited ? prev : createFromRepairFormState(financialSettings);
     });
   }, [financialSettings, systemConfig]);
@@ -1902,19 +2079,53 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     });
   };
 
+  // SET-1 (Client): NUR den eigenen Abschnitt financialSettings senden. Frueher ging
+  // das komplette, beim Seitenaufruf geladene Konfigurationsdokument zurueck und setzte
+  // dabei z. B. die Analyse-Einstellungen oder Vorlagen anderer Seiten zurueck.
   const onSaveFinancialSettings = async () => {
     if (!systemConfig) return;
 
     setSavingFinancialSettings(true);
     try {
-      const response = await updateSystemConfig(systemConfig);
-      setSystemConfig(response.config || systemConfig);
-      toast({ title: t('common.success'), description: t('financialManagement.paymentUpdatedSuccess') });
+      const merged = mergeFinancialSettings(systemConfig.financialSettings);
+      // Standardwaehrung ist fest EUR (keine Umrechnung) - ein Altwert wie "CHF" wuerde
+      // sonst vom Server (nur EUR erlaubt) abgelehnt und blockierte jedes Speichern.
+      merged.defaults = { ...merged.defaults, currency: 'EUR' };
+      const payload = { financialSettings: merged } as unknown as SystemConfig;
+      const response = await updateSystemConfig(payload);
+      if (response?.config) {
+        // Wert aus der gespeicherten (neu gelesenen) Konfiguration, nicht aus dem Formular.
+        setSystemConfig(response.config);
+      }
+      toast({ title: t('common.success'), description: t('financialManagement.settingsSaved', { defaultValue: 'Finanzeinstellungen gespeichert' }) });
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : t('financialManagement.failedToUpdatePayment');
-      toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+      const reason = error instanceof Error && error.message ? error.message : 'Unbekannter Fehler';
+      // Eingaben bleiben im Formular erhalten.
+      toast({
+        title: t('common.error'),
+        description: t('financialManagement.settingsSaveFailed', { reason, defaultValue: `Finanzeinstellungen konnten nicht gespeichert werden: ${reason}` }),
+        variant: 'destructive'
+      });
     } finally {
       setSavingFinancialSettings(false);
+    }
+  };
+
+  // FIN-9: serverseitige Suche nach BKG-/ORD-/INV-Nummer oder Kunde.
+  const onSearchPayments = async (term: string) => {
+    setPaymentSearchLoading(true);
+    try {
+      const res = await getPayments(term.trim() ? { search: term.trim() } : {});
+      setPayments(res?.payments || []);
+      setPaymentsTotalCount(Number(res?.totalCount ?? (res?.payments || []).length));
+    } catch (error: unknown) {
+      toast({
+        title: t('common.error'),
+        description: error instanceof Error ? error.message : 'Die Zahlungen konnten nicht geladen werden.',
+        variant: 'destructive'
+      });
+    } finally {
+      setPaymentSearchLoading(false);
     }
   };
 
@@ -1945,8 +2156,11 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       if (paymentFilters.method !== 'all') params.method = paymentFilters.method;
       if (paymentFilters.dateFrom) params.dateFrom = paymentFilters.dateFrom;
       if (paymentFilters.dateTo) params.dateTo = paymentFilters.dateTo;
+      if (paymentFilters.review) params.review = paymentFilters.review;
+      if (paymentSearch.trim()) params.search = paymentSearch.trim();
       const res = await getPayments(params);
       setPayments(res?.payments || []);
+      setPaymentsTotalCount(Number(res?.totalCount ?? (res?.payments || []).length));
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : t('financialManagement.failedToLoadPayments');
       toast({ title: t('common.error'), description: msg, variant: 'destructive' });
@@ -2058,39 +2272,127 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     }
   };
 
+  const buildRepairInvoiceOptions = () => {
+    const discountValue = parseDecimalInput(fromRepairForm.discount);
+    const options: Parameters<typeof generateInvoiceFromRepairs>[1] = {
+      // Betrag in EUR, zusaetzlich zum bereits im Auftrag verrechneten Rabatt.
+      discount: Math.max(0, discountValue ?? 0),
+      dueDate: fromRepairForm.dueDate,
+      notes: fromRepairForm.notes,
+      customerVatId: fromRepairForm.customerVatId,
+      sellerVatId: fromRepairForm.sellerVatId,
+    };
+    // FIN-10/FIN-13: Steuer nur bei ausdruecklicher Abweichung mitsenden - sonst gilt die
+    // gespeicherte Regel des Kundenprofils (z. B. Reverse Charge).
+    if (fromRepairForm.overrideTax) {
+      options.overrideTax = true;
+      options.isReverseCharge = Boolean(fromRepairForm.isReverseCharge);
+      options.reverseChargeNotice = fromRepairForm.reverseChargeNotice;
+      options.taxRate = fromRepairForm.isReverseCharge ? 0 : (parseDecimalInput(fromRepairForm.taxRate) ?? financialSettings.defaults.taxRate);
+    }
+    return options;
+  };
+
+  // Vorschau automatisch laden, sobald sich Umfang, Rabatt oder Steuer aendern.
+  useEffect(() => {
+    if (!fromRepairDialogOpen) return;
+    if (fromRepairForm.orderRefs.length === 0) {
+      setRepairPreview(null);
+      setRepairPreviewError('');
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setRepairPreviewLoading(true);
+      setRepairPreviewError('');
+      try {
+        const preview = await previewInvoiceFromRepairs(fromRepairForm.orderRefs, buildRepairInvoiceOptions());
+        if (!cancelled) setRepairPreview(preview);
+      } catch (error: unknown) {
+        if (!cancelled) {
+          setRepairPreview(null);
+          setRepairPreviewError(error instanceof Error ? error.message : 'Die Vorschau konnte nicht geladen werden.');
+        }
+      } finally {
+        if (!cancelled) setRepairPreviewLoading(false);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromRepairDialogOpen, fromRepairForm.orderRefs, fromRepairForm.discount, fromRepairForm.overrideTax, fromRepairForm.isReverseCharge, fromRepairForm.taxRate]);
+
+  const addRepairOrderRef = (orderNumber: string) => {
+    const clean = orderNumber.trim();
+    if (!clean) return;
+    setFromRepairForm((prev) => (prev.orderRefs.includes(clean)
+      ? { ...prev, orderSearch: '' }
+      : { ...prev, orderRefs: [...prev.orderRefs, clean], orderSearch: '', confirmIncomplete: false }));
+  };
+
+  const removeRepairOrderRef = (orderNumber: string) => {
+    setFromRepairForm((prev) => ({ ...prev, orderRefs: prev.orderRefs.filter((ref) => ref !== orderNumber), confirmIncomplete: false }));
+  };
+
+  const closeFromRepairDialog = () => {
+    setFromRepairDialogOpen(false);
+    setFromRepairForm(createFromRepairFormState(financialSettings));
+    setRepairPreview(null);
+    setRepairPreviewError('');
+  };
+
   const onCreateInvoiceFromRepairs = async () => {
-    const repairOrderIds = fromRepairForm.repairOrderIds.split(',').map((id) => id.trim()).filter(Boolean);
-    if (repairOrderIds.length === 0) {
-      toast({ title: t('common.error'), description: t('financialManagement.failedToCreateInvoice'), variant: 'destructive' });
+    if (fromRepairForm.orderRefs.length === 0) {
+      toast({ title: t('common.error'), description: 'Bitte mindestens einen Auftrag auswählen.', variant: 'destructive' });
+      return;
+    }
+    if (repairPreview && repairPreview.incompleteOrders.length > 0 && !fromRepairForm.confirmIncomplete) {
+      toast({
+        title: 'Bestätigung erforderlich',
+        description: 'Mindestens ein Auftrag ist noch nicht abgeschlossen. Bitte „Trotzdem berechnen“ bestätigen.',
+        variant: 'destructive'
+      });
       return;
     }
 
-    const isReverseCharge = Boolean(fromRepairForm.isReverseCharge);
-
+    setRepairSubmitting(true);
+    let createdInvoice: Invoice | null = null;
     try {
-      const response = await generateInvoiceFromRepairs(repairOrderIds, {
-        isReverseCharge,
-        customerVatId: fromRepairForm.customerVatId,
-        sellerVatId: fromRepairForm.sellerVatId,
-        reverseChargeNotice: fromRepairForm.reverseChargeNotice,
-        // taxRate ist ein PROZENTWERT (19), kein Bruch.
-        taxRate: isReverseCharge ? 0 : Number(fromRepairForm.taxRate),
-        // Betrag in EUR, zusaetzlich zum bereits im Auftrag verrechneten Rabatt.
-        discount: Math.max(0, Number(String(fromRepairForm.discount || '0').replace(',', '.')) || 0),
-        dueDate: fromRepairForm.dueDate,
-        paymentTerms: fromRepairForm.paymentTerms,
-        notes: fromRepairForm.notes
+      const response = await generateInvoiceFromRepairs(fromRepairForm.orderRefs, {
+        ...buildRepairInvoiceOptions(),
+        confirmIncompleteOrders: fromRepairForm.confirmIncomplete,
       });
-
-      await sendInvoice(response.invoice._id, response.invoice.customerEmail);
-      toast({ title: t('common.success'), description: t('financialManagement.invoiceCreatedSuccess') });
-      setFromRepairDialogOpen(false);
-      void fetchFinancialData();
-      // Nachlauf, siehe onCreateInvoice: der Druck darf den Erfolg nicht umdeuten.
-      await printInvoiceWithFeedback(response.invoice);
+      createdInvoice = response.invoice as Invoice;
     } catch (error: unknown) {
+      if (error instanceof FinancialApiError && error.code === 'ORDERS_NOT_COMPLETED') {
+        setFromRepairForm((prev) => ({ ...prev, confirmIncomplete: false }));
+      }
       const msg = error instanceof Error ? error.message : t('financialManagement.failedToCreateInvoice');
-      toast({ title: t('common.error'), description: msg, variant: 'destructive' });
+      toast({ title: 'Rechnung nicht erstellt', description: msg, variant: 'destructive' });
+      setRepairSubmitting(false);
+      return;
+    }
+
+    // Erstellung und Versand getrennt melden: ein Versandfehler macht die Rechnung
+    // nicht ungeschehen.
+    const invoiceLabel = createdInvoice?.invoiceNumber || '';
+    if (fromRepairForm.sendNow && createdInvoice) {
+      try {
+        await sendInvoice(createdInvoice._id, createdInvoice.customerEmail);
+        toast({ title: t('common.success'), description: `Rechnung ${invoiceLabel} wurde erstellt und per E-Mail an ${createdInvoice.customerEmail || 'den Kunden'} übergeben.` });
+      } catch (sendError: unknown) {
+        const reason = sendError instanceof Error ? sendError.message : 'unbekannter Fehler';
+        toast({ title: 'Rechnung erstellt – Versand fehlgeschlagen', description: `Rechnung ${invoiceLabel} wurde erstellt, aber nicht versendet: ${reason}`, variant: 'destructive' });
+      }
+    } else {
+      toast({ title: t('common.success'), description: `Rechnung ${invoiceLabel} wurde erstellt (nicht versendet).` });
+    }
+    const shouldPrint = fromRepairForm.printAfter;
+    setRepairSubmitting(false);
+    closeFromRepairDialog();
+    void fetchFinancialData();
+    if (shouldPrint && createdInvoice) {
+      // Nachlauf, siehe onCreateInvoice: der Druck darf den Erfolg nicht umdeuten.
+      await printInvoiceWithFeedback(createdInvoice);
     }
   };
 
@@ -2574,6 +2876,17 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
           >
             <Banknote className="mr-2 h-4 w-4" />{t('financialManagement.partialPayment')}
           </DropdownMenuItem>
+          {/* FIN-11: Zahlungsaufforderung dort, wo der Bearbeiter arbeitet - nur bei offenem Betrag. */}
+          {!invoice.isCreditNote && getInvoiceOpenAmount(invoice) > 0.009 && (
+            <DropdownMenuItem
+              onClick={() => {
+                if (inDetailsDialog) setInvoiceDetailsDialogOpen(false);
+                openPaymentRequestForInvoice(invoice);
+              }}
+            >
+              <Mail className="mr-2 h-4 w-4" />Zahlungsaufforderung senden …
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             onClick={() => {
               if (inDetailsDialog) setInvoiceDetailsDialogOpen(false);
@@ -3306,6 +3619,10 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequestRecord[]>([]);
   const [paymentRequestsAvailable, setPaymentRequestsAvailable] = useState(true);
   const [loadingPaymentRequests, setLoadingPaymentRequests] = useState(false);
+  // FIN-11: Bestaetigungsdialog vor dem Versand (Empfaenger, Betrag, Rechnung, Verlauf).
+  const [paymentRequestDialogOpen, setPaymentRequestDialogOpen] = useState(false);
+  const [paymentRequestRecipient, setPaymentRequestRecipient] = useState<{ name: string; email: string } | null>(null);
+  const [paymentRequestRecent, setPaymentRequestRecent] = useState<{ requestedAt?: string; recipientEmail?: string; amount?: number; invoiceNumber?: string } | null>(null);
 
   const [syncBookingId, setSyncBookingId] = useState('');
   const [syncType, setSyncType] = useState<'booking' | 'order'>('booking');
@@ -3359,7 +3676,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
         const overpaidVal = Math.max(0, Number(getExtendedSummary(overview).refundPendingTotal ?? getExtendedSummary(overview).overpaidTotal ?? 0));
         if (overpaidVal > 0) {
           setOverpaymentAmount(overpaidVal.toFixed(2));
-          setOverpaymentReason(`Überzahlungsausgleich (${overpaidVal.toFixed(2)} €)`);
+          setOverpaymentReason(`Überzahlungsausgleich (${formatCurrencyValue(overpaidVal)})`);
         }
       }
     } catch {
@@ -3386,7 +3703,8 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
         setPaymentRequestOverview(null);
         const invoiceOpen = match ? getInvoiceOpenAmount(match) : 0;
         if (invoiceOpen > 0) {
-          setPaymentRequestAmount(invoiceOpen.toFixed(2));
+          // de-DE-Vorbelegung ("47,40"); parseDecimalInput liest Komma und Punkt.
+          setPaymentRequestAmount(invoiceOpen.toFixed(2).replace('.', ','));
           setPaymentRequestNote(`Bitte begleichen Sie den offenen Betrag der Rechnung ${match?.invoiceNumber} in Höhe von ${formatCurrencyValue(invoiceOpen)}.`);
         } else {
           setPaymentRequestAmount('');
@@ -3398,7 +3716,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       setPaymentRequestOverview(overview);
       const openBal = overview?.summary?.openOrderBalance || 0;
       if (openBal > 0) {
-        setPaymentRequestAmount(openBal.toFixed(2));
+        setPaymentRequestAmount(openBal.toFixed(2).replace('.', ','));
         setPaymentRequestNote(`Bitte begleichen Sie den offenen Restbetrag in Höhe von ${formatCurrencyValue(openBal)}.`);
       }
     } catch {
@@ -3432,9 +3750,14 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       toast({ title: t('common.error'), description: 'Bitte Buchungs-ID angeben oder aus den Vorschlägen auswählen.', variant: 'destructive' });
       return;
     }
+    // Gemeinsame Dezimalregel ("1.234,50" => 1234,5); leer = gesamte festgestellte Ueberzahlung.
+    const parsedAmount = overpaymentAmount.trim() ? parseDecimalInput(overpaymentAmount) : undefined;
+    if (parsedAmount === null || (parsedAmount !== undefined && parsedAmount <= 0)) {
+      toast({ title: t('common.error'), description: 'Bitte einen gültigen Betrag eingeben, z. B. 12,50.', variant: 'destructive' });
+      return;
+    }
     setIsReconcilingOverpayment(true);
     try {
-      const parsedAmount = overpaymentAmount ? parseFloat(overpaymentAmount.replace(',', '.')) : undefined;
       const res = await reconcileOverpayment(overpaymentBookingId.trim(), {
         amount: parsedAmount,
         reason: overpaymentReason.trim() || 'Guthaben-Ausgleich',
@@ -3468,18 +3791,55 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
     }
   };
 
-  const onRequestAdditionalPaymentHandler = async () => {
+  // Oeffnet den Bestaetigungsdialog aus der Rechnungszeile (Aktionsmenue) - vorbefuellt
+  // mit genau dieser Rechnung und ihrem offenen Betrag.
+  const openPaymentRequestForInvoice = (invoice: Invoice) => {
+    setPaymentRequestBookingId(invoice.invoiceNumber);
+    setSelectedPaymentRequestBooking(null);
+    setPaymentRequestRecipient({ name: invoice.customerName || '', email: invoice.customerEmail || '' });
+    setPaymentRequestRecent(null);
+    setPaymentRequestAmount('');
+    void loadPaymentRequestOverview('', invoice.invoiceNumber);
+    void loadPaymentRequestHistory(invoice.invoiceNumber);
+    setPaymentRequestDialogOpen(true);
+  };
+
+  // Aus der Karte "Zahlungsaufforderung senden": erst bestaetigen, dann senden.
+  const openPaymentRequestConfirm = () => {
+    if (!paymentRequestBookingId.trim()) {
+      toast({ title: t('common.error'), description: 'Bitte Buchung oder Rechnung auswählen.', variant: 'destructive' });
+      return;
+    }
+    const fromBooking = selectedPaymentRequestBooking
+      ? { name: getSearchResultCustomerName(selectedPaymentRequestBooking), email: getSearchResultCustomerEmail(selectedPaymentRequestBooking) }
+      : null;
+    const fromInvoice = paymentRequestInvoice
+      ? { name: paymentRequestInvoice.customerName || '', email: paymentRequestInvoice.customerEmail || '' }
+      : null;
+    setPaymentRequestRecipient(fromBooking || fromInvoice);
+    setPaymentRequestRecent(null);
+    setPaymentRequestDialogOpen(true);
+  };
+
+  const onRequestAdditionalPaymentHandler = async (force = false) => {
     if (!paymentRequestBookingId.trim()) {
       toast({ title: t('common.error'), description: 'Bitte Buchungs-ID angeben oder aus den Vorschlägen auswählen.', variant: 'destructive' });
       return;
     }
+    const parsedAmount = paymentRequestAmount.trim() ? parseDecimalInput(paymentRequestAmount) : undefined;
+    if (parsedAmount === null || (parsedAmount !== undefined && parsedAmount <= 0)) {
+      toast({ title: t('common.error'), description: 'Bitte einen gültigen Betrag eingeben, z. B. 37,40.', variant: 'destructive' });
+      return;
+    }
     setIsSendingPaymentRequest(true);
     try {
-      const parsedAmount = paymentRequestAmount ? parseFloat(paymentRequestAmount.replace(',', '.')) : undefined;
       const res = await requestAdditionalPayment(paymentRequestBookingId.trim(), {
         amount: parsedAmount,
-        note: paymentRequestNote.trim()
+        note: paymentRequestNote.trim(),
+        ...(force ? { force: true } : {})
       });
+      setPaymentRequestDialogOpen(false);
+      setPaymentRequestRecent(null);
 
       // Ein Versand gilt nur dann als erfolgreich, wenn der Server das auch sagt.
       // 'accepted_by_provider' heisst: der Mailserver hat die Nachricht angenommen -
@@ -3516,6 +3876,13 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
       void loadPaymentRequestHistory(historyId);
       void fetchFinancialData();
     } catch (error: unknown) {
+      if (error instanceof FinancialApiError && error.code === 'PAYMENT_REQUEST_RECENT') {
+        // Sperrfrist 24 h: im Dialog nachfragen statt still erneut zu senden.
+        const recent = (error.data?.recentRequest || {}) as { requestedAt?: string; recipientEmail?: string; amount?: number; invoiceNumber?: string };
+        setPaymentRequestRecent(recent);
+        setPaymentRequestDialogOpen(true);
+        return;
+      }
       const msg = error instanceof Error ? error.message : 'Fehler beim Senden der Zahlungsaufforderung';
       toast({ title: t('common.error'), description: msg, variant: 'destructive' });
     } finally {
@@ -3900,6 +4267,28 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                 <Input type="date" value={invoiceFilters.dateTo} onChange={(e) => setInvoiceFilters((p) => ({ ...p, dateTo: e.target.value }))} />
                 <Button variant="outline" onClick={onApplyInvoiceFilters}><Search className="mr-2 h-4 w-4" />{t('common.filter')}</Button>
               </div>
+              {!isCreditNoteView && invoiceFilters.receivable && (
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-700" aria-live="polite">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900"
+                    aria-label="Forderungsfilter entfernen"
+                    onClick={() => {
+                      setInvoiceFilters((p) => ({ ...p, receivable: '' }));
+                      const params = buildInvoiceQueryParams(1);
+                      delete params.receivable;
+                      setInvoicePageLoading(true);
+                      getInvoices(params)
+                        .then((res) => receiveInvoiceList(res, 1))
+                        .catch((error: unknown) => toast({ title: t('common.error'), description: error instanceof Error ? error.message : 'Die Belege konnten nicht geladen werden.', variant: 'destructive' }))
+                        .finally(() => setInvoicePageLoading(false));
+                    }}
+                  >
+                    {invoiceFilters.receivable === 'ueberfaellig' ? 'Überfällige Forderungen (Fälligkeit überschritten, Betrag offen)' : 'Offene Forderungen (Betrag offen)'} ✕
+                  </button>
+                  <span>{invoiceTotalCount} {invoiceTotalCount === 1 ? 'Rechnung' : 'Rechnungen'} für diesen Filter</span>
+                </div>
+              )}
               <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
                 <Table>
                   <TableHeader><TableRow><TableHead className="w-10"></TableHead><TableHead>{t('financialManagement.invoiceNumber')}</TableHead><TableHead>{t('financialManagement.customer')}</TableHead><TableHead>{t('financialManagement.status')}</TableHead><TableHead>{t('financialManagement.dueDate')}</TableHead><TableHead>{t('financialManagement.totalAmount')}</TableHead><TableHead>{t('financialManagement.amount')}</TableHead><TableHead>{t('financialManagement.booking')}</TableHead><TableHead className="text-right">{t('financialManagement.actions')}</TableHead></TableRow></TableHeader>
@@ -4046,6 +4435,22 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                                             <TableCell>{getPaymentMethodLabel(payment.paymentMethod, t)}</TableCell>
                                             <TableCell>
                                               {formatCurrencyValue(payment.amount, payment.currency || 'EUR')}
+                                              {(() => {
+                                                // FIN-9: Anteil dieser Rechnung aus den echten Zuordnungen statt
+                                                // des vollen Zahlungsbetrags unter jeder Rechnung der Buchung.
+                                                const share = (payment.allocations || []).find((entry) => String(entry.invoiceId) === String(invoice._id));
+                                                if (share) {
+                                                  return (
+                                                    <div className="text-[11px] text-slate-700">
+                                                      zugeordnet {formatCurrencyValue(share.allocatedAmount, payment.currency || 'EUR')} von {formatCurrencyValue(payment.amount, payment.currency || 'EUR')}
+                                                    </div>
+                                                  );
+                                                }
+                                                if ((payment.allocations || []).length > 0) {
+                                                  return <div className="text-[11px] text-muted-foreground">einer anderen Rechnung der Buchung zugeordnet</div>;
+                                                }
+                                                return null;
+                                              })()}
                                               <PaymentMoneyFlow payment={payment} onReconcile={openReconcileDialog} />
                                             </TableCell>
                                             <TableCell>
@@ -4162,42 +4567,153 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setPaymentFilters({ status: 'all', method: 'all', dateFrom: '', dateTo: '' });
-                    getPayments({}).then((res) => setPayments(res.payments || []));
+                    setPaymentFilters({ status: 'all', method: 'all', dateFrom: '', dateTo: '', review: '' });
+                    getPayments({}).then((res) => {
+                      setPayments(res.payments || []);
+                      setPaymentsTotalCount(Number(res?.totalCount ?? (res?.payments || []).length));
+                    });
                   }}
                 >
                   {t('common.reset')}
                 </Button>
               </div>
+              {paymentFilters.review === 'pruefung' && (
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-700" aria-live="polite">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900"
+                    aria-label="Filter „Zahlungen in Prüfung“ entfernen"
+                    onClick={() => {
+                      setPaymentFilters((p) => ({ ...p, review: '' }));
+                      getPayments(paymentSearch.trim() ? { search: paymentSearch.trim() } : {}).then((res) => {
+                        setPayments(res?.payments || []);
+                        setPaymentsTotalCount(Number(res?.totalCount ?? (res?.payments || []).length));
+                      });
+                    }}
+                  >
+                    Zahlungen in Prüfung (offen, strittig, laufend &lt; 24 h) ✕
+                  </button>
+                  <span>{paymentsTotalCount} {paymentsTotalCount === 1 ? 'Zahlung' : 'Zahlungen'} für diesen Filter</span>
+                </div>
+              )}
+
+              {/* FIN-9: Suche nach Buchung, Auftrag, Rechnung oder Kunde (serverseitig). */}
+              <form
+                className="mb-3 flex flex-col gap-2 sm:flex-row"
+                onSubmit={(event) => { event.preventDefault(); void onSearchPayments(paymentSearch); }}
+              >
+                <Label htmlFor="payment-search" className="sr-only">Zahlungen suchen</Label>
+                <Input
+                  id="payment-search"
+                  value={paymentSearch}
+                  onChange={(event) => setPaymentSearch(event.target.value)}
+                  placeholder="Buchung (BKG-…), Auftrag (ORD-…), Rechnung (INV-…) oder Kunde suchen"
+                  className="sm:max-w-md"
+                />
+                <Button type="submit" variant="outline" disabled={paymentSearchLoading}>
+                  {paymentSearchLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                  Suchen
+                </Button>
+                {paymentSearch && (
+                  <Button type="button" variant="ghost" onClick={() => { setPaymentSearch(''); void onSearchPayments(''); }}>
+                    Suche zurücksetzen
+                  </Button>
+                )}
+              </form>
+              <p className="mb-2 text-xs text-muted-foreground">
+                {paymentsTotalCount > payments.length
+                  ? `${payments.length} von ${paymentsTotalCount} Zahlungen angezeigt – bitte Suche oder Filter verwenden.`
+                  : `${payments.length} Zahlungen`}
+                {' · '}Jede Zahlung erscheint genau einmal; eine auf mehrere Rechnungen verteilte Zahlung zeigt ihre Anteile unter „Zuordnung“.
+              </p>
 
               <div className="overflow-x-auto rounded-lg border border-[#d8dce6]">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t('financialManagement.transactionId')}</TableHead>
+                      <TableHead>Datum</TableHead>
                       <TableHead>{t('financialManagement.customer')}</TableHead>
-                      <TableHead>{t('financialManagement.status')}</TableHead>
+                      <TableHead>Bezug</TableHead>
                       <TableHead>{t('financialManagement.paymentMethod')}</TableHead>
-                      <TableHead>{t('financialManagement.amount')}</TableHead>
-                      <TableHead>{t('financialManagement.date')}</TableHead>
+                      <TableHead className="text-right">Betrag</TableHead>
+                      <TableHead>Zuordnung</TableHead>
+                      <TableHead>{t('financialManagement.status')}</TableHead>
                       <TableHead className="text-right">{t('financialManagement.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {payments.map((payment) => (
+                    {payments.map((payment) => {
+                      const currency = payment.currency || 'EUR';
+                      const allocations = payment.allocations || [];
+                      const directInvoiceId = payment.invoiceId ? String(payment.invoiceId) : '';
+                      return (
                       <TableRow key={`pay-row-${payment._id}`}>
+                        <TableCell className="whitespace-nowrap">{formatDate(payment.paymentDate || payment.processedAt || payment.createdAt)}</TableCell>
+                        <TableCell>{payment.customerName || '–'}</TableCell>
                         <TableCell>
-                          <div className="font-medium text-[#1a2a5e]">{payment.transactionId || payment.orderNumber || payment._id.slice(-8)}</div>
-                          {payment.invoiceId && <div className="text-xs text-muted-foreground">Invoice ID: {payment.invoiceId}</div>}
+                          <div className="flex flex-col items-start gap-0.5 text-sm">
+                            {payment.bookingId && payment.bookingNumber && (
+                              <Button
+                                type="button"
+                                variant="link"
+                                className="h-auto p-0 text-[#1a2a5e] underline"
+                                onClick={() => navigate('/admin/bookings', { state: { reopenBookingDialog: String(payment.bookingId) } })}
+                              >
+                                Buchung {payment.bookingNumber}
+                              </Button>
+                            )}
+                            {payment.orderId && payment.orderNumber && (
+                              <Button
+                                type="button"
+                                variant="link"
+                                className="h-auto p-0 text-[#1a2a5e] underline"
+                                onClick={() => navigate(getOrderDetailsPath(String(payment.orderId)), { state: buildOrderDetailsState(location, { label: 'Zurück zu Zahlungen' }) })}
+                              >
+                                Auftrag {payment.orderNumber}
+                              </Button>
+                            )}
+                            {(allocations.length > 0 ? allocations.map((entry) => ({ id: entry.invoiceId, number: entry.invoiceNumber })) : (directInvoiceId && payment.invoiceNumber ? [{ id: directInvoiceId, number: payment.invoiceNumber }] : []))
+                              .filter((entry, index, list) => entry.id && entry.number && list.findIndex((other) => other.id === entry.id) === index)
+                              .map((entry) => (
+                                <Button
+                                  key={`pay-inv-${payment._id}-${entry.id}`}
+                                  type="button"
+                                  variant="link"
+                                  className="h-auto p-0 text-[#1a2a5e] underline"
+                                  onClick={() => navigate(`/admin/financial?tab=invoices&highlightInvoiceId=${entry.id}`)}
+                                >
+                                  Rechnung {entry.number}
+                                </Button>
+                              ))}
+                            {!payment.bookingNumber && !payment.orderNumber && allocations.length === 0 && !payment.invoiceNumber && (
+                              <span className="text-xs text-muted-foreground">Kein Vorgang verknüpft</span>
+                            )}
+                            {(payment as any).paymentReference && (
+                              <span className="text-xs text-slate-700">Verwendungszweck: {(payment as any).paymentReference}</span>
+                            )}
+                            {payment.transactionId && (
+                              <span className="text-[11px] text-muted-foreground break-all">Transaktion: {payment.transactionId}</span>
+                            )}
+                          </div>
                         </TableCell>
-                        <TableCell>{payment.customerName}</TableCell>
-                        <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{getPaymentStatusLabel(payment.status, t)}</Badge></TableCell>
                         <TableCell>{getPaymentMethodLabel(payment.paymentMethod, t)}</TableCell>
-                        <TableCell className="font-semibold">
-                          {formatCurrencyValue(payment.amount, payment.currency || 'EUR')}
-                          <PaymentMoneyFlow payment={payment} onReconcile={openReconcileDialog} />
+                        <TableCell className="text-right font-semibold whitespace-nowrap">
+                          {formatCurrencyValue(payment.amount, currency)}
                         </TableCell>
-                        <TableCell>{formatDate(payment.processedAt || payment.createdAt)}</TableCell>
+                        <TableCell className="min-w-[128px]">
+                          <div className="space-y-0.5 text-xs">
+                            {allocations.map((entry) => (
+                              <div key={`alloc-${payment._id}-${entry.invoiceId}`} className="text-slate-700">
+                                {formatCurrencyValue(entry.allocatedAmount, currency)} → {entry.invoiceNumber || 'Rechnung'}
+                              </div>
+                            ))}
+                          </div>
+                          <PaymentMoneyFlow payment={payment} onReconcile={openReconcileDialog} />
+                          {allocations.length === 0 && Number(payment.unallocatedAmount || 0) <= 0.009 && payment.status === 'completed' && (
+                            <div className="text-xs text-muted-foreground">–</div>
+                          )}
+                        </TableCell>
+                        <TableCell><Badge variant="outline" className={paymentStatusClass[payment.status]}>{getPaymentStatusLabel(payment.status, t)}</Badge></TableCell>
                         <TableCell className="text-right">
                           {payment.status === 'completed' && (
                             <Button size="sm" variant="outline" onClick={() => openRefundForPayment(payment)}>
@@ -4206,10 +4722,13 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                     {payments.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">{t('financialManagement.noPayments')}</TableCell>
+                        <TableCell colSpan={8} className="py-6 text-center text-muted-foreground">
+                          {paymentSearch.trim() ? `Keine Zahlung zu „${paymentSearch.trim()}“ gefunden.` : t('financialManagement.noPayments')}
+                        </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -4575,19 +5094,10 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                   size="sm"
                   className="w-full bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800] font-medium"
                   disabled={isSendingPaymentRequest || !paymentRequestBookingId.trim()}
-                  onClick={onRequestAdditionalPaymentHandler}
+                  onClick={openPaymentRequestConfirm}
                 >
-                  {isSendingPaymentRequest ? (
-                    <>
-                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                      Wird gesendet...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="mr-1.5 h-3.5 w-3.5" />
-                      Zahlungsaufforderung senden
-                    </>
-                  )}
+                  <Send className="mr-1.5 h-3.5 w-3.5" />
+                  Zahlungsaufforderung prüfen und senden …
                 </Button>
               </div>
             </Card>
@@ -4742,22 +5252,30 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
               <CardDescription className="text-[#c8d0e7]">{t('financialManagement.reportsAndKpisDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="pt-4 space-y-4">
+              {/* FIN-6: Zeitraum und Basis ausdruecklich; kein geschaetzter "Nettogewinn" mehr. */}
+              <p className="text-xs text-muted-foreground">
+                Zeitraum: {report?.period || '–'} · Basis: abgeschlossene Zahlungen abzüglich Erstattungen (Zahlungseingang, keine Buchhaltungs- oder Gewinnzahl).
+              </p>
               <div className="grid gap-4 md:grid-cols-4 text-sm">
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">{t('financialManagement.revenue')}</div>
-                  <div className="text-lg font-bold text-[#1a2a5e]">{formatCurrencyValue(report?.totalRevenue || 0)}</div>
+                  <div className="text-xs text-muted-foreground">Zahlungseingang (brutto)</div>
+                  <div className="text-lg font-bold text-[#1a2a5e]">{formatCurrencyValue(report?.collectedGross ?? report?.totalRevenue ?? 0)}</div>
+                  {typeof report?.paymentCount === 'number' && <div className="text-[11px] text-muted-foreground">{report.paymentCount} Zahlungen</div>}
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">{t('financialManagement.kpiRefunds')}</div>
+                  <div className="text-xs text-muted-foreground">Erstattungen (abgeschlossen)</div>
                   <div className="text-lg font-bold text-purple-700">{formatCurrencyValue(report?.refundAmount || 0)}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">{t('financialManagement.disputes')}</div>
+                  <div className="text-xs text-muted-foreground">Anfechtungen</div>
                   <div className="text-lg font-bold text-amber-700">{formatCurrencyValue(report?.disputeAmount || 0)}</div>
                 </div>
                 <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="text-xs text-muted-foreground">{t('financialManagement.netProfit')}</div>
-                  <div className="text-lg font-bold text-green-700">{formatCurrencyValue(report?.netProfit || 0)}</div>
+                  <div className="text-xs text-muted-foreground">Offene Forderungen (brutto, heute)</div>
+                  <div className="text-lg font-bold text-red-700">{formatCurrencyValue(report?.openReceivablesGross || 0)}</div>
+                  {typeof report?.openInvoiceCount === 'number' && (
+                    <div className="text-[11px] text-muted-foreground">{report.openInvoiceCount} offene Rechnungen · davon {report.overdueInvoiceCount ?? 0} überfällig</div>
+                  )}
                 </div>
               </div>
 
@@ -5060,6 +5578,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
           </Card>
         </TabsContent>
         <TabsContent value="settings" className="space-y-4">
+          <DecimalSettingValidityContext.Provider value={reportFinancialSettingValidity}>
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.paymentGateways')}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
@@ -5094,19 +5613,47 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                 <div>
                   <CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.billingPaymentParams')}</CardTitle>
                   <CardDescription className="text-[#c8d0e7]">
-                    {t('financialManagement.billingPaymentParamsDesc')}
+                    Änderungen gelten ab dem Speichern für NEUE Warenkörbe, Aufträge und Rechnungen. Bestehende Aufträge und Rechnungen bleiben unverändert (gespeicherte Konditionen).
                   </CardDescription>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-3 text-sm text-[#c8d0e7]">
                   <span>{t('financialManagement.lastModified')}: {systemConfig?.updatedAt ? formatDateTime(systemConfig.updatedAt) : '-'}</span>
-                  <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onSaveFinancialSettings} disabled={savingFinancialSettings || !systemConfig}>
-                    <RefreshCw className={`mr-2 h-4 w-4 ${savingFinancialSettings ? 'animate-spin' : ''}`} />{t('common.save')}
+                  {invalidFinancialSettingFields.length > 0 && (
+                    <span role="alert" className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-800">Bitte ungültige Eingaben korrigieren</span>
+                  )}
+                  <Button className="bg-[#f5c800] text-[#1a2a5e] hover:bg-[#e0b800]" onClick={onSaveFinancialSettings} disabled={savingFinancialSettings || settingsLoadState !== 'loaded' || !systemConfig || invalidFinancialSettingFields.length > 0}>
+                    {savingFinancialSettings ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                    Finanzeinstellungen speichern
                   </Button>
                 </div>
               </div>
             </CardHeader>
           </Card>
 
+          {/* SET-3: Laden / Fehler / Formular getrennt - nie Standardwerte als gespeicherte Werte zeigen. */}
+          {settingsLoadState === 'loading' && (
+            <Card className="border-[#d8dce6]">
+              <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />Finanzeinstellungen werden geladen …
+              </CardContent>
+            </Card>
+          )}
+          {settingsLoadState === 'error' && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="flex flex-col gap-3 py-6 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="font-semibold">Finanzeinstellungen konnten nicht geladen werden.</div>
+                  <div className="text-xs">{settingsLoadError || 'Unbekannter Fehler'} – es werden keine Standardwerte angezeigt, damit nichts versehentlich überschrieben wird.</div>
+                </div>
+                <Button variant="outline" className="border-red-300 bg-white text-red-800" onClick={() => { void loadSystemConfigSection(); }}>
+                  <RefreshCw className="mr-2 h-4 w-4" />Erneut laden
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {settingsLoadState === 'loaded' && systemConfig && (
+          <>
           <div className="grid gap-4 xl:grid-cols-3">
             <Card className="border-[#d8dce6]">
               <CardHeader className="bg-[#1a2a5e] rounded-t-lg">
@@ -5116,36 +5663,43 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
               <CardContent className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                   <div>
-                    <Label>{t('financialManagement.defaultCurrency')}</Label>
-                    <Input value={financialSettings.defaults.currency} onChange={(e) => updateFinancialSetting('defaults', 'currency', e.target.value.toUpperCase())} maxLength={3} />
+                    <Label htmlFor="fin-currency">{t('financialManagement.defaultCurrency')}</Label>
+                    <Input id="fin-currency" value="EUR" readOnly disabled />
+                    <SettingHelp>Fest EUR – keine Umrechnung. Die Sprache der Oberfläche ändert die Währung nie.</SettingHelp>
                   </div>
                   <div>
-                    <Label>Locale</Label>
-                    <Input value={financialSettings.defaults.locale} onChange={(e) => updateFinancialSetting('defaults', 'locale', e.target.value)} placeholder="de-DE" />
+                    <Label htmlFor="fin-locale">Zahlenformat (Locale)</Label>
+                    <Input id="fin-locale" value={financialSettings.defaults.locale} onChange={(e) => updateFinancialSetting('defaults', 'locale', e.target.value)} placeholder="de-DE" />
+                    <SettingHelp>Format von Zahlen und Datum in Belegen (z. B. de-DE). Ändert keine Beträge.</SettingHelp>
                   </div>
                   <div>
-                    <Label>{t('financialManagement.taxRate')}</Label>
-                    <Input type="number" value={financialSettings.defaults.taxRate} onChange={(e) => updateFinancialSetting('defaults', 'taxRate', Number(e.target.value || 0))} />
+                    <Label htmlFor="fin-tax-rate">Steuersatz (%)</Label>
+                    <DecimalSettingInput id="fin-tax-rate" value={financialSettings.defaults.taxRate} min={0} max={100} onCommit={(value) => updateFinancialSetting('defaults', 'taxRate', value)} />
+                    <SettingHelp>Prozent, z. B. 19. Wirkt auf neue Warenkörbe, Aufträge und Buchungsrechnungen sowie die Netto-Werte in „Analysen“.</SettingHelp>
                   </div>
                   <div>
-                    <Label>{t('financialManagement.dueDays')}</Label>
-                    <Input type="number" value={financialSettings.defaults.paymentDueDays} onChange={(e) => updateFinancialSetting('defaults', 'paymentDueDays', Number(e.target.value || 0))} />
+                    <Label htmlFor="fin-due-days">{t('financialManagement.dueDays')}</Label>
+                    <DecimalSettingInput id="fin-due-days" value={financialSettings.defaults.paymentDueDays} min={0} max={365} integer onCommit={(value) => updateFinancialSetting('defaults', 'paymentDueDays', value)} />
+                    <SettingHelp>Tage bis zur Fälligkeit neuer Rechnungen. Ein Zahlungsziel am Kunden bzw. an der Kundengruppe hat Vorrang.</SettingHelp>
                   </div>
                 </div>
 
                 <div>
-                  <Label>{t('financialManagement.defaultPaymentTerms')}</Label>
-                  <Input value={financialSettings.defaults.paymentTerms} onChange={(e) => updateFinancialSetting('defaults', 'paymentTerms', e.target.value)} />
+                  <Label htmlFor="fin-payment-terms">{t('financialManagement.defaultPaymentTerms')}</Label>
+                  <Input id="fin-payment-terms" value={financialSettings.defaults.paymentTerms} readOnly disabled />
+                  <SettingHelp>Wird auf jeder Rechnung automatisch aus dem Zahlungsziel erzeugt.</SettingHelp>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                   <div>
-                    <Label>{t('financialManagement.invoicePrefix')}</Label>
-                    <Input value={financialSettings.defaults.invoicePrefix} onChange={(e) => updateFinancialSetting('defaults', 'invoicePrefix', e.target.value)} />
+                    <Label htmlFor="fin-invoice-prefix">{t('financialManagement.invoicePrefix')}</Label>
+                    <Input id="fin-invoice-prefix" value={financialSettings.defaults.invoicePrefix} onChange={(e) => updateFinancialSetting('defaults', 'invoicePrefix', e.target.value)} />
+                    <NoEffectHint>Rechnungsnummern kommen aus dem automatischen Nummernkreis (INV-JJJJ-NNNN).</NoEffectHint>
                   </div>
                   <div>
-                    <Label>{t('financialManagement.creditNotePrefix')}</Label>
-                    <Input value={financialSettings.defaults.creditNotePrefix} onChange={(e) => updateFinancialSetting('defaults', 'creditNotePrefix', e.target.value)} />
+                    <Label htmlFor="fin-credit-prefix">{t('financialManagement.creditNotePrefix')}</Label>
+                    <Input id="fin-credit-prefix" value={financialSettings.defaults.creditNotePrefix} onChange={(e) => updateFinancialSetting('defaults', 'creditNotePrefix', e.target.value)} />
+                    <NoEffectHint>Gutschriftnummern kommen aus dem automatischen Nummernkreis.</NoEffectHint>
                   </div>
                 </div>
 
@@ -5164,6 +5718,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                       <SelectItem value="stripe">{t('financialManagement.paymentMethods.stripe')}</SelectItem>
                     </SelectContent>
                   </Select>
+                  <SettingHelp>Zahlart auf neuen Rechnungen, wenn am Kunden keine hinterlegt ist.</SettingHelp>
                 </div>
               </CardContent>
             </Card>
@@ -5176,26 +5731,29 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
               <CardContent className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                   <div>
-                    <Label>{t('financialManagement.defaultDiscount')}</Label>
-                    <Input type="number" value={financialSettings.defaults.defaultDiscount} onChange={(e) => updateFinancialSetting('defaults', 'defaultDiscount', Number(e.target.value || 0))} />
+                    <Label htmlFor="fin-default-discount">Standardrabatt (%)</Label>
+                    <DecimalSettingInput id="fin-default-discount" value={financialSettings.defaults.defaultDiscount} min={0} max={100} onCommit={(value) => updateFinancialSetting('defaults', 'defaultDiscount', value)} />
+                    <SettingHelp>Prozent. Gilt für ALLE Kunden ohne eigenen Kunden- oder Gruppenrabatt bei neuen Warenkörben und Aufträgen.</SettingHelp>
                   </div>
                   <div>
-                    <Label>{t('financialManagement.maxDiscount')}</Label>
-                    <Input type="number" value={financialSettings.discountPolicy.maxDiscountPercent} onChange={(e) => updateFinancialSetting('discountPolicy', 'maxDiscountPercent', Number(e.target.value || 0))} />
+                    <Label htmlFor="fin-max-discount">{t('financialManagement.maxDiscount')}</Label>
+                    <DecimalSettingInput id="fin-max-discount" value={financialSettings.discountPolicy.maxDiscountPercent} min={0} max={100} onCommit={(value) => updateFinancialSetting('discountPolicy', 'maxDiscountPercent', value)} />
+                    <NoEffectHint>Wird derzeit nicht geprüft.</NoEffectHint>
                   </div>
                   <div>
-                    <Label>{t('financialManagement.lateFee')}</Label>
-                    <Input type="number" value={financialSettings.discountPolicy.lateFeePercent} onChange={(e) => updateFinancialSetting('discountPolicy', 'lateFeePercent', Number(e.target.value || 0))} />
+                    <Label htmlFor="fin-late-fee">{t('financialManagement.lateFee')}</Label>
+                    <DecimalSettingInput id="fin-late-fee" value={financialSettings.discountPolicy.lateFeePercent} min={0} max={100} onCommit={(value) => updateFinancialSetting('discountPolicy', 'lateFeePercent', value)} />
+                    <SettingHelp>Prozent – nur Vorbelegung des Hinweistexts im Versand-/Mahndialog; es wird keine Gebühr berechnet.</SettingHelp>
                   </div>
                 </div>
 
                 <div className="space-y-2 rounded-lg border border-[#d8dce6] bg-[#f8f9fc] p-3">
-                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.allowManualDiscounts')}</span><Switch checked={financialSettings.discountPolicy.allowManualDiscounts} onCheckedChange={(value) => updateFinancialSetting('discountPolicy', 'allowManualDiscounts', value)} /></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.allowPartialPayments')}</span><Switch checked={financialSettings.paymentPreferences.partialPaymentsAllowed} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'partialPaymentsAllowed', value)} /></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.autoAttachPdf')}</span><Switch checked={financialSettings.paymentPreferences.autoAttachPdf} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'autoAttachPdf', value)} /></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.sendInternalCopy')}</span><Switch checked={financialSettings.paymentPreferences.sendInternalCopy} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'sendInternalCopy', value)} /></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.showTaxBreakdown')}</span><Switch checked={financialSettings.paymentPreferences.showTaxBreakdown} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'showTaxBreakdown', value)} /></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">{t('financialManagement.showDiscountBreakdown')}</span><Switch checked={financialSettings.paymentPreferences.showDiscountBreakdown} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'showDiscountBreakdown', value)} /></div>
+                  <div className="flex items-center justify-between gap-2"><span className="text-sm">{t('financialManagement.allowManualDiscounts')} <span className="block text-[11px] text-amber-700">Vorbelegung – derzeit ohne Wirkung</span></span><Switch checked={financialSettings.discountPolicy.allowManualDiscounts} onCheckedChange={(value) => updateFinancialSetting('discountPolicy', 'allowManualDiscounts', value)} /></div>
+                  <div className="flex items-center justify-between gap-2"><span className="text-sm">{t('financialManagement.allowPartialPayments')} <span className="block text-[11px] text-amber-700">Vorbelegung – derzeit ohne Wirkung</span></span><Switch checked={financialSettings.paymentPreferences.partialPaymentsAllowed} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'partialPaymentsAllowed', value)} /></div>
+                  <div className="flex items-center justify-between gap-2"><span className="text-sm">{t('financialManagement.autoAttachPdf')} <span className="block text-[11px] text-muted-foreground">Vorbelegung im Versanddialog</span></span><Switch checked={financialSettings.paymentPreferences.autoAttachPdf} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'autoAttachPdf', value)} /></div>
+                  <div className="flex items-center justify-between gap-2"><span className="text-sm">{t('financialManagement.sendInternalCopy')} <span className="block text-[11px] text-muted-foreground">Vorbelegung im Versanddialog</span></span><Switch checked={financialSettings.paymentPreferences.sendInternalCopy} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'sendInternalCopy', value)} /></div>
+                  <div className="flex items-center justify-between gap-2"><span className="text-sm">{t('financialManagement.showTaxBreakdown')} <span className="block text-[11px] text-muted-foreground">Vorbelegung im Versanddialog</span></span><Switch checked={financialSettings.paymentPreferences.showTaxBreakdown} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'showTaxBreakdown', value)} /></div>
+                  <div className="flex items-center justify-between gap-2"><span className="text-sm">{t('financialManagement.showDiscountBreakdown')} <span className="block text-[11px] text-muted-foreground">Vorbelegung im Versanddialog</span></span><Switch checked={financialSettings.paymentPreferences.showDiscountBreakdown} onCheckedChange={(value) => updateFinancialSetting('paymentPreferences', 'showDiscountBreakdown', value)} /></div>
                 </div>
 
                 {financialSettings.paymentPreferences.sendInternalCopy && (
@@ -5219,7 +5777,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                     <Input value={financialSettings.invoiceMetadata.sellerName} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'sellerName', e.target.value)} />
                   </div>
                   <div>
-                    <Label>VAT / USt-ID</Label>
+                    <Label>USt-IdNr.</Label>
                     <Input value={financialSettings.invoiceMetadata.sellerVatId} onChange={(e) => updateFinancialSetting('invoiceMetadata', 'sellerVatId', e.target.value)} />
                   </div>
                   <div>
@@ -5247,14 +5805,16 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="modern">Modern</SelectItem>
-                        <SelectItem value="classic">Classic</SelectItem>
+                        <SelectItem value="classic">Klassisch</SelectItem>
                         <SelectItem value="minimal">Minimal</SelectItem>
                       </SelectContent>
                     </Select>
+                    <SettingHelp>Vorbelegung im Versanddialog.</SettingHelp>
                   </div>
                   <div>
                     <Label>{t('financialManagement.accentColor')}</Label>
                     <Input type="color" value={financialSettings.paymentPreferences.accentColor} onChange={(e) => updateFinancialSetting('paymentPreferences', 'accentColor', e.target.value)} className="h-10 p-1" />
+                    <SettingHelp>Vorbelegung im Versanddialog.</SettingHelp>
                   </div>
                 </div>
 
@@ -5277,12 +5837,14 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
               <CardDescription className="text-[#c8d0e7]">{t('financialManagement.effectOfDefaultsDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">{t('financialManagement.standardTax')}:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.taxRate}%</div></div>
-              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">{t('financialManagement.defaultCurrency')}:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.currency}</div></div>
-              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">{t('financialManagement.paymentTerms')}:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.paymentTerms} / {financialSettings.defaults.paymentDueDays} Tage</div></div>
-              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">{t('financialManagement.dispatchTheme')}:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.paymentPreferences.defaultVisualTheme}</div></div>
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">{t('financialManagement.standardTax')}:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.taxRate} %</div></div>
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">{t('financialManagement.defaultCurrency')}:</span><div className="font-semibold text-[#1a2a5e]">EUR (keine Umrechnung)</div></div>
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">{t('financialManagement.paymentTerms')}:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.paymentDueDays} Tage</div></div>
+              <div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-3"><span className="text-muted-foreground">Standardrabatt:</span><div className="font-semibold text-[#1a2a5e]">{financialSettings.defaults.defaultDiscount} %</div></div>
             </CardContent>
           </Card>
+          </>
+          )}
           <Card className="border-[#d8dce6]">
             <CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.reportsAndExport')}</CardTitle><CardDescription className="text-[#c8d0e7]">{t('financialManagement.reportsAndExportDesc')}</CardDescription></CardHeader>
           </Card>
@@ -5290,8 +5852,9 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
             <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.invoices')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('invoices', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
             <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.payments')} {t('common.export')}</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'csv')}><Download className="mr-2 h-4 w-4" />CSV</Button><Button variant="outline" className="w-full" onClick={() => onExport('payments', 'json')}><Download className="mr-2 h-4 w-4" />JSON</Button></CardContent></Card>
             <Card className="border-indigo-200 bg-indigo-50/40"><CardHeader className="bg-indigo-900 rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>ZM-Meldung (Reverse Charge)</CardTitle></CardHeader><CardContent className="space-y-2"><Button variant="outline" className="w-full bg-white border-indigo-300 text-indigo-950 hover:bg-indigo-50" onClick={() => onExport('zm', 'csv')}><Download className="mr-2 h-4 w-4 text-indigo-600" />ZM CSV</Button><Button variant="outline" className="w-full bg-white border-indigo-300 text-indigo-950 hover:bg-indigo-50" onClick={() => onExport('zm', 'json')}><Download className="mr-2 h-4 w-4 text-indigo-600" />ZM JSON</Button></CardContent></Card>
-            <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.reports')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">{t('financialManagement.revenue')}: {formatCurrency(report?.totalRevenue || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Refunds: {formatCurrency(report?.refundAmount || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Disputes: {formatCurrency(report?.disputeAmount || 0)}</div></CardContent></Card>
+            <Card className="border-[#d8dce6]"><CardHeader className="bg-[#1a2a5e] rounded-t-lg"><CardTitle style={{ color: "#f5c800" }}>{t('financialManagement.reports')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Zahlungseingang (brutto): {formatCurrency(report?.collectedGross ?? report?.totalRevenue ?? 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Erstattungen: {formatCurrency(report?.refundAmount || 0)}</div><div className="rounded-md border border-[#d8dce6] bg-[#f8f9fc] p-2">Anfechtungen: {formatCurrency(report?.disputeAmount || 0)}</div></CardContent></Card>
           </div>
+          </DecimalSettingValidityContext.Provider>
         </TabsContent>
       </Tabs>
 
@@ -5462,49 +6025,286 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
         </DialogContent>
       </Dialog>
 
-      <Dialog open={fromRepairDialogOpen} onOpenChange={setFromRepairDialogOpen}>
-        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden flex flex-col">
+      <Dialog open={fromRepairDialogOpen} onOpenChange={(open) => { if (!open) closeFromRepairDialog(); else setFromRepairDialogOpen(true); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
           <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg border-b border-[#0f1d45] shrink-0">
             <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: '#f5c800' }}>
               <FileSpreadsheet className="h-5 w-5" />
-              Rechnung aus RepairOrder-IDs
+              Rechnung aus Aufträgen erstellen
             </DialogTitle>
             <DialogDescription className="text-blue-200 text-sm">
-              Mehrere Reparaturauftrags-IDs kommasepariert eingeben.
+              Erstellt EINE Rechnung für die ausgewählten Aufträge desselben Kunden. Bereits berechnete Aufträge werden nicht erneut berechnet; der Kundenrabatt aus dem Auftrag wird übernommen.
             </DialogDescription>
           </DialogHeader>
-          <div className="px-6 py-4 space-y-4">
+          <div className="px-6 py-4 space-y-4 overflow-y-auto">
             <div className="space-y-2">
-              <Label className="font-semibold text-[#1a2a5e]">RepairOrder IDs *</Label>
-              <Textarea value={fromRepairForm.repairOrderIds} onChange={(e) => setFromRepairForm((p) => ({ ...p, repairOrderIds: e.target.value }))} placeholder="RO-1001, RO-1002" rows={3} />
-              <p className="text-xs text-muted-foreground">Mehrere IDs mit Komma trennen.</p>
-            </div>
-            <div className="flex items-center justify-between rounded-md border border-indigo-200 bg-indigo-50/60 p-3">
-              <div>
-                <Label className="text-xs font-semibold text-indigo-950">Innergemeinschaftliche Lieferung (Reverse Charge)</Label>
-                <p className="text-[11px] text-indigo-800">Steuerbetrag 0% / ZM-Relevant</p>
-              </div>
-              <Switch
-                checked={fromRepairForm.isReverseCharge}
-                onCheckedChange={(checked) => setFromRepairForm((p) => ({ ...p, isReverseCharge: checked, taxRate: checked ? '0' : String(financialSettings.defaults.taxRate) }))}
+              <Label className="font-semibold text-[#1a2a5e]">Aufträge *</Label>
+              <BookingSearchAutocomplete
+                type="order"
+                value={fromRepairForm.orderSearch}
+                onChange={(val) => setFromRepairForm((p) => ({ ...p, orderSearch: val }))}
+                onSelectItem={(item) => addRepairOrderRef(item.orderNumber || item._id)}
+                placeholder="Auftrag suchen (ORD-Nr. oder Kunde) …"
               />
+              {fromRepairForm.orderRefs.length > 0 ? (
+                <div className="flex flex-wrap gap-2" aria-label="Ausgewählte Aufträge">
+                  {fromRepairForm.orderRefs.map((ref) => (
+                    <span key={`repair-ref-${ref}`} className="inline-flex items-center gap-1 rounded-full border border-[#1a2a5e]/30 bg-[#f8f9fc] px-3 py-1 text-sm text-[#1a2a5e]">
+                      {ref}
+                      <button
+                        type="button"
+                        className="rounded-full p-0.5 hover:bg-[#1a2a5e]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2a5e]"
+                        onClick={() => removeRepairOrderRef(ref)}
+                        aria-label={`Auftrag ${ref} entfernen`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Noch kein Auftrag ausgewählt. Auftragsnummer oder Kundennamen eingeben und einen Vorschlag wählen.</p>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Steuer %</Label><Input type="number" disabled={fromRepairForm.isReverseCharge} value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} /></div>
+
+            {/* Vorschau: Umfang, Beträge, bereits berechnete Aufträge */}
+            {fromRepairForm.orderRefs.length > 0 && (
+              <div className="rounded-md border border-[#d8dce6] bg-white">
+                <div className="border-b border-[#d8dce6] bg-[#f8f9fc] px-3 py-2 text-sm font-semibold text-[#1a2a5e]">Vorschau</div>
+                {repairPreviewLoading && (
+                  <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Vorschau wird geladen …</div>
+                )}
+                {!repairPreviewLoading && repairPreviewError && (
+                  <div className="px-3 py-3 text-sm text-red-700">{repairPreviewError}</div>
+                )}
+                {!repairPreviewLoading && !repairPreviewError && repairPreview && (
+                  <div className="space-y-3 p-3">
+                    <div className="text-sm">Kunde: <span className="font-medium">{repairPreview.customer.name || '–'}</span>{repairPreview.customer.email ? ` · ${repairPreview.customer.email}` : ''}</div>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Auftrag</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Auftragswert (brutto)</TableHead>
+                            <TableHead>Hinweis</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {repairPreview.orders.map((order) => (
+                            <TableRow key={`repair-preview-${order._id}`} className={order.alreadyInvoicedBy ? 'text-muted-foreground' : undefined}>
+                              <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                              <TableCell>{order.status === 'completed' ? 'Abgeschlossen' : `Nicht abgeschlossen (${order.status || 'unbekannt'})`}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(order.grossTotal)}</TableCell>
+                              <TableCell className="text-xs">
+                                {order.alreadyInvoicedBy ? `Bereits berechnet: ${order.alreadyInvoicedBy.invoiceNumber}` : order.discount > 0 ? `inkl. ${formatCurrency(order.discount)} Kundenrabatt` : '–'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="rounded-md bg-[#f8f9fc] px-3 py-2 text-sm">
+                      {repairPreview.isReverseCharge
+                        ? <>Netto {formatCurrency(repairPreview.subtotal)} · Reverse Charge – ohne MwSt. · <strong>Gesamt {formatCurrency(repairPreview.total)}</strong></>
+                        : <>Netto {formatCurrency(repairPreview.subtotal)} · MwSt. {String(repairPreview.taxRate).replace('.', ',')} % {formatCurrency(repairPreview.tax)} · <strong>Gesamt (brutto) {formatCurrency(repairPreview.total)}</strong></>}
+                      {repairPreview.discount > 0 && <div className="text-xs text-muted-foreground">Darin enthaltener Rabatt: {formatCurrency(repairPreview.discount)}</div>}
+                      <div className="text-xs text-muted-foreground">
+                        Steuer laut Kundenprofil: {repairPreview.profileTax.isReverseCharge ? 'Reverse Charge (0 %)' : `${String(repairPreview.profileTax.taxRate).replace('.', ',')} %`}
+                        {fromRepairForm.overrideTax ? ' · abweichend festgelegt' : ''}
+                      </div>
+                    </div>
+                    {repairPreview.blockers.length > 0 && (
+                      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+                        {repairPreview.blockers.map((text) => <div key={text}>{text}</div>)}
+                        <div className="mt-1 text-xs">Bitte den betroffenen Auftrag entfernen oder die bestehende Rechnung zuerst stornieren.</div>
+                      </div>
+                    )}
+                    {repairPreview.incompleteOrders.length > 0 && (
+                      <label className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        <Checkbox
+                          checked={fromRepairForm.confirmIncomplete}
+                          onCheckedChange={(checked) => setFromRepairForm((p) => ({ ...p, confirmIncomplete: checked === true }))}
+                          className="mt-0.5"
+                        />
+                        <span>
+                          Noch nicht abgeschlossen: {repairPreview.incompleteOrders.map((order) => order.orderNumber).join(', ')}. Trotzdem berechnen (z. B. Voraus- oder Teilrechnung).
+                        </span>
+                      </label>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <Label>Zusatzrabatt (€ brutto, optional)</Label>
-                <Input type="number" min="0" step="0.01" value={fromRepairForm.discount} placeholder="0,00" onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} />
+                <Label htmlFor="repair-extra-discount">Zusatzrabatt (€ brutto, optional)</Label>
+                <Input id="repair-extra-discount" type="text" inputMode="decimal" value={fromRepairForm.discount} placeholder="0,00" onChange={(e) => setFromRepairForm((p) => ({ ...p, discount: e.target.value }))} />
                 <p className="mt-1 text-[11px] text-muted-foreground">Der Kundengruppenrabatt ist bereits im Auftragswert enthalten und wird automatisch übernommen.</p>
               </div>
+              <div>
+                <Label htmlFor="repair-due-date">Fälligkeit</Label>
+                <Input id="repair-due-date" type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} />
+                <p className="mt-1 text-[11px] text-muted-foreground">{formatPaymentTermsFromDueDate(fromRepairForm.dueDate)}</p>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Fälligkeit</Label><Input type="date" value={fromRepairForm.dueDate} onChange={(e) => setFromRepairForm((p) => ({ ...p, dueDate: e.target.value }))} /></div>
-              <div><Label>Zahlungsziel (aus Fälligkeit)</Label><Input value={formatPaymentTermsFromDueDate(fromRepairForm.dueDate)} readOnly disabled title="Wird aus dem Fälligkeitsdatum abgeleitet; ohne Datum gilt die Frist aus dem Kundenprofil" /></div>
+
+            <div className="rounded-md border border-[#d8dce6] p-3 space-y-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-[#1a2a5e]">
+                <Checkbox
+                  checked={fromRepairForm.overrideTax}
+                  onCheckedChange={(checked) => setFromRepairForm((p) => ({ ...p, overrideTax: checked === true, isReverseCharge: false, taxRate: String(financialSettings.defaults.taxRate) }))}
+                />
+                Steuer abweichend vom Kundenprofil festlegen
+              </label>
+              {fromRepairForm.overrideTax && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex items-center justify-between rounded-md border border-indigo-200 bg-indigo-50/60 p-3 sm:col-span-2">
+                    <div>
+                      <Label className="text-xs font-semibold text-indigo-950">Innergemeinschaftliche Leistung (Reverse Charge)</Label>
+                      <p className="text-[11px] text-indigo-800">Steuerbetrag 0 % / ZM-relevant</p>
+                    </div>
+                    <Switch
+                      checked={fromRepairForm.isReverseCharge}
+                      onCheckedChange={(checked) => setFromRepairForm((p) => ({ ...p, isReverseCharge: checked, taxRate: checked ? '0' : String(financialSettings.defaults.taxRate) }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="repair-tax-rate">Steuersatz (%)</Label>
+                    <Input id="repair-tax-rate" type="text" inputMode="decimal" disabled={fromRepairForm.isReverseCharge} value={fromRepairForm.taxRate} onChange={(e) => setFromRepairForm((p) => ({ ...p, taxRate: e.target.value }))} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={fromRepairForm.sendNow} onCheckedChange={(checked) => setFromRepairForm((p) => ({ ...p, sendNow: checked === true }))} />
+                Rechnung sofort per E-Mail{repairPreview?.customer.email ? ` an ${repairPreview.customer.email}` : ''} senden (eine E-Mail mit PDF)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={fromRepairForm.printAfter} onCheckedChange={(checked) => setFromRepairForm((p) => ({ ...p, printAfter: checked === true }))} />
+                Nach dem Erstellen drucken
+              </label>
             </div>
           </div>
           <DialogFooter className="px-6 py-4 border-t border-[#d8dce6] bg-[#f8f9fc] rounded-b-lg shrink-0 flex justify-end gap-2">
-            <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={() => setFromRepairDialogOpen(false)}>{t('common.cancel')}</Button>
-            <Button className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]" onClick={onCreateInvoiceFromRepairs}>Generieren</Button>
+            <Button variant="outline" className="border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white" onClick={closeFromRepairDialog}>{t('common.cancel')}</Button>
+            <Button
+              className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]"
+              onClick={onCreateInvoiceFromRepairs}
+              disabled={
+                repairSubmitting
+                || repairPreviewLoading
+                || fromRepairForm.orderRefs.length === 0
+                || Boolean(repairPreview && !repairPreview.canCreate)
+                || Boolean(repairPreview && repairPreview.incompleteOrders.length > 0 && !fromRepairForm.confirmIncomplete)
+              }
+            >
+              {repairSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Rechnung erstellen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* FIN-11: Bestätigung vor dem Versand einer Zahlungsaufforderung. */}
+      <Dialog open={paymentRequestDialogOpen} onOpenChange={(open) => { setPaymentRequestDialogOpen(open); if (!open) setPaymentRequestRecent(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
+          <DialogHeader className="bg-[#1a2a5e] px-6 py-4 rounded-t-lg shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold" style={{ color: '#f5c800' }}>
+              <Mail className="h-5 w-5" />
+              Zahlungsaufforderung per E-Mail
+            </DialogTitle>
+            <DialogDescription className="text-blue-200 text-sm">
+              Der Kunde erhält eine E-Mail mit Link zur Rechnung. Es wird kein PayPal-Zahlungsauftrag erstellt; die Zustellung ist nicht garantiert.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 py-4 space-y-3 overflow-y-auto text-sm">
+            <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1">
+              <dt className="text-muted-foreground">Empfänger</dt>
+              <dd className="font-medium break-all">
+                {paymentRequestRecipient?.email
+                  ? `${paymentRequestRecipient.name ? `${paymentRequestRecipient.name} ` : ''}<${paymentRequestRecipient.email}>`
+                  : 'wird aus dem Kundenkonto ermittelt (keine Adresse in der Auswahl)'}
+              </dd>
+              <dt className="text-muted-foreground">Bezug</dt>
+              <dd className="font-medium">
+                {paymentRequestInvoice?.invoiceNumber
+                  ? `Rechnung ${paymentRequestInvoice.invoiceNumber}`
+                  : selectedPaymentRequestBooking?.bookingNumber
+                    ? `Buchung ${selectedPaymentRequestBooking.bookingNumber}`
+                    : paymentRequestBookingId}
+              </dd>
+              <dt className="text-muted-foreground">Offener Betrag</dt>
+              <dd className="font-medium">
+                {loadingPaymentRequestOverview
+                  ? 'Wird geladen …'
+                  : paymentRequestInvoice
+                    ? formatCurrencyValue(getInvoiceOpenAmount(paymentRequestInvoice))
+                    : paymentRequestOverview
+                      ? formatCurrencyValue(paymentRequestOverview.summary.openOrderBalance)
+                      : '–'}
+              </dd>
+            </dl>
+            <div>
+              <Label htmlFor="payment-request-amount">Angeforderter Betrag (€)</Label>
+              <Input
+                id="payment-request-amount"
+                type="text"
+                inputMode="decimal"
+                value={paymentRequestAmount}
+                onChange={(e) => setPaymentRequestAmount(e.target.value)}
+                placeholder="leer = gesamter offener Betrag"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">Höchstens der offene Betrag.</p>
+            </div>
+            <div>
+              <Label htmlFor="payment-request-note">Hinweis an den Kunden</Label>
+              <Textarea id="payment-request-note" value={paymentRequestNote} onChange={(e) => setPaymentRequestNote(e.target.value)} className="min-h-[70px]" />
+            </div>
+            <div className="rounded-md border p-2">
+              <div className="mb-1 text-xs font-semibold">Bisherige Aufforderungen</div>
+              {loadingPaymentRequests ? (
+                <div className="text-xs text-muted-foreground">Wird geladen …</div>
+              ) : !paymentRequestsAvailable ? (
+                <div className="text-xs text-amber-700">Verlauf konnte nicht geladen werden.</div>
+              ) : paymentRequests.length === 0 ? (
+                <div className="text-xs text-muted-foreground">Noch keine Zahlungsaufforderung gesendet.</div>
+              ) : (
+                <ul className="space-y-1 text-xs">
+                  {paymentRequests.slice(0, 3).map((req) => (
+                    <li key={`pr-dialog-${req._id}`} className="flex flex-wrap justify-between gap-2">
+                      <span>{formatDateTime(req.requestedAt)} · {formatCurrencyValue(Number(req.amount || 0))}{req.recipientEmail ? ` · an ${req.recipientEmail}` : ''}</span>
+                      <span className={req.status === 'accepted_by_provider' ? 'text-emerald-700' : req.status === 'failed' ? 'text-red-700' : 'text-amber-700'}>
+                        {req.status === 'accepted_by_provider' ? 'Übergeben' : req.status === 'failed' ? 'Fehlgeschlagen' : req.status === 'skipped_no_recipient' ? 'Keine E-Mail-Adresse' : 'Offen'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {paymentRequestRecent && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900" role="alert">
+                Zuletzt am {formatDateTime(paymentRequestRecent.requestedAt)} an {paymentRequestRecent.recipientEmail || 'den Kunden'} gesendet
+                {paymentRequestRecent.amount ? ` (${formatCurrencyValue(paymentRequestRecent.amount)})` : ''} – trotzdem erneut senden?
+              </div>
+            )}
+          </div>
+          <DialogFooter className="px-6 py-4 border-t bg-[#f8f9fc] shrink-0 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setPaymentRequestDialogOpen(false); setPaymentRequestRecent(null); }}>Abbrechen</Button>
+            {paymentRequestRecent ? (
+              <Button className="bg-amber-500 text-white hover:bg-amber-600" disabled={isSendingPaymentRequest} onClick={() => { void onRequestAdditionalPaymentHandler(true); }}>
+                {isSendingPaymentRequest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Trotzdem erneut senden
+              </Button>
+            ) : (
+              <Button className="bg-[#f5c800] text-[#1a2a5e] font-semibold hover:bg-[#e0b800]" disabled={isSendingPaymentRequest || loadingPaymentRequestOverview} onClick={() => { void onRequestAdditionalPaymentHandler(false); }}>
+                {isSendingPaymentRequest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Jetzt per E-Mail senden
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -7080,7 +7880,7 @@ export function FinancialManagement({ mode = 'invoices' }: { mode?: FinancialMan
 
             <div className="space-y-1">
               <Label>{t('financialManagement.paymentMethod')} *</Label>
-              <Select value={paymentForm.paymentMethod} onValueChange={(v) => setPaymentForm((p) => ({ ...p, paymentMethod: v }))}>
+              <Select value={paymentForm.paymentMethod} onValueChange={(v) => setPaymentForm((p) => ({ ...p, paymentMethod: v as typeof p.paymentMethod }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="bank_transfer">{t('financialManagement.paymentMethods.bank_transfer')}</SelectItem>

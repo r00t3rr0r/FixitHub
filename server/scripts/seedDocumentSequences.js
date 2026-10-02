@@ -9,9 +9,20 @@
  *
  * Es wird KEIN bestehendes Dokument umnummeriert (GoBD / Unveraenderlichkeit).
  *
+ * Zusaetzlich (seit 01.10.2026): Ersatzteilbestellungen (EPO-NNNNNN) nutzen den Zaehler
+ * {documentType:'epart_order', year:0}. Der Schritt hebt ihn auf die hoechste vorhandene
+ * EPO-Nummer an (nie absenken, idempotent). Das Modell richtet den Zaehler zur Sicherheit
+ * beim ersten Anlegen pro Prozess ebenfalls aus; dieser Schritt macht es vorab sichtbar.
+ * Ausserdem nur BERICHT (keine Aenderung): Positionen mit receivedQuantity > quantity
+ * (fruehere Mehrbuchungen) und doppelte Lieferanten (gleicher Name + E-Mail).
+ * Rollback: der alte Code ignoriert den Zaehler; der Zaehler kann geloescht werden
+ * (db.documentsequences.deleteOne({documentType:'epart_order', year:0})).
+ *
  * Aufruf:
  *   node server/scripts/seedDocumentSequences.js              # Dry-Run (Standard)
  *   node server/scripts/seedDocumentSequences.js --confirm    # schreibt die Zaehler
+ *   node server/scripts/seedDocumentSequences.js --epart-only [--confirm]
+ *                                                             # nur Ersatzteilbestellungen
  */
 
 const path = require('path');
@@ -20,6 +31,14 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const mongoose = require('mongoose');
 const Invoice = require('../models/Invoice');
 const DocumentSequence = require('../models/DocumentSequence');
+const {
+  EPartOrder,
+  Supplier,
+  EPART_ORDER_SEQUENCE_TYPE,
+  EPART_ORDER_SEQUENCE_YEAR,
+  formatEPartOrderNumber,
+  findMaxExistingEPartOrderSequence
+} = require('../models/EPartOrder');
 
 // Tolerant gegenueber allen Altformaten: INV-2026-0007, INV--2026-0008,
 // VIP--2026-0008, CN--CN-2026-0004 ... Die Nummern vom Typ INV-<epoch-ms>
@@ -45,12 +64,71 @@ async function assertUniqueIndex(report) {
   }
 }
 
+// Ersatzteilbestellungen: Plan + Bericht. Schreibt nur mit confirm=true und nur per $max.
+async function seedEPartOrderSequence({ confirm }) {
+  const maxExisting = await findMaxExistingEPartOrderSequence(EPartOrder);
+  const existing = await DocumentSequence.findOne({
+    documentType: EPART_ORDER_SEQUENCE_TYPE,
+    year: EPART_ORDER_SEQUENCE_YEAR
+  }).lean();
+  const currentSequence = Number(existing?.sequence || 0);
+  const targetSequence = Math.max(currentSequence, maxExisting);
+
+  const overReceived = await EPartOrder.aggregate([
+    { $unwind: '$items' },
+    { $match: { $expr: { $gt: ['$items.receivedQuantity', '$items.quantity'] } } },
+    { $project: { orderNumber: 1, partName: '$items.partName', quantity: '$items.quantity', received: '$items.receivedQuantity' } }
+  ]);
+  const duplicateSuppliers = await Supplier.aggregate([
+    {
+      $group: {
+        _id: { name: { $toLower: { $trim: { input: { $ifNull: ['$name', ''] } } } }, email: { $toLower: { $ifNull: ['$email', ''] } } },
+        count: { $sum: 1 },
+        ids: { $push: '$_id' }
+      }
+    },
+    { $match: { count: { $gt: 1 } } }
+  ]);
+
+  console.log('\n--- Ersatzteilbestellungen (EPO) ---');
+  console.log(`hoechste vorhandene Nummer: ${maxExisting ? formatEPartOrderNumber(maxExisting) : '(keine)'}`);
+  console.log(`Zaehler epart_order/${EPART_ORDER_SEQUENCE_YEAR}: ${currentSequence} -> ${targetSequence}`
+    + `${targetSequence === currentSequence ? ' (unveraendert)' : ''}  naechste Nummer: ${formatEPartOrderNumber(targetSequence + 1)}`);
+  console.log(`Bericht: Positionen mit mehr erhalten als bestellt: ${overReceived.length}`);
+  overReceived.slice(0, 20).forEach((row) => {
+    console.log(`  ${row.orderNumber}: ${row.partName} ${row.received}/${row.quantity}`);
+  });
+  console.log(`Bericht: doppelte Lieferanten (Name + E-Mail): ${duplicateSuppliers.length}`);
+  duplicateSuppliers.slice(0, 20).forEach((row) => {
+    console.log(`  ${row._id.name} <${row._id.email}>: ${row.count}x (${row.ids.join(', ')})`);
+  });
+
+  if (!confirm || targetSequence === currentSequence) return;
+  await DocumentSequence.updateOne(
+    { documentType: EPART_ORDER_SEQUENCE_TYPE, year: EPART_ORDER_SEQUENCE_YEAR },
+    { $max: { sequence: targetSequence }, $set: { updatedAt: new Date() } },
+    { upsert: true }
+  );
+  console.log(`geschrieben: ${EPART_ORDER_SEQUENCE_TYPE}/${EPART_ORDER_SEQUENCE_YEAR} = ${targetSequence}`);
+}
+
 async function run() {
   const confirm = process.argv.includes('--confirm');
+  const epartOnly = process.argv.includes('--epart-only');
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured');
 
   await mongoose.connect(process.env.DATABASE_URL);
   console.log(`DocumentSequence seeding started (${confirm ? 'WRITE' : 'dry-run'} mode)`);
+
+  if (epartOnly) {
+    try {
+      await seedEPartOrderSequence({ confirm });
+      if (!confirm) console.log('\nDry-Run - es wurde nichts geschrieben. Mit --confirm ausfuehren, um den Zaehler zu setzen.');
+    } finally {
+      await mongoose.disconnect();
+    }
+    return;
+  }
 
   const report = {
     scanned: 0,
@@ -121,6 +199,8 @@ async function run() {
     console.log(`Doppelte Belegnummern: ${report.duplicates.length}`
       + (report.duplicates.length ? ` -> ${report.duplicates.slice(0, 20).join(', ')}` : ''));
 
+    await seedEPartOrderSequence({ confirm: false });
+
     if (report.duplicates.length > 0) {
       console.error('\nABBRUCH: Doppelte Belegnummern gefunden. Diese muessen fachlich geklaert '
         + 'werden, bevor der Unique-Index und die neuen Nummernkreise greifen koennen.');
@@ -142,6 +222,7 @@ async function run() {
       );
       console.log(`geschrieben: ${entry.documentType}/${entry.year} = ${entry.to}`);
     }
+    await seedEPartOrderSequence({ confirm: true });
     console.log('\nFertig.');
   } finally {
     await mongoose.disconnect();

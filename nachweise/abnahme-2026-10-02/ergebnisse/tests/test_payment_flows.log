@@ -1,0 +1,92 @@
+
+[T25 Zahlungsziel: Datum und Text aus EINER gespeicherten Bedingung]
+  PASS Faelligkeit = Rechnungsdatum + 7 Tage :: 7
+  PASS Zahlungsziel-Text nennt 7 Tage, nicht 30 :: 7 Tage netto ohne Abzug
+  PASS Gespeicherte Bedingung paymentDueDays = 7 :: 7
+  PASS Nur Datum gesetzt -> Text folgt dem Datum :: 7 Tage netto ohne Abzug
+  PASS Nur Frist gesetzt -> Datum und Text = 14 Tage :: 14 / 14 Tage netto ohne Abzug
+  PASS Kundenprofil: Text und Tage stimmen ueberein :: 7 / 7 Tage netto ohne Abzug
+
+[T04 100 vorausbezahlt, Auftrag 50, Rechnung 50, Erstattung 50 -> Beleg bleibt 50]
+  PASS Rechnung 50 aus Vorauszahlung beglichen :: {"allocated":50,"open":0}
+  PASS Buchung zeigt Ueberzahlung 50 :: 50
+  PASS Rechnungsliste: Erstattung offen 50 sichtbar :: 50
+  PASS Rechnungsliste: insgesamt eingegangen 100 sichtbar :: 100
+  PASS Rechnungsdetail: Erstattung offen 50 sichtbar :: 50
+  PASS KEINE automatische Gutschrift :: 0
+  PASS Antwort enthaelt keine Gutschrift :: null
+  PASS Zahlung: 50 erstattet, Rest bleibt gueltig :: 50 / completed
+  PASS Belegsumme bleibt 50 :: 50
+  PASS Rechnung weiterhin bezahlt :: {"allocated":50,"open":0}
+  PASS Buchung: Ueberzahlung 0, offen 0 :: {"over":0,"open":0}
+  PASS Auftrag bleibt "bezahlt" (nicht "erstattet") :: paid
+  PASS Zweiter Klick erstattet nicht erneut :: 50
+
+[T05 100 vorausbezahlt, Rechnung 150, offen 50, Nachzahlung 50 -> ueberall bezahlt]
+  PASS Nach Vorauszahlung: 100 zugeordnet, 50 offen :: {"allocated":100,"open":50}
+  PASS Belegstatus bezahlt :: paid
+  PASS Liste: bezahlt, offen 0 :: paid / 0
+  PASS Detail: bezahlt, offen 0 :: paid / 0
+  PASS Buchungsuebersicht: vollstaendig bezahlt :: true / 0
+  PASS Buchung billingStatus bezahlt :: paid
+  PASS Auftrag paymentStatus bezahlt :: paid
+
+[T06 "Bezahlt" setzen bucht den echten Fehlbetrag genau einmal]
+  PASS Genau eine zusaetzliche Zahlung angelegt :: 2
+  PASS Eingegangen gesamt = 150 (100 + fehlende 50) :: 150
+  PASS Beleg: 150 zugeordnet, offen 0, keine Ueberzahlung :: {"a":150,"o":0,"u":0}
+  PASS Auftrag bezahlt (dieselbe Rechnung wie Beleg) :: paid
+  PASS Nach Neuableitung weiterhin bezahlt / 150 :: paid / 150
+  PASS Voll bezahlter Beleg: keine zusaetzliche Zahlung :: 1
+
+[T07 300 Teilzahlung: sichtbar, Versandstatus unberuehrt, genau eine Wirkung]
+  PASS Drei gleichzeitige identische Klicks -> genau eine Zahlung :: 1
+  PASS Liste: Summe 500 / bezahlt 300 / offen 200 :: {"total":500,"credited":0,"receivable":500,"allocated":300,"open":200,"overpaid":0,"received":300,"refundPending":0,"refunded":0,"refundsInProgress":0}
+  PASS Zahlungsstand teilbezahlt :: partially_paid
+  PASS Buchung teilbezahlt :: partially-paid
+  PASS Versandstatus unveraendert :: shipped
+  PASS Wiederholte Zuordnungslaeufe -> eine Zuordnung :: 1
+
+[T08 Mehrere Auftraege/Rechnungen, Teilerstattung, Zuordnung der Ueberzahlung]
+  PASS Beide Rechnungen aus einer Zahlung beglichen :: 0 / 0
+  PASS Ueberzahlung 50 auf Buchungsebene :: 50
+  PASS Erstattung offen genau einmal ausgewiesen (nicht je Rechnung) :: 50 + 0
+  PASS Beide Auftraege bezahlt :: paid,paid
+  PASS Nach Teilerstattung 25: Ueberzahlung 25 :: 25
+  PASS Rechnungen bleiben bezahlt :: 0 / 0
+  PASS Teilrechnung: keine Scheinueberzahlung, nichts offen :: {"over":0,"open":0,"ref":150}
+  PASS Teilrechnung: keine "Erstattung offen" an der Rechnung :: 0
+  PASS Listenweg (Bulk) rechnet gleich: Bezug 150, Ueberzahlung 0 :: {"ref":150,"over":0}
+  PASS Zweite Rechnung fuer denselben Auftrag abgelehnt (409) :: 409 Für Auftrag ORD-PAY-018 besteht bereits die Rechnung INV-2026-0012. Eine Leistung darf nicht zweimal berechnet werden – bitte die bestehende Rechnung verwenden oder sie zuerst vollständig gutschreiben.
+  PASS Sammelrechnung mit bereits berechnetem Auftrag abgelehnt (409) :: 409 Für Auftrag ORD-PAY-018 besteht bereits die Rechnung INV-2026-0012. Eine Leistung darf nicht zweimal berechnet werden – bitte die bestehende Rechnung verwenden oder sie zuerst vollständig gutschreiben.
+
+[Erstattungen: kumulativ, idempotent, ausstehend zaehlt nicht]
+  PASS Gleicher Schluessel zweimal -> eine Erstattung :: 10
+  PASS Zwei verschiedene Teilerstattungen addieren sich (10 + 15) :: 25
+  PASS Erstattung ueber den Restbetrag abgelehnt :: Die Erstattung (80,00 €) übersteigt den noch erstattbaren Betrag dieser Zahlung (75,00 €).
+  PASS PayPal-Erstattung PENDING zaehlt nicht :: 25
+  PASS Antwort meldet "ausstehend" :: pending
+  PASS PayPal-Refund mit Capture-ID aufgerufen :: {"captureId":"CAP-6abf9363a9796d88cb430c53","amount":5,"requestId":"mcr-refund-9b9f9ea3ebcaf139c4c303e412d245cd-1"}
+  PASS Webhook COMPLETED doppelt -> genau +5 :: 30
+  PASS Anbieterfehler -> Fehler, nichts gezaehlt :: PayPal hat die Erstattung abgelehnt. Es wurde nichts als erstattet verbucht; die Erstattung kann nach Klärung erneut ausgelöst werden.
+  PASS Barzahlung ueber Gateway: abgelehnt statt Scheinerfolg :: Für diese Zahlart ist keine automatische Erstattung über einen Zahlungsanbieter angebunden. Bitte die Rückzahlung selbst ausführen und hier als manuelle Erstattung erfassen.
+
+[PayPal-Webhooks: Refund-Ressource, Wiederholung, Reihenfolge]
+  PASS Refund-Ressource korrekt gelesen :: {"refundId":"WH-REF-1","captureId":"CAP-6abf9363a9796d88cb430d46","amount":40,"status":"COMPLETED","reason":""}
+  PASS Webhook doppelt: 40 erstattet, Rest 60 bleibt gueltig :: 40 / completed
+  PASS Ausstehende Anbieter-Erstattung zaehlt nicht :: 40
+  PASS Spaetes PENDING stuft abgeschlossene Zahlung nicht zurueck :: null
+  PASS Wiederholtes COMPLETED hebt Erstattung nicht auf :: null
+  PASS COMPLETED schliesst ausstehende Zahlung ab :: completed
+
+[T19 Zahlungsaufforderung: Rechnungsnummer, Betrag, Kanal, Hinweistext, Fehler]
+  PASS Suche per Rechnungsnummer, offener Betrag 100 :: true / 100
+  PASS Kanal ausdruecklich E-Mail :: Zahlungsaufforderung über 100,00 € per E-Mail an kunde23@test.invalid übergeben (kein PayPal-Zahlungsauftrag; eine Zustellung wird dadurch nicht garantiert).
+  PASS Hinweistext erreicht die E-Mail (HTML entschaerft) :: Allgemeine Systemnachricht
+  PASS noteDelivered = true :: true
+  PASS Zahlungslink auf die Rechnung enthalten :: ja
+  PASS Historie mit Rechnungsnummer und Status :: accepted_by_provider
+  PASS Anbieterfehler meldet keinen Erfolg :: false / failed
+  PASS Rechnung ohne Buchung und ohne Empfaenger: kein Erfolg :: false / skipped_no_recipient
+
+==== 72 bestanden, 0 fehlgeschlagen ====

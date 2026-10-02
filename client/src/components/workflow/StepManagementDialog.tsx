@@ -78,7 +78,6 @@ export function StepManagementDialog({
   const [showFormFieldDialog, setShowFormFieldDialog] = useState(false)
   const [showAutomationDialog, setShowAutomationDialog] = useState(false)
   const [editingFormField, setEditingFormField] = useState<FormField | null>(null)
-  const [editingAutomationRule, setEditingAutomationRule] = useState<AutomationRule | null>(null)
   const [saving, setSaving] = useState(false)
 
   const [newFormField, setNewFormField] = useState<Partial<FormField>>({
@@ -135,7 +134,7 @@ export function StepManagementDialog({
   ]
 
   const actionOptions = [
-    { value: "send_notification", label: "Send Notification" },
+    { value: "send_notification", label: "Benachrichtigung senden (derzeit ohne Wirkung)" },
     { value: "update_status", label: "Update Status" },
     { value: "assign_staff", label: "Assign Staff" },
     { value: "create_task", label: "Create Task" },
@@ -573,13 +572,15 @@ export function StepManagementDialog({
                   />
                 </div>
                 <div className="space-y-2">
+                  {/* Pflichtschritt: wird nirgends ausgewertet -> gesperrt (gespeicherter Wert bleibt erhalten). */}
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="is-required"
                       checked={stepData.isRequired || false}
-                      onCheckedChange={(checked) => setStepData(prev => ({ ...prev, isRequired: checked }))}
+                      disabled
+                      aria-describedby="step-unsupported-options-note"
                     />
-                    <Label htmlFor="is-required" className="text-xs">Required Step</Label>
+                    <Label htmlFor="is-required" className="text-xs text-muted-foreground">Pflichtschritt (nicht unterstützt)</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Switch
@@ -587,76 +588,81 @@ export function StepManagementDialog({
                       checked={stepData.canSkip || false}
                       onCheckedChange={(checked) => setStepData(prev => ({ ...prev, canSkip: checked }))}
                     />
-                    <Label htmlFor="can-skip" className="text-xs">Can Skip</Label>
+                    <Label htmlFor="can-skip" className="text-xs">Überspringen erlaubt</Label>
                   </div>
                 </div>
               </div>
 
+              {/* Freigabe/Formularpflicht: die Ausführung im Auftrag liest diese Felder nicht -> gesperrt. */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="requires-approval"
                     checked={stepData.requiresApproval || false}
-                    onCheckedChange={(checked) => setStepData(prev => ({ ...prev, requiresApproval: checked }))}
+                    disabled
+                    aria-describedby="step-unsupported-options-note"
                   />
-                  <Label htmlFor="requires-approval" className="text-xs">Requires Approval</Label>
+                  <Label htmlFor="requires-approval" className="text-xs text-muted-foreground">Freigabe erforderlich (nicht unterstützt)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="requires-form"
                     checked={stepData.requiresFormCompletion || false}
-                    onCheckedChange={(checked) => setStepData(prev => ({ ...prev, requiresFormCompletion: checked }))}
+                    disabled
+                    aria-describedby="step-unsupported-options-note"
                   />
-                  <Label htmlFor="requires-form" className="text-xs">Requires Form Completion</Label>
+                  <Label htmlFor="requires-form" className="text-xs text-muted-foreground">Formular vollständig ausfüllen (nicht unterstützt)</Label>
                 </div>
               </div>
+              <p id="step-unsupported-options-note" className="flex items-start gap-1.5 rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700" data-testid="step-unsupported-options-note">
+                <Info className="mt-0.5 h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                <span>„Pflichtschritt“, „Freigabe erforderlich“ und „Formular vollständig ausfüllen“ werden bei der Ausführung im Auftrag nicht ausgewertet und sind deshalb gesperrt (gespeicherte Werte bleiben erhalten). Pflichtangaben legen Sie je Formularfeld („Pflichtfeld“) und über die Checkliste fest – beides wird vor dem Abschluss eines Schritts geprüft.</span>
+              </p>
 
               <Card>
                 <CardHeader className="py-2 px-3">
-                  <CardTitle className="text-xs">Notification Settings</CardTitle>
+                  <CardTitle className="text-xs">Benachrichtigungen (Vorlage) – nicht unterstützt</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 py-2 px-3">
+                  {/* K06 (Runde 3): kein Servercode liest notificationSettings. Die Schalter sind gesperrt statt
+                      klickbar, damit niemand glaubt, sie wirkten; gespeicherte Werte bleiben unverändert erhalten. */}
+                  <div id="step-notification-settings-note" className="flex items-start gap-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900" data-testid="step-notification-settings-note">
+                    <Info className="mt-0.5 h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                    <div className="space-y-1">
+                      <p>Diese Vorlagen-Schalter werden vom System nicht ausgewertet und sind deshalb gesperrt (gespeicherte Werte bleiben erhalten).</p>
+                      <p>So wird der Kunde tatsächlich informiert:</p>
+                      <ul className="list-disc space-y-0.5 pl-4">
+                        <li>Im Auftrag, Bereich „Reparatur-Workflow“: Schalter „Kunde informieren“ beim Start, bei einem Zwischenfall und beim Abschluss (Benachrichtigung im Kundenkonto + E-Mail). Schlägt der Versand fehl: „Benachrichtigung erneut senden“.</li>
+                        <li>Bei Schritten dieses Vorlagen-Workflows erhält der Kunde unabhängig von diesen Schaltern automatisch eine kurze Statusmeldung (Start, Fortschritt, Reparatur fertig) – im Kundenkonto bzw. per E-Mail, je nach seinen Benachrichtigungseinstellungen.</li>
+                      </ul>
+                    </div>
+                  </div>
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="notify-start"
                       checked={stepData.notificationSettings?.onStart || false}
-                      onCheckedChange={(checked) => setStepData(prev => ({
-                        ...prev,
-                        notificationSettings: {
-                          ...prev.notificationSettings,
-                          onStart: checked
-                        }
-                      }))}
+                      disabled
+                      aria-describedby="step-notification-settings-note"
                     />
-                    <Label htmlFor="notify-start" className="text-xs">Notify on Start</Label>
+                    <Label htmlFor="notify-start" className="text-xs text-muted-foreground">Bei Start benachrichtigen (nicht unterstützt)</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="notify-complete"
                       checked={stepData.notificationSettings?.onComplete || false}
-                      onCheckedChange={(checked) => setStepData(prev => ({
-                        ...prev,
-                        notificationSettings: {
-                          ...prev.notificationSettings,
-                          onComplete: checked
-                        }
-                      }))}
+                      disabled
+                      aria-describedby="step-notification-settings-note"
                     />
-                    <Label htmlFor="notify-complete" className="text-xs">Notify on Complete</Label>
+                    <Label htmlFor="notify-complete" className="text-xs text-muted-foreground">Bei Abschluss benachrichtigen (nicht unterstützt)</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="notify-delay"
                       checked={stepData.notificationSettings?.onDelay || false}
-                      onCheckedChange={(checked) => setStepData(prev => ({
-                        ...prev,
-                        notificationSettings: {
-                          ...prev.notificationSettings,
-                          onDelay: checked
-                        }
-                      }))}
+                      disabled
+                      aria-describedby="step-notification-settings-note"
                     />
-                    <Label htmlFor="notify-delay" className="text-xs">Notify on Delay</Label>
+                    <Label htmlFor="notify-delay" className="text-xs text-muted-foreground">Bei Verzögerung benachrichtigen (nicht unterstützt)</Label>
                   </div>
                 </CardContent>
               </Card>
@@ -746,19 +752,26 @@ export function StepManagementDialog({
             </TabsContent>
 
             <TabsContent value="automation" className="space-y-2">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-start gap-2">
                 <div>
                   <h3 className="text-xs font-semibold flex items-center gap-1">
                     <Zap className="h-3 w-3" />
-                    Automation Rules
+                    Automatisierungsregeln – nicht unterstützt
                   </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Configure automatic actions and triggers for this step
-                  </p>
+                  {/* K06 (Runde 3): Regeln werden gespeichert, aber von keinem Servercode ausgeführt (auch
+                      "Benachrichtigung senden" nicht). Neue Regeln sind gesperrt, vorhandene bleiben erhalten
+                      und können gelöscht werden. */}
+                  <div id="step-automation-rules-note" className="mt-1 flex items-start gap-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900" data-testid="step-automation-rules-note">
+                    <Info className="mt-0.5 h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                    <div className="space-y-1">
+                      <p>Automatisierungsregeln werden vom System nicht ausgeführt – auch „Benachrichtigung senden“ verschickt nichts. Deshalb können keine neuen Regeln angelegt werden; bereits gespeicherte Regeln bleiben erhalten und können gelöscht werden.</p>
+                      <p>Den Kunden informieren Sie im Auftrag, Bereich „Reparatur-Workflow“, mit dem Schalter „Kunde informieren“ (Start, Zwischenfall, Abschluss; bei Fehlschlag „Benachrichtigung erneut senden“).</p>
+                    </div>
+                  </div>
                 </div>
-                <Button size="sm" className="h-7 text-xs" onClick={() => setShowAutomationDialog(true)}>
+                <Button size="sm" className="h-7 text-xs flex-shrink-0" disabled aria-describedby="step-automation-rules-note" title="Nicht unterstützt – Regeln werden nicht ausgeführt">
                   <Plus className="h-3 w-3 mr-1" />
-                  Add Rule
+                  Regel hinzufügen
                 </Button>
               </div>
 
@@ -769,20 +782,20 @@ export function StepManagementDialog({
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="flex items-center gap-1 mb-1">
-                            <Badge variant={rule.isActive ? "default" : "secondary"} className="text-xs h-4 px-1">
-                              {rule.isActive ? "Active" : "Inactive"}
+                            <Badge variant="secondary" className="text-xs h-4 px-1">
+                              Ohne Wirkung{rule.isActive ? " (als aktiv gespeichert)" : ""}
                             </Badge>
                             <Badge variant="outline" className="text-xs h-4 px-1">{rule.trigger}</Badge>
                           </div>
                           <h4 className="text-xs font-medium">
-                            When: {triggerOptions.find(t => t.value === rule.trigger)?.label}
+                            Wenn: {triggerOptions.find(t => t.value === rule.trigger)?.label || rule.trigger}
                           </h4>
                           <p className="text-xs text-muted-foreground">
-                            Action: {actionOptions.find(a => a.value === rule.action)?.label}
+                            Aktion: {actionOptions.find(a => a.value === rule.action)?.label || rule.action}
                           </p>
                           {rule.condition && (
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              Condition: {rule.condition}
+                              Bedingung: {rule.condition}
                             </p>
                           )}
                         </div>
@@ -791,15 +804,9 @@ export function StepManagementDialog({
                             variant="outline"
                             size="sm"
                             className="h-6 w-6 p-0"
-                            onClick={() => setEditingAutomationRule(rule)}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-6 w-6 p-0"
                             onClick={() => handleRemoveAutomationRule(rule._id!)}
+                            aria-label="Gespeicherte Regel löschen"
+                            title="Gespeicherte Regel löschen"
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -810,14 +817,10 @@ export function StepManagementDialog({
                 ) : (
                   <Card className="p-4 text-center">
                     <Zap className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                    <h3 className="text-xs font-medium mb-1">No Automation Rules</h3>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Add automation rules to trigger actions automatically when certain conditions are met.
+                    <h3 className="text-xs font-medium mb-1">Keine Automatisierungsregeln gespeichert</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Automatisierungsregeln werden derzeit nicht unterstützt (siehe Hinweis oben).
                     </p>
-                    <Button size="sm" className="h-7 text-xs" onClick={() => setShowAutomationDialog(true)}>
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add First Rule
-                    </Button>
                   </Card>
                 )}
               </div>
@@ -1036,7 +1039,7 @@ export function StepManagementDialog({
                   checked={newFormField.required || false}
                   onCheckedChange={(checked) => setNewFormField(prev => ({ ...prev, required: checked }))}
                 />
-                <Label htmlFor="field-required" className="text-xs">Required Field</Label>
+                <Label htmlFor="field-required" className="text-xs">Pflichtfeld</Label>
               </div>
             </div>
             <div className="space-y-1">
@@ -1150,7 +1153,7 @@ export function StepManagementDialog({
                     checked={editingFormField.required || false}
                     onCheckedChange={(checked) => setEditingFormField(prev => prev ? ({ ...prev, required: checked }) : null)}
                   />
-                  <Label htmlFor="edit-field-required" className="text-xs">Required Field</Label>
+                  <Label htmlFor="edit-field-required" className="text-xs">Pflichtfeld</Label>
                 </div>
               </div>
               <div className="space-y-1">

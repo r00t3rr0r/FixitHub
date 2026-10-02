@@ -12,12 +12,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Separator } from '../../components/ui/separator';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Plus, Search, Edit, Trash2, Package, AlertTriangle, Eye, DollarSign, MapPin, Calendar, Info, ListPlus, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Upload, Boxes, Tag, Wrench, ClipboardList, Layers, ShieldCheck, Filter, X } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, AlertTriangle, Eye, Euro, MapPin, Calendar, Info, ListPlus, ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Upload, Boxes, Tag, Wrench, ClipboardList, Layers, ShieldCheck, Filter, X } from 'lucide-react';
 import { getParts, createInventoryItem, updatePart, deletePart, deleteAllParts, Part, PartVersion } from '../../api/parts';
 import { getNeedLists, createNeedList, addItemToNeedList, NeedList } from '../../api/needLists';
 import { PartsCSVImportDialog } from '../../components/admin/PartsCSVImportDialog';
 import DeleteAllConfirmButton from '../../components/admin/DeleteAllConfirmButton';
 import { useToast } from '../../hooks/useToast';
+import { formatEUR } from '@/lib/utils';
 import './PartsManagement.css';
 
 const compactFieldClassName = "h-9 text-sm";
@@ -818,10 +819,10 @@ export function PartsManagement() {
         <div className="parts-stat-card parts-stat-card--green">
           <div className="parts-stat-card__header">
             <span className="parts-stat-card__label">Inventory Value</span>
-            <span className="parts-stat-card__icon"><DollarSign /></span>
+            <span className="parts-stat-card__icon"><Euro /></span>
           </div>
           <div className="parts-stat-card__value">
-            ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {formatEUR(totalValue)}
           </div>
           <p className="parts-stat-card__hint">Total selling value in stock</p>
         </div>
@@ -1423,7 +1424,7 @@ function PartDetailView({ part }: { part: Part }) {
           </div>
         </div>
         <div className="pd-price-block">
-          <div className="pd-price">${sellingPrice.toFixed(2)}</div>
+          <div className="pd-price">{formatEUR(sellingPrice)}</div>
           <div className="pd-price-label">{t('partsManagement.sellingPrice')}</div>
           <span className={`parts-stock-badge ${stockStatus.cls}`}>{stockStatus.label}</span>
         </div>
@@ -1461,13 +1462,13 @@ function PartDetailView({ part }: { part: Part }) {
 
           {/* Pricing */}
           <div className="pd-section">
-            <div className="pd-section-title"><DollarSign size={12} /> Pricing</div>
+            <div className="pd-section-title"><Euro size={12} /> Pricing</div>
             <div className="pd-kv-grid">
               <span className="pd-kv-label">{t('partsManagement.costPrice')}</span>
-              <span className="pd-kv-value pd-money">${costPrice.toFixed(2)}</span>
+              <span className="pd-kv-value pd-money">{formatEUR(costPrice)}</span>
 
               <span className="pd-kv-label">{t('partsManagement.sellingPrice')}</span>
-              <span className="pd-kv-value pd-money">${sellingPrice.toFixed(2)}</span>
+              <span className="pd-kv-value pd-money">{formatEUR(sellingPrice)}</span>
 
               {margin !== null && (
                 <>
@@ -1568,10 +1569,10 @@ function PartDetailView({ part }: { part: Part }) {
                   <span className="pd-kv-value pd-big">{version.quantity ?? 0}</span>
 
                   <span className="pd-kv-label">Unit Cost</span>
-                  <span className="pd-kv-value pd-money">${(version.unitCost ?? 0).toFixed(2)}</span>
+                  <span className="pd-kv-value pd-money">{formatEUR(version.unitCost ?? 0)}</span>
 
                   <span className="pd-kv-label">{t('partsManagement.sellingPrice')}</span>
-                  <span className="pd-kv-value pd-money">${(version.sellingPrice ?? 0).toFixed(2)}</span>
+                  <span className="pd-kv-value pd-money">{formatEUR(version.sellingPrice ?? 0)}</span>
 
                   <span className="pd-kv-label">Location</span>
                   <span className="pd-kv-value">

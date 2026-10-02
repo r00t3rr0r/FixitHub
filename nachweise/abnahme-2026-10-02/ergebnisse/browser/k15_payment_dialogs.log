@@ -1,0 +1,85 @@
+--- 1. Testdaten ---
+Testdaten: Buchung A BKG-2026-0016 / Auftrag ORD-2026-073 (iPhone 15, Diagnose E2E, Status pending, 47,40 €) fuer partner@e2e.invalid per Warenkorb + Checkout-API (PayPal ausstehend, keine Zahlung)
+Testdaten: Buchung B BKG-2026-0017 / Auftrag ORD-2026-074 (iPhone 15, Diagnose E2E, Status pending, 47,40 €) fuer partner@e2e.invalid per Warenkorb + Checkout-API (PayPal ausstehend, keine Zahlung)
+Testdaten: offener Betrag Buchung BKG-2026-0016 laut Server (GET /api/bookings/:id/payments) = 47.4
+  PASS Vorbedingung: eigene Buchung A hat einen offenen Betrag :: 47,40 €
+--- 2. Zahlungsaufforderung (Buchung) ---
+  PASS Karte "Zahlungsaufforderung senden": Buchung gewaehlt, offener Betrag und Kunden-E-Mail sichtbar :: Zahlungsaufforderung senden Per E-Mail (kein PayPal-Auftrag) Buchungs-/Rechnungsnummer oder Kunde Paula Partner Offen: 47,40 € partner@e2e.invalid Auftrag: 47,40 € Bezahlt: 0,00 € Betrag (€ optional) Hinweis / Notiz Gesendete Zahlungsaufforderungen Hierfür wur
+   [shot] 01_zahlungsaufforderung_bestaetigung_erstversand.png
+  PASS Bestaetigung zeigt den Empfaenger (Testkunde) :: Empfänger Paula Partner <partner@e2e.invalid> Bezug Buchung BKG-2026-
+  PASS Bestaetigung zeigt den Bezug (eigene Buchung) :: Bezug Buchung BKG-2026-0016 Offener Betrag 47
+  PASS Bestaetigung zeigt den offenen Betrag laut Server :: Offener Betrag 47,40 € Angefordert
+  PASS Bestaetigung zeigt die bisherigen Aufforderungen (noch keine) 
+  PASS Erstversand: normale Senden-Schaltflaeche, keine "Trotzdem"-Option 
+  PASS Versand: Server meldet "vom Mailserver angenommen" :: 200 accepted_by_provider
+  PASS genau EINE neue Zahlungsaufforderungs-Mail fuer die eigene Buchung im Postfach :: 1790935652097-0024-partner@e2e.invalid.eml -> partner@e2e.invalid
+  PASS Mail ist an den Testkunden adressiert (nur Testadresse) :: partner@e2e.invalid
+  PASS Mailtext nennt den angeforderten Betrag :: 47,40 €
+   weitere neue Mails zur Buchung BKG-2026-0016 in diesem Zeitfenster: 0; alle neuen Mails im Postfach (auch anderer Ablaeufe): 1
+  PASS Rueckmeldung: "per E-Mail an … übergeben" (keine Zustellbehauptung) :: Notification ErfolgreichZahlungsaufforderung über 47,40 € per E-Mail an partner@e2e.invalid übergeben (kein PayPal-Zahlungsauftrag; eine Zustellung wird dadurch nicht garantiert).
+  PASS Nachpruefung DB: genau 1 Zahlungsaufforderung (angenommen) fuer Buchung A :: accepted_by_provider/partner@e2e.invalid/47.4
+  PASS Nachpruefung DB: atomarer Anspruch (paymentrequestclaims) nach dem Versand freigegeben 
+  PASS Verlauf in der Karte zeigt die gesendete Aufforderung (Betrag, Empfaenger, Übergeben) :: Gesendete Zahlungsaufforderungen 47,40 € Übergeben 2.10.2026, 12:07:32 Kanal: E-Mail mit Link zur Rechnung (kein PayPal-Zahlungsauftrag) · für die Buchung An: partner@e2e.invalid „Bitte begleichen Sie den offenen Restbet
+   [shot] 02_zahlungsaufforderung_gesendet_verlauf.png
+  PASS nach Reload: Dialog "Bisherige Aufforderungen" zeigt die Aufforderung (Datum, Betrag, Empfaenger, Übergeben) :: Bisherige Aufforderungen 2.10.2026, 12:07:32 · 47,40 € · an partner@e2e.invalid Übergeben Abbrechen Jetzt per E-Mail senden Schließen
+   [shot] 03_nach_reload_dialog_mit_verlauf.png
+--- 3. Zweite Aufforderung innerhalb 24 h ---
+  PASS zweiter Versuch: Server lehnt mit Sperrfrist ab (409 PAYMENT_REQUEST_RECENT) :: 409 PAYMENT_REQUEST_RECENT
+  PASS zweiter Versuch wurde OHNE force gesendet (keine stille Erzwingung) :: {"amount":47.4,"note":"Bitte begleichen Sie den offenen Restbetrag in Höhe von 47,40 €."}
+  PASS Dialog zeigt deutschen Sperrfrist-Hinweis "Zuletzt am … an … gesendet – trotzdem erneut senden?" :: Zuletzt am 2.10.2026, 12:07:32 an partner@e2e.invalid gesendet (47,40 €) – trotzdem erneut senden?
+  PASS "Trotzdem erneut senden" nur als ausdrueckliche Wahl (neben "Abbrechen"), normale Senden-Schaltflaeche ersetzt 
+  PASS Sperrfrist: KEINE weitere Mail :: 0
+  PASS Nachpruefung DB: weiterhin genau 1 Aufforderung (abgelehnter Versuch legt nichts an) :: 1
+   [shot] 04_sperrfrist_zuletzt_am_trotzdem_senden.png
+   Doppelklick "Trotzdem erneut senden": geklickt (nach 1. Klick disabled=false); 2 POST(s) an den Server, Antworten: 409 PAYMENT_REQUEST_IN_PROGRESS, 200 accepted_by_provider
+  PASS Erzwingen erst nach ausdruecklichem Klick, Anfrage traegt force=true :: {"amount":47.4,"note":"Bitte begleichen Sie den offenen Rest | {"amount":47.4,"note":"Bitte begleichen Sie den offenen Rest
+  PASS Doppelklick auf "Trotzdem erneut senden": genau EINE weitere Mail :: 1790935667754-0025-partner@e2e.invalid.eml -> partner@e2e.invalid
+  PASS weitere Mail nur an den Testkunden :: partner@e2e.invalid
+  PASS Nachpruefung DB: genau 2 angenommene Aufforderungen fuer Buchung A (kein Doppelversand) :: accepted_by_provider,accepted_by_provider
+  PASS Nachpruefung DB: Anspruch nach Doppelklick freigegeben (kein verwaister Eintrag) 
+   Rueckmeldungen nach Doppelklick: Notification ErfolgreichZahlungsaufforderung über 47,40 € per E-Mail an partner@e2e.invalid übergeben (kein PayPal-Zahlungsauftrag; eine Zustellung wird dadurch nicht garantiert).
+   [shot] 05_nach_doppelklick_trotzdem_senden.png
+  PASS Verlauf in der Karte zeigt jetzt 2 Aufforderungen :: 2
+--- Verlauf in der Buchungszeile (/admin/bookings → Zahlungen) ---
+  PASS Buchungszeile → Zahlungen: Verlauf zeigt beide Aufforderungen (angenommen, an Testkunden) :: Zahlungsaufforderungen 02.10.2026, 12:07 · 47,40 € An Paula Partner <partner@e2e.invalid> Vom Mailserver angenommen Erneut senden … 02.10.2026, 12:07 · 47,40 € An Paula Partner <partner@e2e.invalid> Vom Mailserver angenommen Erneut senden … Schließen Schließen
+   [shot] 06_buchungszeile_zahlungen_verlauf.png
+--- 4. Rechnung aus Aufträgen erstellen ---
+  PASS Vorbedingung DB: fuer Auftrag A existiert noch keine Rechnung 
+  PASS Vorschau zeigt den Umfang: eigener Auftrag A, Status "Nicht abgeschlossen (pending)" :: ORD-2026-073 Vorschau Kunde: Paula Partner · partner@e2e.invalid Auftrag
+  PASS Vorschau zeigt Kunde und Gesamt (brutto) = Auftragswert :: Gesamt (brutto) 47,40 € Darin 
+  PASS nicht abgeschlossener Auftrag: "Rechnung erstellen" ohne Bestaetigung gesperrt 
+  PASS Versandoption nennt den Empfaenger und "eine E-Mail" 
+   [shot] 07_rechnung_aus_auftraegen_vorschau_unbestaetigt.png
+  PASS nach ausdruecklicher Bestaetigung "Trotzdem berechnen" ist "Rechnung erstellen" freigegeben 
+   [shot] 08_rechnung_aus_auftraegen_bestaetigt.png
+   Doppelklick "Rechnung erstellen": geklickt (nach 1. Klick disabled=false); 2 Erstell-POST(s), Antworten: 409 INVOICE_ALREADY_EXISTS Für diese Buchung besteht bereits die Rechnung INV-2026-0001. Für eine Korrektur bitte diese Rechnung zuerst stornieren. | 201  INV-2026-0001
+  PASS Nachpruefung DB: genau EINE aktive Rechnung fuer Auftrag A :: INV-2026-0001
+  PASS Nachpruefung DB: Rechnung belegt den Auftrag atomar (activeBillingKeys + repairOrderIds) :: ["order:6abf82552a854d3cec74945d","booking:6abf82552a854d3cec74946d"]
+  PASS Nachpruefung DB: Auftrag B wurde NICHT berechnet (nur der eigene ausgewaehlte Auftrag) 
+  PASS Rechnungsbetrag (brutto) = Auftragswert :: 47.4 / 47.4
+  PASS genau EINE Rechnungsmail (sofort per E-Mail, Standard) fuer die neue Rechnung :: 1790935690917-0026-partner@e2e.invalid.eml -> partner@e2e.invalid [PDF]
+  PASS Rechnungsmail an den Testkunden mit PDF-Anhang :: partner@e2e.invalid
+   Versand-POSTs /invoices/:id/send: 1
+  PASS Rueckmeldung: "Rechnung … wurde erstellt und per E-Mail an … übergeben." :: Notification Rechnung nicht erstelltFür diese Buchung besteht bereits die Rechnung INV-2026-0001. Für eine Korrektur bitte diese Rechnung zuerst stornieren. || Notification ErfolgreichRechnung INV-2026-0001 wurde erstellt und per E-Mail an partner@e2e.invalid übergeben.
+  PASS zweiter Klick erreichte den Server: klare deutsche Meldung statt zweiter Rechnung :: Notification Rechnung nicht erstelltFür diese Buchung besteht bereits die Rechnung INV-2026-0001. Für eine Korrektur bitte diese Rechnung zuerst stornieren.
+   [shot] 09_rechnung_erstellt.png
+  PASS zweiter Lauf: Auftrag A als "Bereits berechnet: INV-2026-0001" ausgewiesen :: ORD-2026-073 ORD-2026-074 Vorschau Kunde: Paula Partner · partner@e2e.invalid Auftrag Status
+  PASS zweiter Lauf: klare deutsche Meldung "… ist bereits berechnet (Rechnung …)" mit Handlungshinweis 
+  PASS zweiter Lauf mit bereits berechnetem Auftrag: "Rechnung erstellen" bleibt gesperrt (auch nach Bestaetigung) 
+   [shot] 10_zweiter_lauf_bereits_berechnet.png
+  PASS nach Entfernen des berechneten Auftrags waere nur Auftrag B berechenbar (Sperre gilt genau dem berechneten Auftrag) 
+   (Abweichung zur Formulierung "überspringen": bereits berechnete Aufträge werden nicht automatisch ausgelassen, sondern blockieren, bis sie entfernt sind.)
+   [shot] 11_zweiter_lauf_nur_b_moeglich.png
+  PASS Abbrechen: fuer Auftrag B wurde keine Rechnung erstellt 
+  PASS Nachpruefung API: erneutes Erstellen fuer Auftrag A -> 409 mit deutscher Meldung :: 409 ORDER_ALREADY_INVOICED Für Auftrag ORD-2026-073 besteht bereits die Rechnung INV-2026-0001. Eine Leistung darf nicht zweimal berechnet werden –
+  PASS Nachpruefung DB: weiterhin genau EINE Rechnung fuer Auftrag A :: 1
+--- 5. Zahlungsaufforderung aus der Rechnungszeile ---
+  PASS Rechnungszeile → Bestaetigung zeigt Rechnungsbezug, Empfaenger und offenen Betrag :: Empfänger Paula Partner <partner@e2e.invalid> Bezug Rechnung INV-2026-0001 Offener Betrag 47,40 € Angeforderter Betrag (€) Höchstens der offene Betra
+  PASS Rechnungszeile → Bestaetigung listet die beiden bisherigen Aufforderungen der Buchung 
+   [shot] 12_rechnungszeile_bestaetigung.png
+   Rechnungs-Aufforderung (ohne force): 409 PAYMENT_REQUEST_RECENT; neue Aufforderungs-Mails: 0 
+  PASS 24-h-Regel gilt fuer dieselbe Buchung auch beim Weg ueber ihre Rechnung (Aufforderung fuer die Buchung vor wenigen Minuten) :: 409 PAYMENT_REQUEST_RECENT, Mails 0
+   [shot] 13_rechnungszeile_nach_senden.png
+   Nachpruefung DB Ende: Zahlungsaufforderungen Buchung BKG-2026-0016: booking/accepted_by_provider/-, booking/accepted_by_provider/-
+  PASS netguard_after.log unveraendert (keine externe Verbindung des Testservers) :: 0 -> 0
+==== k15_payment_dialogs: 54 bestanden, 0 fehlgeschlagen ====

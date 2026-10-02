@@ -1,0 +1,1092 @@
+src/api/adminOrders.ts(3,1): error TS6192: All imports in import declaration are unused.
+src/api/adminOrders.ts(404,38): error TS6133: 'orderId' is declared but its value is never read.
+src/api/api.ts(2,21): error TS7016: Could not find a declaration file for module 'json-bigint'. '/home/adar/Projects/FixitHub/client/node_modules/json-bigint/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/json-bigint` if it exists or add a new declaration (.d.ts) file containing `declare module 'json-bigint';`
+src/api/api.ts(88,20): error TS6133: 'status' is declared but its value is never read.
+src/api/api.ts(126,25): error TS6133: 'url' is declared but its value is never read.
+src/api/api.ts(236,19): error TS2345: Argument of type 'AxiosInstance' is not assignable to parameter of type 'AxiosStatic'.
+  Type 'AxiosInstance' is missing the following properties from type 'AxiosStatic': Cancel, CancelToken, Axios, AxiosError, and 12 more.
+src/api/blog.ts(277,39): error TS6133: 'filters' is declared but its value is never read.
+src/api/blog.ts(294,44): error TS6133: 'filters' is declared but its value is never read.
+src/api/blog.ts(358,39): error TS6133: 'commentId' is declared but its value is never read.
+src/api/blog.ts(358,58): error TS6133: 'status' is declared but its value is never read.
+src/api/blog.ts(358,74): error TS6133: 'notes' is declared but its value is never read.
+src/api/blog.ts(400,43): error TS6133: 'postIds' is declared but its value is never read.
+src/api/brands.ts(135,45): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/brands.ts(136,50): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/brands.ts(137,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/brands.ts(137,53): error TS18046: 'error' is of type 'unknown'.
+src/api/brands.ts(149,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/brands.ts(149,53): error TS18046: 'error' is of type 'unknown'.
+src/api/brands.ts(161,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/brands.ts(161,53): error TS18046: 'error' is of type 'unknown'.
+src/api/brands.ts(173,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/brands.ts(173,53): error TS18046: 'error' is of type 'unknown'.
+src/api/brands.ts(186,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/brands.ts(186,53): error TS18046: 'error' is of type 'unknown'.
+src/api/brands.ts(198,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/brands.ts(198,53): error TS18046: 'error' is of type 'unknown'.
+src/api/brands.ts(214,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/brands.ts(214,53): error TS18046: 'error' is of type 'unknown'.
+src/api/brands.ts(230,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/brands.ts(230,53): error TS18046: 'error' is of type 'unknown'.
+src/api/csvDeviceImport.ts(14,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/csvDeviceImport.ts(14,53): error TS18046: 'error' is of type 'unknown'.
+src/api/csvDeviceImport.ts(27,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/csvDeviceImport.ts(27,53): error TS18046: 'error' is of type 'unknown'.
+src/api/csvImport.ts(17,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/csvImport.ts(17,53): error TS18046: 'error' is of type 'unknown'.
+src/api/csvImport.ts(33,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/csvImport.ts(33,53): error TS18046: 'error' is of type 'unknown'.
+src/api/csvPartsImport.ts(82,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/csvPartsImport.ts(82,53): error TS18046: 'error' is of type 'unknown'.
+src/api/csvPartsImport.ts(100,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/csvPartsImport.ts(100,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(69,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(69,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(81,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(81,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(93,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(93,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(105,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(105,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(117,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(117,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(129,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(129,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(141,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(141,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(153,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(153,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(165,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(165,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(177,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(177,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(189,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(189,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(201,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(201,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(211,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(211,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(221,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(221,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(231,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(231,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(241,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(241,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(251,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(251,53): error TS18046: 'error' is of type 'unknown'.
+src/api/database.ts(261,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/database.ts(261,53): error TS18046: 'error' is of type 'unknown'.
+src/api/devices.ts(13,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/devices.ts(13,53): error TS18046: 'error' is of type 'unknown'.
+src/api/devices.ts(191,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/devices.ts(191,53): error TS18046: 'error' is of type 'unknown'.
+src/api/devices.ts(210,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/devices.ts(210,53): error TS18046: 'error' is of type 'unknown'.
+src/api/devices.ts(223,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/devices.ts(223,53): error TS18046: 'error' is of type 'unknown'.
+src/api/devices.ts(236,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/devices.ts(236,53): error TS18046: 'error' is of type 'unknown'.
+src/api/devices.ts(258,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/devices.ts(258,53): error TS18046: 'error' is of type 'unknown'.
+src/api/devices.ts(297,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/devices.ts(297,53): error TS18046: 'error' is of type 'unknown'.
+src/api/devices.ts(319,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/devices.ts(319,53): error TS18046: 'error' is of type 'unknown'.
+src/api/devices.ts(335,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/devices.ts(335,53): error TS18046: 'error' is of type 'unknown'.
+src/api/devices.ts(353,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/devices.ts(353,53): error TS18046: 'error' is of type 'unknown'.
+src/api/devices.ts(413,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/devices.ts(413,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(171,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(171,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(184,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(184,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(197,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(197,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(210,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(210,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(223,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(223,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(236,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(236,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(249,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(249,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(262,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(262,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(275,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(275,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(288,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(288,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(302,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(302,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(316,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/homepage.ts(316,53): error TS18046: 'error' is of type 'unknown'.
+src/api/homepage.ts(381,7): error TS2353: Object literal may only specify known properties, and 'position' does not exist in type '{ backgroundColor?: string | undefined; textColor?: string | undefined; backgroundImage?: string | undefined; padding?: string | undefined; margin?: string | undefined; minHeight?: string | undefined; ... 18 more ...; customCSS?: string | undefined; }'.
+src/api/homepage.ts(512,9): error TS2322: Type '"shop"' is not assignable to type '"html" | "banner" | "services" | "stats" | "features" | "hero" | "testimonials" | "cta" | "gallery"'.
+src/api/homepage.ts(543,9): error TS2322: Type '"blog"' is not assignable to type '"html" | "banner" | "services" | "stats" | "features" | "hero" | "testimonials" | "cta" | "gallery"'.
+src/api/homepage.ts(603,9): error TS2322: Type '"footer"' is not assignable to type '"html" | "banner" | "services" | "stats" | "features" | "hero" | "testimonials" | "cta" | "gallery"'.
+src/api/orders.ts(459,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/orders.ts(459,53): error TS18046: 'error' is of type 'unknown'.
+src/api/orders.ts(476,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/orders.ts(476,53): error TS18046: 'error' is of type 'unknown'.
+src/api/orders.ts(495,38): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/orders.ts(495,63): error TS18046: 'error' is of type 'unknown'.
+src/api/orders.ts(549,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/orders.ts(549,53): error TS18046: 'error' is of type 'unknown'.
+src/api/parts.ts(166,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/parts.ts(166,53): error TS18046: 'error' is of type 'unknown'.
+src/api/parts.ts(174,31): error TS6133: 'filters' is declared but its value is never read.
+src/api/parts.ts(271,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/parts.ts(271,53): error TS18046: 'error' is of type 'unknown'.
+src/api/parts.ts(288,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/parts.ts(288,53): error TS18046: 'error' is of type 'unknown'.
+src/api/parts.ts(305,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/parts.ts(305,53): error TS18046: 'error' is of type 'unknown'.
+src/api/parts.ts(322,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/parts.ts(322,53): error TS18046: 'error' is of type 'unknown'.
+src/api/parts.ts(356,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/parts.ts(356,53): error TS18046: 'error' is of type 'unknown'.
+src/api/quality.ts(1,1): error TS6133: 'api' is declared but its value is never read.
+src/api/quality.ts(98,38): error TS6133: 'filters' is declared but its value is never read.
+src/api/quality.ts(213,39): error TS6133: 'filters' is declared but its value is never read.
+src/api/quality.ts(287,35): error TS6133: 'filters' is declared but its value is never read.
+src/api/security.ts(62,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/security.ts(62,53): error TS18046: 'error' is of type 'unknown'.
+src/api/security.ts(74,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/security.ts(74,53): error TS18046: 'error' is of type 'unknown'.
+src/api/security.ts(86,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/security.ts(86,53): error TS18046: 'error' is of type 'unknown'.
+src/api/security.ts(98,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/security.ts(98,53): error TS18046: 'error' is of type 'unknown'.
+src/api/security.ts(110,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/security.ts(110,53): error TS18046: 'error' is of type 'unknown'.
+src/api/security.ts(122,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/security.ts(122,53): error TS18046: 'error' is of type 'unknown'.
+src/api/security.ts(134,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/security.ts(134,53): error TS18046: 'error' is of type 'unknown'.
+src/api/seed.ts(12,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/seed.ts(12,55): error TS18046: 'error' is of type 'unknown'.
+src/api/seed.ts(25,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/seed.ts(25,55): error TS18046: 'error' is of type 'unknown'.
+src/api/seed.ts(38,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/seed.ts(38,55): error TS18046: 'error' is of type 'unknown'.
+src/api/seed.ts(51,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/seed.ts(51,55): error TS18046: 'error' is of type 'unknown'.
+src/api/seed.ts(64,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/seed.ts(64,55): error TS18046: 'error' is of type 'unknown'.
+src/api/seed.ts(78,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/seed.ts(78,55): error TS18046: 'error' is of type 'unknown'.
+src/api/seed.ts(90,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/seed.ts(90,55): error TS18046: 'error' is of type 'unknown'.
+src/api/services.ts(90,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/services.ts(90,53): error TS18046: 'error' is of type 'unknown'.
+src/api/services.ts(106,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/services.ts(106,53): error TS18046: 'error' is of type 'unknown'.
+src/api/services.ts(122,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/services.ts(122,53): error TS18046: 'error' is of type 'unknown'.
+src/api/services.ts(138,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/services.ts(138,53): error TS18046: 'error' is of type 'unknown'.
+src/api/services.ts(154,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/services.ts(154,53): error TS18046: 'error' is of type 'unknown'.
+src/api/services.ts(189,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/services.ts(189,53): error TS18046: 'error' is of type 'unknown'.
+src/api/services.ts(205,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/services.ts(205,53): error TS18046: 'error' is of type 'unknown'.
+src/api/services.ts(221,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/services.ts(221,53): error TS18046: 'error' is of type 'unknown'.
+src/api/services.ts(237,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/services.ts(237,53): error TS18046: 'error' is of type 'unknown'.
+src/api/services.ts(271,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/services.ts(271,53): error TS18046: 'error' is of type 'unknown'.
+src/api/services.ts(287,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/services.ts(287,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(113,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(113,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(126,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(126,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(139,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(139,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(152,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(152,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(165,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(165,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(178,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(178,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(191,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(191,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(254,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(254,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(282,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(282,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(305,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(305,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(328,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(328,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(350,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(350,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(363,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(363,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(416,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(416,53): error TS18046: 'error' is of type 'unknown'.
+src/api/shop.ts(439,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/shop.ts(439,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(134,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(134,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(148,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(148,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(162,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(162,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(176,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(176,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(190,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(190,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(204,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(204,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(218,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(218,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(239,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(239,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(259,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(259,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(273,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(273,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(290,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(290,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(304,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(304,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(325,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(325,53): error TS18046: 'error' is of type 'unknown'.
+src/api/timeTracking.ts(345,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/timeTracking.ts(345,53): error TS18046: 'error' is of type 'unknown'.
+src/api/user.ts(80,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/user.ts(80,55): error TS18046: 'error' is of type 'unknown'.
+src/api/user.ts(96,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/user.ts(96,55): error TS18046: 'error' is of type 'unknown'.
+src/api/user.ts(118,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/user.ts(118,55): error TS18046: 'error' is of type 'unknown'.
+src/api/users.ts(82,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/users.ts(82,53): error TS18046: 'error' is of type 'unknown'.
+src/api/users.ts(99,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/users.ts(99,53): error TS18046: 'error' is of type 'unknown'.
+src/api/users.ts(116,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/users.ts(116,53): error TS18046: 'error' is of type 'unknown'.
+src/api/users.ts(133,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/users.ts(133,53): error TS18046: 'error' is of type 'unknown'.
+src/api/users.ts(150,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/users.ts(150,53): error TS18046: 'error' is of type 'unknown'.
+src/api/users.ts(169,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/users.ts(169,53): error TS18046: 'error' is of type 'unknown'.
+src/api/users.ts(186,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/users.ts(186,53): error TS18046: 'error' is of type 'unknown'.
+src/api/users.ts(307,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/users.ts(307,55): error TS18046: 'error' is of type 'unknown'.
+src/api/users.ts(348,28): error TS2339: Property 'response' does not exist on type '{}'.
+src/api/users.ts(348,53): error TS18046: 'error' is of type 'unknown'.
+src/api/workflow.ts(116,47): error TS7006: Parameter 'w' implicitly has an 'any' type.
+src/components/CartIcon.tsx(15,14): error TS2339: Property 'deviceImage' does not exist on type 'never'.
+src/components/CartIcon.tsx(16,18): error TS2339: Property 'deviceImage' does not exist on type 'never'.
+src/components/CartIcon.tsx(19,31): error TS2339: Property 'photos' does not exist on type 'never'.
+src/components/CartIcon.tsx(19,48): error TS2339: Property 'photos' does not exist on type 'never'.
+src/components/CartIcon.tsx(19,74): error TS2339: Property 'photos' does not exist on type 'never'.
+src/components/CartIcon.tsx(66,10): error TS6133: 'isLoading' is declared but its value is never read.
+src/components/CartIcon.tsx(278,69): error TS2345: Argument of type 'RepairOrderItem' is not assignable to parameter of type 'never'.
+src/components/CustomerNavbar.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/CustomerNavbar.tsx(1,38): error TS6133: 'useRef' is declared but its value is never read.
+src/components/DeviceModelDetailsPanel.tsx(459,44): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/components/DeviceModelDetailsPanel.tsx(459,47): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/components/Footer.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/ProfileDropdown.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/TrackingDemo.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/admin/AddOnCSVImportDialog.tsx(24,3): error TS6133: 'ValidatedRow' is declared but its value is never read.
+src/components/admin/AddProductDialog.tsx(111,44): error TS2345: Argument of type '{ name: string; description: string; price: number; originalPrice: number | undefined; category: string; brand: string; stockCount: number; images: string[]; features: string[]; compatibility: string[]; ... 6 more ...; seoMetaDescription: string | undefined; }' is not assignable to parameter of type 'Partial<Product>'.
+  Types of property 'dimensions' are incompatible.
+    Type '{ length: number | undefined; width: number | undefined; height: number | undefined; } | undefined' is not assignable to type '{ length: number; width: number; height: number; } | undefined'.
+      Type '{ length: number | undefined; width: number | undefined; height: number | undefined; }' is not assignable to type '{ length: number; width: number; height: number; }'.
+        Types of property 'length' are incompatible.
+          Type 'number | undefined' is not assignable to type 'number'.
+            Type 'undefined' is not assignable to type 'number'.
+src/components/admin/CSVImportDevicesDialog.tsx(2,18): error TS7016: Could not find a declaration file for module 'papaparse'. '/home/adar/Projects/FixitHub/node_modules/papaparse/papaparse.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/papaparse` if it exists or add a new declaration (.d.ts) file containing `declare module 'papaparse';`
+src/components/admin/CSVImportDevicesDialog.tsx(7,3): error TS6133: 'DialogFooter' is declared but its value is never read.
+src/components/admin/CSVImportDevicesDialog.tsx(18,1): error TS6192: All imports in import declaration are unused.
+src/components/admin/CSVImportDevicesDialog.tsx(35,18): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/components/admin/CSVImportDevicesDialog.tsx(64,9): error TS6133: 't' is declared but its value is never read.
+src/components/admin/CSVImportDevicesDialog.tsx(87,10): error TS6133: 'showConfirmDialog' is declared but its value is never read.
+src/components/admin/CSVImportDevicesDialog.tsx(87,29): error TS6133: 'setShowConfirmDialog' is declared but its value is never read.
+src/components/admin/CSVImportDevicesDialog.tsx(88,10): error TS6133: 'skippedIndices' is declared but its value is never read.
+src/components/admin/CSVImportDevicesDialog.tsx(117,18): error TS7006: Parameter 'results' implicitly has an 'any' type.
+src/components/admin/CSVImportDevicesDialog.tsx(196,33): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/components/admin/CSVImportDevicesDialog.tsx(226,15): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/components/admin/CSVImportDialog.tsx(2,18): error TS7016: Could not find a declaration file for module 'papaparse'. '/home/adar/Projects/FixitHub/node_modules/papaparse/papaparse.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/papaparse` if it exists or add a new declaration (.d.ts) file containing `declare module 'papaparse';`
+src/components/admin/CSVImportDialog.tsx(7,3): error TS6133: 'DialogFooter' is declared but its value is never read.
+src/components/admin/CSVImportDialog.tsx(63,9): error TS6133: 't' is declared but its value is never read.
+src/components/admin/CSVImportDialog.tsx(107,18): error TS7006: Parameter 'results' implicitly has an 'any' type.
+src/components/admin/CSVImportDialog.tsx(168,15): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/components/admin/CSVImportDialog.tsx(216,22): error TS18046: 'error' is of type 'unknown'.
+src/components/admin/CSVImportDialog.tsx(234,9): error TS2322: Type '{ validRows: number; totalRows?: number | undefined; duplicateRows?: number | undefined; skippedRows?: number | undefined; invalidRows?: number; }' is not assignable to type '{ totalRows: number; validRows: number; duplicateRows: number; skippedRows: number; invalidRows?: number | undefined; }'.
+  Types of property 'totalRows' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/admin/CSVImportDialog.tsx(257,9): error TS2322: Type '{ validRows: number; totalRows?: number | undefined; duplicateRows?: number | undefined; skippedRows?: number | undefined; invalidRows?: number; }' is not assignable to type '{ totalRows: number; validRows: number; duplicateRows: number; skippedRows: number; invalidRows?: number | undefined; }'.
+  Types of property 'totalRows' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/components/admin/CSVImportDialog.tsx(315,22): error TS18046: 'error' is of type 'unknown'.
+src/components/admin/CSVPreviewTable.tsx(3,1): error TS6133: 'Badge' is declared but its value is never read.
+src/components/admin/ColumnAssignmentPanel.tsx(1,17): error TS6133: 'useState' is declared but its value is never read.
+src/components/admin/ColumnAssignmentPanel.tsx(20,9): error TS6133: 't' is declared but its value is never read.
+src/components/admin/ColumnAssignmentPanel.tsx(74,9): error TS6133: 'allRequiredFieldsMapped' is declared but its value is never read.
+src/components/admin/ColumnAssignmentPanelDevice.tsx(68,9): error TS6133: 'allRequiredFieldsMapped' is declared but its value is never read.
+src/components/admin/CreateStaffDialog.tsx(5,1): error TS6133: 'Textarea' is declared but its value is never read.
+src/components/admin/CreateStaffDialog.tsx(57,31): error TS2345: Argument of type '{ name: string; email: string; phone: string; role: string; department: string; specializations: string[]; addOnCapabilities: string[]; password: string; }' is not assignable to parameter of type 'Partial<StaffMember>'.
+  Types of property 'role' are incompatible.
+    Type 'string' is not assignable to type '"staff" | "admin" | "technician" | "supervisor" | "manager" | undefined'.
+src/components/admin/CreateTeamDialog.tsx(73,24): error TS2345: Argument of type '{ name: string; description: string; leaderId: string; department: string; specializations: string[]; permissions: string[]; members: { userId: string; role: string; }[]; }' is not assignable to parameter of type 'Partial<Team>'.
+  Types of property 'members' are incompatible.
+    Type '{ userId: string; role: string; }[]' is not assignable to type 'StaffMember[]'.
+      Type '{ userId: string; role: string; }' is missing the following properties from type 'StaffMember': _id, name, email, phone, and 8 more.
+src/components/admin/EPartSelectionDialog.tsx(569,60): error TS2339: Property 'brand' does not exist on type 'Part'.
+src/components/admin/EPartSelectionDialog.tsx(744,17): error TS2322: Type '{ children: Element[]; id: string; value: string; onValueChange: Dispatch<SetStateAction<string>>; }' is not assignable to type 'IntrinsicAttributes & SelectSharedProps & { value?: string | undefined; defaultValue?: string | undefined; onValueChange?(value: string): void; }'.
+  Property 'id' does not exist on type 'IntrinsicAttributes & SelectSharedProps & { value?: string | undefined; defaultValue?: string | undefined; onValueChange?(value: string): void; }'.
+src/components/admin/IntegrationDialog.tsx(126,11): error TS2353: Object literal may only specify known properties, and 'locationApiKey' does not exist in type '{ apiKey?: string | undefined; apiSecret?: string | undefined; apiEndpoint?: string | undefined; accountId?: string | undefined; clientId?: string | undefined; clientSecret?: string | undefined; ... 7 more ...; trackingAuthType?: string | undefined; }'.
+src/components/admin/IntegrationDialog.tsx(126,52): error TS2339: Property 'locationApiKey' does not exist on type '{ apiKey?: string | undefined; apiSecret?: string | undefined; apiEndpoint?: string | undefined; accountId?: string | undefined; clientId?: string | undefined; clientSecret?: string | undefined; ... 7 more ...; trackingAuthType?: string | undefined; }'.
+src/components/admin/IntegrationDialog.tsx(174,11): error TS2353: Object literal may only specify known properties, and 'locationApiKey' does not exist in type '{ apiKey?: string | undefined; apiSecret?: string | undefined; apiEndpoint?: string | undefined; accountId?: string | undefined; clientId?: string | undefined; clientSecret?: string | undefined; ... 7 more ...; trackingAuthType?: string | undefined; }'.
+src/components/admin/IntegrationDialog.tsx(231,49): error TS2339: Property 'locationApiKey' does not exist on type '{ apiKey?: string | undefined; apiSecret?: string | undefined; apiEndpoint?: string | undefined; accountId?: string | undefined; clientId?: string | undefined; clientSecret?: string | undefined; ... 7 more ...; trackingAuthType?: string | undefined; }'.
+src/components/admin/IntegrationDialog.tsx(1123,54): error TS2339: Property 'locationApiKey' does not exist on type '{ apiKey?: string | undefined; apiSecret?: string | undefined; apiEndpoint?: string | undefined; accountId?: string | undefined; clientId?: string | undefined; clientSecret?: string | undefined; ... 7 more ...; trackingAuthType?: string | undefined; }'.
+src/components/admin/NeedListManagement.tsx(696,9): error TS6133: 'getPartName' is declared but its value is never read.
+src/components/admin/NeedListManagement.tsx(1537,71): error TS2339: Property 'currentStock' does not exist on type 'Part'.
+src/components/admin/PartsCSVImportDialog.tsx(2,18): error TS7016: Could not find a declaration file for module 'papaparse'. '/home/adar/Projects/FixitHub/node_modules/papaparse/papaparse.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/papaparse` if it exists or add a new declaration (.d.ts) file containing `declare module 'papaparse';`
+src/components/admin/PartsCSVImportDialog.tsx(91,18): error TS7006: Parameter 'results' implicitly has an 'any' type.
+src/components/admin/PartsCSVImportDialog.tsx(143,15): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/components/admin/PartsCSVImportDialog.tsx(201,22): error TS18046: 'error' is of type 'unknown'.
+src/components/admin/PartsCSVImportDialog.tsx(251,22): error TS18046: 'error' is of type 'unknown'.
+src/components/admin/PartsCSVImportDialog.tsx(340,95): error TS2367: This comparison appears to be unintentional because the types '"preview" | "import" | "mapping"' and '"upload"' have no overlap.
+src/components/admin/ProductColumnAssignmentPanel.tsx(59,9): error TS6133: 'getMappedFields' is declared but its value is never read.
+src/components/admin/ProductForm.tsx(140,44): error TS2345: Argument of type '{ name: string; description: string; price: number; originalPrice: number | undefined; category: string; brand: string; stockCount: number; images: string[]; features: string[]; compatibility: string[]; weight: number | undefined; dimensions: { ...; } | undefined; }' is not assignable to parameter of type 'Partial<Product>'.
+  Types of property 'dimensions' are incompatible.
+    Type '{ length: number | undefined; width: number | undefined; height: number | undefined; } | undefined' is not assignable to type '{ length: number; width: number; height: number; } | undefined'.
+      Type '{ length: number | undefined; width: number | undefined; height: number | undefined; }' is not assignable to type '{ length: number; width: number; height: number; }'.
+        Types of property 'length' are incompatible.
+          Type 'number | undefined' is not assignable to type 'number'.
+            Type 'undefined' is not assignable to type 'number'.
+src/components/admin/ProviderConfigurationTab.tsx(24,1): error TS6192: All imports in import declaration are unused.
+src/components/admin/ProviderConfigurationTab.tsx(54,3): error TS6133: 'Copy' is declared but its value is never read.
+src/components/admin/ProviderConfigurationTab.tsx(117,9): error TS6133: 't' is declared but its value is never read.
+src/components/admin/ProviderConfigurationTab.tsx(120,10): error TS6133: 'loading' is declared but its value is never read.
+src/components/admin/ProviderConfigurationTab.tsx(159,19): error TS2345: Argument of type '{ isActive: boolean; }' is not assignable to parameter of type 'SetStateAction<ProviderFormData>'.
+  Property 'provider' is missing in type '{ isActive: boolean; }' but required in type 'ProviderFormData'.
+src/components/admin/ProviderConfigurationTab.tsx(216,13): error TS6133: 'response' is declared but its value is never read.
+src/components/admin/ProviderConfigurationTab.tsx(217,9): error TS2783: 'provider' is specified more than once, so this usage will be overwritten.
+src/components/admin/ServiceCSVImportDialog.tsx(2,18): error TS7016: Could not find a declaration file for module 'papaparse'. '/home/adar/Projects/FixitHub/node_modules/papaparse/papaparse.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/papaparse` if it exists or add a new declaration (.d.ts) file containing `declare module 'papaparse';`
+src/components/admin/ServiceCSVImportDialog.tsx(110,20): error TS7006: Parameter 'results' implicitly has an 'any' type.
+src/components/admin/StaffDetailsDialog.tsx(4,1): error TS6192: All imports in import declaration are unused.
+src/components/admin/StaffDetailsDialog.tsx(5,29): error TS6133: 'CardDescription' is declared but its value is never read.
+src/components/admin/StaffDetailsDialog.tsx(19,3): error TS6133: 'Target' is declared but its value is never read.
+src/components/admin/StaffDetailsDialog.tsx(21,3): error TS6133: 'Calendar' is declared but its value is never read.
+src/components/admin/StaffDetailsDialog.tsx(27,3): error TS6133: 'MapPin' is declared but its value is never read.
+src/components/admin/StaffDetailsDialog.tsx(325,80): error TS2339: Property 'department' does not exist on type 'StaffMemberDetails'.
+src/components/admin/StaffDetailsDialog.tsx(430,83): error TS2322: Type '{ children: string; className: string; size: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/admin/StaffDetailsDialog.tsx(433,79): error TS2322: Type '{ children: string; className: string; size: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/admin/StaffDetailsDialog.tsx(481,82): error TS2322: Type '{ children: string; className: string; size: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/admin/StaffDetailsDialog.tsx(484,78): error TS2322: Type '{ children: string; className: string; size: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/admin/UserDetailsDialog.tsx(5,1): error TS6133: 'Button' is declared but its value is never read.
+src/components/admin/UserDetailsDialog.tsx(294,50): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/admin/UserDetailsDialog.tsx(404,33): error TS2339: Property 'lastLoginAt' does not exist on type 'DetailedUser'.
+src/components/admin/UserDetailsDialog.tsx(404,61): error TS2339: Property 'lastLoginAt' does not exist on type 'DetailedUser'.
+src/components/admin/UserDetailsDialog.tsx(419,58): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/admin/ValidationErrorsPanel.tsx(33,3): error TS6133: 'totalRecords' is declared but its value is never read.
+src/components/admin/WorkflowExecutionModal.tsx(244,76): error TS2345: Argument of type 'unknown' is not assignable to parameter of type '{ formData?: any; checklistData?: any; notes?: string | undefined; photos?: string[] | undefined; timing?: { elapsedMinutes?: number | undefined; estimatedMinutes?: number | undefined; deltaMinutes?: number | undefined; startedAt?: string | undefined; pausedMinutes?: number | undefined; } | undefined; }'.
+src/components/admin/WorkflowExecutionModal.tsx(437,19): error TS2719: Type 'WorkflowStep' is not assignable to type 'WorkflowStep'. Two different types with this name exist, but they are unrelated.
+  Types of property 'name' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/components/admin/WorkflowExecutionModal.tsx(438,19): error TS2719: Type 'WorkflowStep[]' is not assignable to type 'WorkflowStep[]'. Two different types with this name exist, but they are unrelated.
+  Type 'WorkflowStep' is not assignable to type 'WorkflowStep'. Two different types with this name exist, but they are unrelated.
+    Types of property 'name' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/components/admin/WorkflowReportModal.tsx(286,19): error TS2345: Argument of type 'object' is not assignable to parameter of type 'UnknownRecord'.
+  Index signature for type 'string' is missing in type '{}'.
+src/components/admin/WorkflowReportModal.tsx(376,27): error TS2339: Property 'name' does not exist on type 'InspectionPart'.
+src/components/admin/WorkflowReportModal.tsx(377,30): error TS2339: Property 'name' does not exist on type 'InspectionPart'.
+src/components/admin/WorkflowReportModal.tsx(494,21): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'string'.
+src/components/admin/WorkflowReportModal.tsx(497,21): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'string'.
+src/components/admin/WorkflowReportModal.tsx(512,23): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'string'.
+src/components/admin/WorkflowReportModal.tsx(514,23): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'string'.
+src/components/admin/WorkflowReportModal.tsx(523,21): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'string'.
+src/components/admin/WorkflowReportModal.tsx(527,21): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'string'.
+src/components/admin/WorkflowReportModal.tsx(541,21): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'string'.
+src/components/admin/WorkflowReportModal.tsx(563,19): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'string'.
+src/components/admin/WorkflowReportModal.tsx(766,52): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/admin/WorkflowReportModal.tsx(838,27): error TS2322: Type 'unknown' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+src/components/admin/WorkflowReportModal.tsx(841,56): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/cart/RepairOrderDetailsDialog.tsx(11,3): error TS6133: 'Camera' is declared but its value is never read.
+src/components/cart/RepairOrderDetailsDialog.tsx(13,3): error TS6133: 'CircleDollarSign' is declared but its value is never read.
+src/components/cart/RepairOrderDetailsDialog.tsx(16,3): error TS6133: 'Package' is declared but its value is never read.
+src/components/cart/RepairOrderDetailsDialog.tsx(17,3): error TS6133: 'Shield' is declared but its value is never read.
+src/components/cart/RepairOrderDetailsDialog.tsx(18,3): error TS6133: 'Smartphone' is declared but its value is never read.
+src/components/database/DatabaseMonitoringDashboard.tsx(3,1): error TS6133: 'Badge' is declared but its value is never read.
+src/components/database/DatabaseMonitoringDashboard.tsx(6,18): error TS7031: Binding element 'children' implicitly has an 'any' type.
+src/components/database/DatabaseMonitoringDashboard.tsx(36,63): error TS7031: Binding element 'defaultDb' implicitly has an 'any' type.
+src/components/database/DatabaseMonitoringDashboard.tsx(52,22): error TS2345: Argument of type '(prev: never[]) => any[]' is not assignable to parameter of type 'SetStateAction<never[]>'.
+  Type '(prev: never[]) => any[]' is not assignable to type '(prevState: never[]) => never[]'.
+    Type 'any[]' is not assignable to type 'never[]'.
+      Type 'any' is not assignable to type 'never'.
+src/components/database/DatabaseMonitoringDashboard.tsx(66,19): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+  No index signature with a parameter of type 'string' was found on type '{}'.
+src/components/database/DatabaseMonitoringDashboard.tsx(74,22): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ connectionCount: string; queryExecutionTimeP95: string; queryExecutionTimeP99: string; cacheHitRatio: string; indexUsage: string; dbSize: string; tableCount: string; rowCount: string; }'.
+  No index signature with a parameter of type 'string' was found on type '{ connectionCount: string; queryExecutionTimeP95: string; queryExecutionTimeP99: string; cacheHitRatio: string; indexUsage: string; dbSize: string; tableCount: string; rowCount: string; }'.
+src/components/database/DatabaseMonitoringDashboard.tsx(95,17): error TS2339: Property 'cacheHitRatio' does not exist on type '{}'.
+src/components/database/DatabaseMonitoringDashboard.tsx(95,56): error TS2339: Property 'cacheHitRatio' does not exist on type '{}'.
+src/components/database/DatabaseMonitoringDashboard.tsx(98,56): error TS2339: Property 'cacheHitRatio' does not exist on type '{}'.
+src/components/database/DatabaseMonitoringDashboard.tsx(130,66): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ connectionCount: string; queryExecutionTimeP95: string; queryExecutionTimeP99: string; cacheHitRatio: string; indexUsage: string; dbSize: string; tableCount: string; rowCount: string; }'.
+  No index signature with a parameter of type 'string' was found on type '{ connectionCount: string; queryExecutionTimeP95: string; queryExecutionTimeP99: string; cacheHitRatio: string; indexUsage: string; dbSize: string; tableCount: string; rowCount: string; }'.
+src/components/database/DatabaseMonitoringDashboard.tsx(131,81): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+  No index signature with a parameter of type 'string' was found on type '{}'.
+src/components/database/DatabaseMonitoringDashboard.tsx(132,44): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{}'.
+  No index signature with a parameter of type 'string' was found on type '{}'.
+src/components/home/AboutUsSection.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/home/AboutUsSection.tsx(183,14): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+src/components/home/BlogCarousel.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/home/BlogCarousel.tsx(243,14): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+src/components/home/DeviceSelectionHero.tsx(13,3): error TS6133: 'backgroundImage' is declared but its value is never read.
+src/components/home/DevicesSection.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/home/DevicesSection.tsx(2,1): error TS6192: All imports in import declaration are unused.
+src/components/home/FeaturesSection.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/home/HeroSection.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/home/HeroSection.tsx(25,9): error TS6133: 'isAuthenticated' is declared but its value is never read.
+src/components/home/McRepairNav.tsx(6,3): error TS6133: 'BookOpen' is declared but its value is never read.
+src/components/home/McRepairNav.tsx(7,3): error TS6133: 'Mail' is declared but its value is never read.
+src/components/home/McRepairNav.tsx(37,3): error TS6133: 'DeviceType' is declared but its value is never read.
+src/components/home/McRepairNav.tsx(129,10): error TS6133: 'isMobileViewport' is declared but its value is never read.
+src/components/home/McRepairNav.tsx(847,15): error TS2322: Type '(onClosed?: () => void) => void' is not assignable to type 'MouseEventHandler<HTMLAnchorElement>'.
+  Types of parameters 'onClosed' and 'event' are incompatible.
+    Type 'MouseEvent<HTMLAnchorElement, MouseEvent>' is not assignable to type '() => void'.
+      Type 'MouseEvent<HTMLAnchorElement, MouseEvent>' provides no match for the signature '(): void'.
+src/components/home/McRepairNav.tsx(948,15): error TS2322: Type '(onClosed?: () => void) => void' is not assignable to type 'MouseEventHandler<HTMLAnchorElement>'.
+  Types of parameters 'onClosed' and 'event' are incompatible.
+    Type 'MouseEvent<HTMLAnchorElement, MouseEvent>' is not assignable to type '() => void'.
+      Type 'MouseEvent<HTMLAnchorElement, MouseEvent>' provides no match for the signature '(): void'.
+src/components/home/RepairOrderConfigurator.tsx(6,1): error TS6133: 'Textarea' is declared but its value is never read.
+src/components/home/RepairOrderConfigurator.tsx(7,1): error TS6133: 'Label' is declared but its value is never read.
+src/components/home/RepairOrderConfigurator.tsx(11,1): error TS6192: All imports in import declaration are unused.
+src/components/home/RepairOrderConfigurator.tsx(308,7): error TS6133: 'deviceProblems' is declared but its value is never read.
+src/components/home/RepairOrderConfigurator.tsx(418,10): error TS6133: 'currentDeviceIndex' is declared but its value is never read.
+src/components/home/RepairOrderConfigurator.tsx(1074,41): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/home/RepairOrderConfigurator.tsx(1074,47): error TS7006: Parameter 'curr' implicitly has an 'any' type.
+src/components/home/RepairOrderConfigurator.tsx(1192,11): error TS2353: Object literal may only specify known properties, and 'modelNumbers' does not exist in type '{ models?: string[] | undefined; sarValues?: { head?: string | undefined; body?: string | undefined; } | undefined; price?: string | undefined; releaseDate?: string | undefined; colors?: string[] | undefined; }'.
+src/components/home/RepairOrderConfigurator.tsx(1206,134): error TS2322: Type '"success"' is not assignable to type '"default" | "destructive" | null | undefined'.
+src/components/home/RepairOrderConfigurator.tsx(1801,9): error TS6198: All destructured elements are unused.
+src/components/home/ShopSection.tsx(774,14): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+src/components/home/ShopSectionSimple.tsx(5,38): error TS6133: 'Plus' is declared but its value is never read.
+src/components/home/ShopSectionSimple.tsx(75,22): error TS18046: 'error' is of type 'unknown'.
+src/components/home/TestimonialsCarousel.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/home/TestimonialsCarousel.tsx(123,9): error TS6133: 'currentTestimonial' is declared but its value is never read.
+src/components/home/TestimonialsCarousel.tsx(288,14): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+src/components/inspection/CommunicationHistoryDialog.tsx(15,52): error TS6133: 'Plus' is declared but its value is never read.
+src/components/inspection/CommunicationHistoryDialog.tsx(15,89): error TS6133: 'Settings' is declared but its value is never read.
+src/components/inspection/CommunicationHistoryDialog.tsx(15,99): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/components/inspection/CommunicationHistoryDialog.tsx(15,112): error TS6133: 'Check' is declared but its value is never read.
+src/components/inspection/ConfirmUnlockDialog.tsx(101,3): error TS6133: 'orderId' is declared but its value is never read.
+src/components/inspection/DeviceInspectionForm.tsx(170,10): error TS6133: 'actualModelImage' is declared but its value is never read.
+src/components/inspection/DeviceInspectionForm.tsx(177,10): error TS6133: 'availableDeviceTypes' is declared but its value is never read.
+src/components/inspection/DeviceInspectionForm.tsx(182,10): error TS6133: 'searchingActualModel' is declared but its value is never read.
+src/components/inspection/DeviceInspectionForm.tsx(466,9): error TS6133: 'handleActualModelSearch' is declared but its value is never read.
+src/components/inspection/DeviceInspectionForm.tsx(472,9): error TS6133: 'handleActualDeviceTypeChange' is declared but its value is never read.
+src/components/inspection/DeviceInspectionForm.tsx(481,9): error TS6133: 'handleActualManufacturerChange' is declared but its value is never read.
+src/components/inspection/DeviceInspectionForm.tsx(506,9): error TS6133: 'handleActualModelKeyDown' is declared but its value is never read.
+src/components/inspection/DeviceInspectionForm.tsx(585,9): error TS6133: 'getVerificationStatusLabel' is declared but its value is never read.
+src/components/inspection/OrderMessagesPanel.tsx(10,1): error TS6133: 'UserProfile' is declared but its value is never read.
+src/components/inspection/OrderMessagesPanel.tsx(18,3): error TS6133: 'completeQuickAction' is declared but its value is never read.
+src/components/inspection/OrderMessagesPanel.tsx(37,3): error TS6133: 'User' is declared but its value is never read.
+src/components/inspection/OrderMessagesPanel.tsx(39,3): error TS6133: 'Paperclip' is declared but its value is never read.
+src/components/inspection/OrderMessagesPanel.tsx(85,3): error TS6133: 'customer' is declared but its value is never read.
+src/components/inspection/OrderMessagesPanel.tsx(379,56): error TS6133: 'index' is declared but its value is never read.
+src/components/inspection/OrderMessagesSummary.tsx(44,3): error TS6133: 'customer' is declared but its value is never read.
+src/components/repair-request/RepairRequestMessagesPanel.tsx(80,3): error TS6133: 'staffName' is declared but its value is never read.
+src/components/repair-request/RepairRequestMessagesPanel.tsx(85,9): error TS6133: 'user' is declared but its value is never read.
+src/components/repair-request/RepairRequestMessagesPanel.tsx(382,49): error TS2339: Property 'createdBy' does not exist on type 'Communication'.
+src/components/repair-request/RepairRequestMessagesPanel.tsx(384,47): error TS2339: Property 'createdBy' does not exist on type 'Communication'.
+src/components/repair-request/RepairRequestMessagesPanel.tsx(384,79): error TS2339: Property 'createdBy' does not exist on type 'Communication'.
+src/components/repair/DataOverviewScreen.tsx(39,47): error TS6133: 'workflow' is declared but its value is never read.
+src/components/staff/TimeTrackingWidget.tsx(72,22): error TS18046: 'error' is of type 'unknown'.
+src/components/staff/TimeTrackingWidget.tsx(92,22): error TS18046: 'error' is of type 'unknown'.
+src/components/staff/TimeTrackingWidget.tsx(112,22): error TS18046: 'error' is of type 'unknown'.
+src/components/staff/TimeTrackingWidget.tsx(132,22): error TS18046: 'error' is of type 'unknown'.
+src/components/staff/TimeTrackingWidget.tsx(148,20): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ offline: { label: string; variant: "secondary"; }; online: { label: string; variant: "default"; }; working: { label: string; variant: "default"; }; on_break: { label: string; variant: "outline"; }; pending: { ...; }; }'.
+  No index signature with a parameter of type 'string' was found on type '{ offline: { label: string; variant: "secondary"; }; online: { label: string; variant: "default"; }; working: { label: string; variant: "default"; }; on_break: { label: string; variant: "outline"; }; pending: { ...; }; }'.
+src/components/staff/TimeTrackingWidget.tsx(238,46): error TS2367: This comparison appears to be unintentional because the types '"online" | "working" | "pending" | undefined' and '"offline"' have no overlap.
+src/components/ui/calendar.tsx(56,20): error TS6133: 'props' is declared but its value is never read.
+src/components/ui/calendar.tsx(57,21): error TS6133: 'props' is declared but its value is never read.
+src/components/ui/collapsible.tsx(3,1): error TS6133: 'React' is declared but its value is never read.
+src/components/ui/select.tsx(5,10): error TS6133: 'Check' is declared but its value is never read.
+src/components/visual-builder/BuilderCanvas.tsx(12,3): error TS6133: 'Settings' is declared but its value is never read.
+src/components/visual-builder/BuilderCanvas.tsx(41,3): error TS6133: 'onUpdateSection' is declared but its value is never read.
+src/components/visual-builder/BuilderCanvas.tsx(46,3): error TS6133: 'previewDevice' is declared but its value is never read.
+src/components/visual-builder/ComponentLibrary.tsx(2,1): error TS6133: 'Button' is declared but its value is never read.
+src/components/visual-builder/SettingsPanel.tsx(1,27): error TS6133: 'useRef' is declared but its value is never read.
+src/components/visual-builder/SettingsPanel.tsx(10,20): error TS6133: 'Palette' is declared but its value is never read.
+src/components/visual-builder/SettingsPanel.tsx(10,29): error TS6133: 'Layout' is declared but its value is never read.
+src/components/workflow/StepFormDialog.tsx(21,3): error TS6133: 'Clock' is declared but its value is never read.
+src/components/workflow/StepFormDialog.tsx(857,65): error TS2345: Argument of type '(prev: Partial<WorkflowStep>) => { notificationSettings: { onStart: boolean; onComplete?: boolean | undefined; onDelay?: boolean | undefined; }; _id?: string | undefined; ... 15 more ...; requiresApproval?: boolean | undefined; }' is not assignable to parameter of type 'SetStateAction<Partial<WorkflowStep>>'.
+  Type '(prev: Partial<WorkflowStep>) => { notificationSettings: { onStart: boolean; onComplete?: boolean | undefined; onDelay?: boolean | undefined; }; _id?: string | undefined; ... 15 more ...; requiresApproval?: boolean | undefined; }' is not assignable to type '(prevState: Partial<WorkflowStep>) => Partial<WorkflowStep>'.
+    Call signature return types '{ notificationSettings: { onStart: boolean; onComplete?: boolean | undefined; onDelay?: boolean | undefined; }; _id?: string | undefined; name?: string | undefined; description?: string | undefined; ... 13 more ...; requiresApproval?: boolean | undefined; }' and 'Partial<WorkflowStep>' are incompatible.
+      The types of 'notificationSettings.onComplete' are incompatible between these types.
+        Type 'boolean | undefined' is not assignable to type 'boolean'.
+          Type 'undefined' is not assignable to type 'boolean'.
+src/components/workflow/StepFormDialog.tsx(874,65): error TS2345: Argument of type '(prev: Partial<WorkflowStep>) => { notificationSettings: { onComplete: boolean; onStart?: boolean | undefined; onDelay?: boolean | undefined; }; _id?: string | undefined; ... 15 more ...; requiresApproval?: boolean | undefined; }' is not assignable to parameter of type 'SetStateAction<Partial<WorkflowStep>>'.
+  Type '(prev: Partial<WorkflowStep>) => { notificationSettings: { onComplete: boolean; onStart?: boolean | undefined; onDelay?: boolean | undefined; }; _id?: string | undefined; ... 15 more ...; requiresApproval?: boolean | undefined; }' is not assignable to type '(prevState: Partial<WorkflowStep>) => Partial<WorkflowStep>'.
+    Call signature return types '{ notificationSettings: { onComplete: boolean; onStart?: boolean | undefined; onDelay?: boolean | undefined; }; _id?: string | undefined; name?: string | undefined; description?: string | undefined; ... 13 more ...; requiresApproval?: boolean | undefined; }' and 'Partial<WorkflowStep>' are incompatible.
+      The types of 'notificationSettings.onStart' are incompatible between these types.
+        Type 'boolean | undefined' is not assignable to type 'boolean'.
+          Type 'undefined' is not assignable to type 'boolean'.
+src/components/workflow/StepFormDialog.tsx(891,65): error TS2345: Argument of type '(prev: Partial<WorkflowStep>) => { notificationSettings: { onDelay: boolean; onStart?: boolean | undefined; onComplete?: boolean | undefined; }; _id?: string | undefined; ... 15 more ...; requiresApproval?: boolean | undefined; }' is not assignable to parameter of type 'SetStateAction<Partial<WorkflowStep>>'.
+  Type '(prev: Partial<WorkflowStep>) => { notificationSettings: { onDelay: boolean; onStart?: boolean | undefined; onComplete?: boolean | undefined; }; _id?: string | undefined; ... 15 more ...; requiresApproval?: boolean | undefined; }' is not assignable to type '(prevState: Partial<WorkflowStep>) => Partial<WorkflowStep>'.
+    Call signature return types '{ notificationSettings: { onDelay: boolean; onStart?: boolean | undefined; onComplete?: boolean | undefined; }; _id?: string | undefined; name?: string | undefined; description?: string | undefined; ... 13 more ...; requiresApproval?: boolean | undefined; }' and 'Partial<WorkflowStep>' are incompatible.
+      The types of 'notificationSettings.onStart' are incompatible between these types.
+        Type 'boolean | undefined' is not assignable to type 'boolean'.
+          Type 'undefined' is not assignable to type 'boolean'.
+src/components/workflow/StepList.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/workflow/StepManagementDialog.tsx(52,3): error TS6133: 'onUpdateAutomationRule' is declared but its value is never read.
+src/components/workflow/VisualBuilder.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/workflow/VisualBuilder.tsx(1,38): error TS6133: 'useCallback' is declared but its value is never read.
+src/components/workflow/VisualBuilder.tsx(6,1): error TS6133: 'Input' is declared but its value is never read.
+src/components/workflow/VisualBuilder.tsx(7,1): error TS6133: 'Label' is declared but its value is never read.
+src/components/workflow/VisualBuilder.tsx(8,1): error TS6192: All imports in import declaration are unused.
+src/components/workflow/VisualBuilder.tsx(24,3): error TS6133: 'Move' is declared but its value is never read.
+src/components/workflow/VisualBuilder.tsx(35,60): error TS6133: 'services' is declared but its value is never read.
+src/components/workflow/VisualBuilder.tsx(35,70): error TS6133: 'addOnServices' is declared but its value is never read.
+src/components/workflow/VisualBuilder.tsx(329,39): error TS6133: 'index' is declared but its value is never read.
+src/components/workflow/VisualBuilderNode.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/workflow/VisualBuilderNode.tsx(6,30): error TS2307: Cannot find module '@/types/workflow' or its corresponding type declarations.
+src/components/workflow/WorkflowExecutionView.tsx(20,3): error TS6133: 'Camera' is declared but its value is never read.
+src/components/workflow/WorkflowExecutionView.tsx(632,23): error TS18048: 'templateStep.tools.length' is possibly 'undefined'.
+src/components/workflow/WorkflowExecutionView.tsx(632,57): error TS18048: 'templateStep.skills.length' is possibly 'undefined'.
+src/components/workflow/WorkflowExecutionView.tsx(634,26): error TS18048: 'templateStep.tools.length' is possibly 'undefined'.
+src/components/workflow/WorkflowExecutionView.tsx(639,77): error TS18048: 'templateStep' is possibly 'undefined'.
+src/components/workflow/WorkflowExecutionView.tsx(643,26): error TS18048: 'templateStep.skills.length' is possibly 'undefined'.
+src/components/workflow/WorkflowExecutionView.tsx(648,77): error TS18048: 'templateStep' is possibly 'undefined'.
+src/components/workflow/WorkflowExecutionView.tsx(744,40): error TS2339: Property 'canSkip' does not exist on type '{ _id: string; name: string; description: string; estimatedTime: number; category: string; tools: string[]; skills: string[]; checklistItems: string[]; formFields: any[]; }'.
+src/pages/CustomerInvoices.tsx(497,39): error TS7006: Parameter 'gateway' implicitly has an 'any' type.
+src/pages/CustomerInvoices.tsx(501,49): error TS7006: Parameter 'gateway' implicitly has an 'any' type.
+src/pages/Dashboard.tsx(8,1): error TS6192: All imports in import declaration are unused.
+src/pages/Dashboard.tsx(25,3): error TS6133: 'Star' is declared but its value is never read.
+src/pages/Dashboard.tsx(30,3): error TS6133: 'Smartphone' is declared but its value is never read.
+src/pages/Dashboard.tsx(31,3): error TS6133: 'Wrench' is declared but its value is never read.
+src/pages/Dashboard.tsx(40,9): error TS6133: 't' is declared but its value is never read.
+src/pages/Dashboard.tsx(157,61): error TS6133: 'index' is declared but its value is never read.
+src/pages/Dashboard.tsx(447,37): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/pages/FAQ.tsx(18,3): error TS6133: 'ArrowRight' is declared but its value is never read.
+src/pages/Home.tsx(37,9): error TS6133: 't' is declared but its value is never read.
+src/pages/Home.tsx(38,9): error TS6133: 'isAuthenticated' is declared but its value is never read.
+src/pages/Login.tsx(58,9): error TS6133: 'rememberMe' is declared but its value is never read.
+src/pages/NewOrder.tsx(22,1): error TS6192: All imports in import declaration are unused.
+src/pages/NewOrder.tsx(32,3): error TS6133: 'Plus' is declared but its value is never read.
+src/pages/NewOrder.tsx(87,9): error TS6133: 'getDeviceModelImage' is declared but its value is never read.
+src/pages/NewOrder.tsx(126,10): error TS6133: 'loadingManufacturers' is declared but its value is never read.
+src/pages/NewOrder.tsx(127,10): error TS6133: 'loadingModels' is declared but its value is never read.
+src/pages/NewOrder.tsx(142,10): error TS6133: 'currentUser' is declared but its value is never read.
+src/pages/NewOrder.tsx(142,23): error TS6133: 'setCurrentUser' is declared but its value is never read.
+src/pages/NewOrder.tsx(158,63): error TS6133: 'errors' is declared but its value is never read.
+src/pages/NewOrder.tsx(614,22): error TS2304: Cannot find name 'getDeviceModelImage'.
+src/pages/NewOrder.tsx(639,13): error TS6133: 'response' is declared but its value is never read.
+src/pages/NewOrder.tsx(748,9): error TS6133: 'getStepIcon' is declared but its value is never read.
+src/pages/NewOrder.tsx(1438,61): error TS18048: 'service.linkedKnowledgeBaseArticles' is possibly 'undefined'.
+src/pages/NewOrder.tsx(1441,36): error TS18048: 'service.linkedKnowledgeBaseArticles' is possibly 'undefined'.
+src/pages/NewOrder.tsx(2431,40): error TS2304: Cannot find name 'getDeviceModelImage'.
+src/pages/OrderDetails.tsx(41,157): error TS6133: 'ShopProduct' is declared but its value is never read.
+src/pages/OrderDetails.tsx(57,1): error TS6133: 'WorkflowExecutionView' is declared but its value is never read.
+src/pages/OrderDetails.tsx(117,3): error TS6133: 'Paperclip' is declared but its value is never read.
+src/pages/OrderDetails.tsx(119,3): error TS6133: 'Star' is declared but its value is never read.
+src/pages/OrderDetails.tsx(259,10): error TS6133: 'updatingDevice' is declared but its value is never read.
+src/pages/OrderDetails.tsx(260,10): error TS6133: 'deviceSearchQuery' is declared but its value is never read.
+src/pages/OrderDetails.tsx(261,10): error TS6133: 'deviceSearchResults' is declared but its value is never read.
+src/pages/OrderDetails.tsx(262,10): error TS6133: 'showDeviceResults' is declared but its value is never read.
+src/pages/OrderDetails.tsx(263,10): error TS6133: 'selectedDeviceForChange' is declared but its value is never read.
+src/pages/OrderDetails.tsx(2147,9): error TS6133: 'openEditServiceDialog' is declared but its value is never read.
+src/pages/OrderDetails.tsx(2215,9): error TS6133: 'handleDeviceSearch' is declared but its value is never read.
+src/pages/OrderDetails.tsx(2240,9): error TS6133: 'handleSelectDeviceForChange' is declared but its value is never read.
+src/pages/OrderDetails.tsx(2250,9): error TS6133: 'handleDeviceChange' is declared but its value is never read.
+src/pages/OrderDetails.tsx(2360,9): error TS6133: 'handleWorkflowUpdate' is declared but its value is never read.
+src/pages/OrderDetails.tsx(3005,9): error TS2322: Type '{}' is not assignable to type 'string'.
+src/pages/OrderDetails.tsx(3135,9): error TS6133: 'canRunComplaintAdminDenyReview' is declared but its value is never read.
+src/pages/OrderDetails.tsx(3213,28): error TS2339: Property 'assignedStaff' does not exist on type 'Order'.
+src/pages/OrderDetails.tsx(3626,9): error TS6133: 'timelineCurrentStageId' is declared but its value is never read.
+src/pages/OrderDetails.tsx(4054,32): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/pages/OrderDetails.tsx(4054,68): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/pages/OrderDetails.tsx(4060,34): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/pages/OrderDetails.tsx(4060,70): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/pages/OrderDetails.tsx(4065,9): error TS6133: 'scrollToSection' is declared but its value is never read.
+src/pages/OrderDetails.tsx(4336,15): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/OrderDetails.tsx(7175,112): error TS2367: This comparison appears to be unintentional because the types '"completed" | "pending" | "in-progress" | "paused" | "quality-check" | "ready-for-pickup"' and '"cancelled"' have no overlap.
+src/pages/OrderDetails.tsx(8404,22): error TS2339: Property 'assignedStaff' does not exist on type 'Order'.
+src/pages/OrderDetails.tsx(8404,45): error TS2339: Property 'assignedStaff' does not exist on type 'Order'.
+src/pages/OrderDetails.tsx(8406,26): error TS2339: Property 'assignedStaff' does not exist on type 'Order'.
+src/pages/OrderDetails.tsx(8406,45): error TS7006: Parameter 'staff' implicitly has an 'any' type.
+src/pages/OrderDetails.tsx(8464,45): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+src/pages/OrderDetails.tsx(8500,17): error TS18048: 'order.unlockPattern.length' is possibly 'undefined'.
+src/pages/OrderDetails.tsx(8973,19): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/OrderDetails.tsx(9885,13): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/Profile.tsx(27,3): error TS6133: 'CreditCard' is declared but its value is never read.
+src/pages/Register.tsx(6,1): error TS6133: 'Button' is declared but its value is never read.
+src/pages/Register.tsx(50,29): error TS2339: Property 'message' does not exist on type '{}'.
+src/pages/admin/Analytics.tsx(164,7): error TS6133: 'formatRate' is declared but its value is never read.
+src/pages/admin/Analytics.tsx(615,51): error TS2339: Property 'toLowerCase' does not exist on type 'never'.
+src/pages/admin/Analytics.tsx(1083,51): error TS2339: Property 'toLowerCase' does not exist on type 'never'.
+src/pages/admin/Analytics.tsx(1684,9): error TS2783: 'label' is specified more than once, so this usage will be overwritten.
+src/pages/admin/Analytics.tsx(1685,9): error TS2783: 'label' is specified more than once, so this usage will be overwritten.
+src/pages/admin/Analytics.tsx(1686,9): error TS2783: 'label' is specified more than once, so this usage will be overwritten.
+src/pages/admin/Analytics.tsx(1700,9): error TS2783: 'label' is specified more than once, so this usage will be overwritten.
+src/pages/admin/BookingsManagement.tsx(5,1): error TS6192: All imports in import declaration are unused.
+src/pages/admin/BookingsManagement.tsx(24,3): error TS6133: 'getReturnTracking' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(25,3): error TS6133: 'updateReturnStatus' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(38,3): error TS6133: 'getComplaintsByBooking' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(42,3): error TS6133: 'getRemindersByBooking' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(59,3): error TS6133: 'Filter' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(61,3): error TS6133: 'Edit2' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(70,3): error TS6133: 'ShoppingCart' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(88,3): error TS6133: 'MapPin' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(126,3): error TS6133: 'DialogTrigger' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(130,1): error TS6133: 'ScrollArea' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(369,10): error TS6133: 'updateStatusDialog' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(370,10): error TS6133: 'updateBillingDialog' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(374,10): error TS6133: 'updating' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(951,9): error TS6133: 'handleUpdateStatus' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(976,9): error TS6133: 'handleUpdateBillingStatus' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(1016,9): error TS6133: 'handleQuickSetPaid' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(1366,9): error TS6133: 'formatDateTime' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(1751,72): error TS2345: Argument of type '{ _id: string; firstName?: string | undefined; lastName?: string | undefined; name?: string | undefined; email: string; phone: string; avatar?: string | undefined; invoiceAddress?: AddressFields | undefined; paymentAddress?: (AddressFields & { ...; }) | undefined; } | { ...; }' is not assignable to parameter of type '{ _id: string; firstName: string; lastName: string; name: string; email: string; phone: string; avatar: string; }'.
+  Type '{ _id: string; firstName?: string | undefined; lastName?: string | undefined; name?: string | undefined; email: string; phone: string; avatar?: string | undefined; invoiceAddress?: AddressFields | undefined; paymentAddress?: (AddressFields & { ...; }) | undefined; }' is not assignable to type '{ _id: string; firstName: string; lastName: string; name: string; email: string; phone: string; avatar: string; }'.
+    Types of property 'firstName' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/admin/BookingsManagement.tsx(2460,54): error TS2345: Argument of type '{ _id: string; firstName?: string | undefined; lastName?: string | undefined; name?: string | undefined; email: string; phone: string; avatar?: string | undefined; invoiceAddress?: AddressFields | undefined; paymentAddress?: (AddressFields & { ...; }) | undefined; } | { ...; }' is not assignable to parameter of type '{ _id: string; firstName: string; lastName: string; name: string; email: string; phone: string; avatar: string; }'.
+  Type '{ _id: string; firstName?: string | undefined; lastName?: string | undefined; name?: string | undefined; email: string; phone: string; avatar?: string | undefined; invoiceAddress?: AddressFields | undefined; paymentAddress?: (AddressFields & { ...; }) | undefined; }' is not assignable to type '{ _id: string; firstName: string; lastName: string; name: string; email: string; phone: string; avatar: string; }'.
+    Types of property 'firstName' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/admin/BookingsManagement.tsx(3468,41): error TS2322: Type 'Dispatch<SetStateAction<"completed" | "pending" | "cancelled" | "processing" | "payment-pending">>' is not assignable to type '(value: string) => void'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'string' is not assignable to type 'SetStateAction<"completed" | "pending" | "cancelled" | "processing" | "payment-pending">'.
+src/pages/admin/BookingsManagement.tsx(3537,48): error TS2322: Type 'Dispatch<SetStateAction<"paid" | "unpaid" | "partially-paid">>' is not assignable to type '(value: string) => void'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'string' is not assignable to type 'SetStateAction<"paid" | "unpaid" | "partially-paid">'.
+src/pages/admin/BookingsManagement.tsx(3783,59): error TS2339: Property 'status' does not exist on type '{ _id?: string | undefined; type: string; device?: string | undefined; orderId: string; services?: { name: string; price: number; estimatedTime?: number | undefined; }[] | undefined; products?: { ...; }[] | undefined; cost: number; }'.
+src/pages/admin/BookingsManagement.tsx(3784,51): error TS2339: Property 'status' does not exist on type '{ _id?: string | undefined; type: string; device?: string | undefined; orderId: string; services?: { name: string; price: number; estimatedTime?: number | undefined; }[] | undefined; products?: { ...; }[] | undefined; cost: number; }'.
+src/pages/admin/BookingsManagement.tsx(3791,40): error TS2339: Property '_id' does not exist on type '{ name: string; quantity: number; price: number; totalPrice: number; }'.
+src/pages/admin/BookingsManagement.tsx(3791,55): error TS2339: Property 'productId' does not exist on type '{ name: string; quantity: number; price: number; totalPrice: number; }'.
+src/pages/admin/BookingsManagement.tsx(4450,54): error TS2345: Argument of type '{ _id: string; firstName?: string | undefined; lastName?: string | undefined; name?: string | undefined; email: string; phone: string; avatar?: string | undefined; invoiceAddress?: AddressFields | undefined; paymentAddress?: (AddressFields & { ...; }) | undefined; } | { ...; }' is not assignable to parameter of type '{ _id: string; firstName: string; lastName: string; name: string; email: string; phone: string; avatar: string; }'.
+  Type '{ _id: string; firstName?: string | undefined; lastName?: string | undefined; name?: string | undefined; email: string; phone: string; avatar?: string | undefined; invoiceAddress?: AddressFields | undefined; paymentAddress?: (AddressFields & { ...; }) | undefined; }' is not assignable to type '{ _id: string; firstName: string; lastName: string; name: string; email: string; phone: string; avatar: string; }'.
+    Types of property 'firstName' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/admin/BookingsManagement.tsx(5585,54): error TS2345: Argument of type '{ _id: string; firstName?: string | undefined; lastName?: string | undefined; name?: string | undefined; email: string; phone: string; avatar?: string | undefined; invoiceAddress?: AddressFields | undefined; paymentAddress?: (AddressFields & { ...; }) | undefined; } | { ...; }' is not assignable to parameter of type '{ _id: string; firstName: string; lastName: string; name: string; email: string; phone: string; avatar: string; }'.
+  Type '{ _id: string; firstName?: string | undefined; lastName?: string | undefined; name?: string | undefined; email: string; phone: string; avatar?: string | undefined; invoiceAddress?: AddressFields | undefined; paymentAddress?: (AddressFields & { ...; }) | undefined; }' is not assignable to type '{ _id: string; firstName: string; lastName: string; name: string; email: string; phone: string; avatar: string; }'.
+    Types of property 'firstName' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/admin/BookingsManagement.tsx(5586,10): error TS6133: 'loading' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(5586,19): error TS6133: 'setLoading' is declared but its value is never read.
+src/pages/admin/BookingsManagement.tsx(5588,10): error TS6133: 'labelData' is declared but its value is never read.
+src/pages/admin/DatabaseManagement.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/admin/DatabaseManagement.tsx(12,1): error TS6133: 'Progress' is declared but its value is never read.
+src/pages/admin/DatabaseManagement.tsx(16,20): error TS6133: 'Server' is declared but its value is never read.
+src/pages/admin/DatabaseManagement.tsx(16,91): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/admin/DatabaseManagement.tsx(77,28): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(98,26): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(122,24): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(172,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(193,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(214,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(235,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(263,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(288,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(314,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(337,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(360,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(383,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(406,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DatabaseManagement.tsx(496,52): error TS2322: Type 'string' is not assignable to type 'never'.
+src/pages/admin/DeviceManagement.tsx(12,3): error TS6133: 'getModelsByBrand' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(13,3): error TS6133: 'getModelById' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(19,3): error TS6133: 'Model' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(28,3): error TS6133: 'updateModelInformation' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(156,9): error TS6133: 't' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(183,10): error TS6133: 'showDeleteBrand' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(183,27): error TS6133: 'setShowDeleteBrand' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(184,10): error TS6133: 'showDeleteModel' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(184,27): error TS6133: 'setShowDeleteModel' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(262,10): error TS6133: 'specTab' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(270,10): error TS6133: 'scrollToSection' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(270,27): error TS6133: 'setScrollToSection' is declared but its value is never read.
+src/pages/admin/DeviceManagement.tsx(473,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DeviceManagement.tsx(722,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DeviceManagement.tsx(817,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DeviceManagement.tsx(959,22): error TS18046: 'error' is of type 'unknown'.
+src/pages/admin/DeviceManagement.tsx(2373,51): error TS2339: Property 'isActive' does not exist on type 'Brand'.
+src/pages/admin/DeviceManagement.tsx(2374,38): error TS2339: Property 'isActive' does not exist on type 'Brand'.
+src/pages/admin/DeviceManagement.tsx(2929,231): error TS18048: 'selectedModel.modelNumbers.length' is possibly 'undefined'.
+src/pages/admin/DeviceManagement.tsx(2977,41): error TS18048: 'selectedModel.modelNumbers.length' is possibly 'undefined'.
+src/pages/admin/DeviceManagement.tsx(2982,48): error TS18048: 'selectedModel.modelNumbers' is possibly 'undefined'.
+src/pages/admin/DeviceManagement.tsx(3054,23): error TS2322: Type 'unknown[]' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+  Type 'unknown[]' is not assignable to type 'Iterable<ReactI18NextChildren>'.
+    The types returned by '[Symbol.iterator]().next(...)' are incompatible between these types.
+      Type 'IteratorResult<unknown, undefined>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+        Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+          Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorYieldResult<ReactI18NextChildren>'.
+            Type 'unknown' is not assignable to type 'ReactI18NextChildren'.
+src/pages/admin/DeviceManagement.tsx(3078,23): error TS2322: Type 'unknown[]' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+  Type 'unknown[]' is not assignable to type 'Iterable<ReactI18NextChildren>'.
+    The types returned by '[Symbol.iterator]().next(...)' are incompatible between these types.
+      Type 'IteratorResult<unknown, undefined>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+        Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+          Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorYieldResult<ReactI18NextChildren>'.
+            Type 'unknown' is not assignable to type 'ReactI18NextChildren'.
+src/pages/admin/DeviceManagement.tsx(3102,23): error TS2322: Type 'unknown[]' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+  Type 'unknown[]' is not assignable to type 'Iterable<ReactI18NextChildren>'.
+    The types returned by '[Symbol.iterator]().next(...)' are incompatible between these types.
+      Type 'IteratorResult<unknown, undefined>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+        Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+          Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorYieldResult<ReactI18NextChildren>'.
+            Type 'unknown' is not assignable to type 'ReactI18NextChildren'.
+src/pages/admin/DeviceManagement.tsx(3162,29): error TS2322: Type 'unknown[]' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+  Type 'unknown[]' is not assignable to type 'Iterable<ReactI18NextChildren>'.
+    The types returned by '[Symbol.iterator]().next(...)' are incompatible between these types.
+      Type 'IteratorResult<unknown, undefined>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+        Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+          Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorYieldResult<ReactI18NextChildren>'.
+            Type 'unknown' is not assignable to type 'ReactI18NextChildren'.
+src/pages/admin/DeviceManagement.tsx(3181,29): error TS2322: Type 'unknown[]' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+  Type 'unknown[]' is not assignable to type 'Iterable<ReactI18NextChildren>'.
+    The types returned by '[Symbol.iterator]().next(...)' are incompatible between these types.
+      Type 'IteratorResult<unknown, undefined>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+        Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+          Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorYieldResult<ReactI18NextChildren>'.
+            Type 'unknown' is not assignable to type 'ReactI18NextChildren'.
+src/pages/admin/DeviceManagement.tsx(3212,29): error TS2322: Type 'unknown[]' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+  Type 'unknown[]' is not assignable to type 'Iterable<ReactI18NextChildren>'.
+    The types returned by '[Symbol.iterator]().next(...)' are incompatible between these types.
+      Type 'IteratorResult<unknown, undefined>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+        Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+          Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorYieldResult<ReactI18NextChildren>'.
+            Type 'unknown' is not assignable to type 'ReactI18NextChildren'.
+src/pages/admin/DeviceManagement.tsx(3231,29): error TS2322: Type 'unknown[]' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+  Type 'unknown[]' is not assignable to type 'Iterable<ReactI18NextChildren>'.
+    The types returned by '[Symbol.iterator]().next(...)' are incompatible between these types.
+      Type 'IteratorResult<unknown, undefined>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+        Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+          Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorYieldResult<ReactI18NextChildren>'.
+            Type 'unknown' is not assignable to type 'ReactI18NextChildren'.
+src/pages/admin/DeviceManagement.tsx(3250,29): error TS2322: Type 'unknown[]' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+  Type 'unknown[]' is not assignable to type 'Iterable<ReactI18NextChildren>'.
+    The types returned by '[Symbol.iterator]().next(...)' are incompatible between these types.
+      Type 'IteratorResult<unknown, undefined>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+        Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+          Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorYieldResult<ReactI18NextChildren>'.
+            Type 'unknown' is not assignable to type 'ReactI18NextChildren'.
+src/pages/admin/DeviceManagement.tsx(3269,29): error TS2322: Type 'unknown[]' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+  Type 'unknown[]' is not assignable to type 'Iterable<ReactI18NextChildren>'.
+    The types returned by '[Symbol.iterator]().next(...)' are incompatible between these types.
+      Type 'IteratorResult<unknown, undefined>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+        Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorResult<ReactI18NextChildren, any>'.
+          Type 'IteratorYieldResult<unknown>' is not assignable to type 'IteratorYieldResult<ReactI18NextChildren>'.
+            Type 'unknown' is not assignable to type 'ReactI18NextChildren'.
+src/pages/admin/DiagnosticTools.tsx(92,9): error TS6133: 'fieldTypeOptions' is declared but its value is never read.
+src/pages/admin/DiagnosticTools.tsx(140,51): error TS2345: Argument of type '{ name: string; description: string; deviceTypes: string[]; category: string; estimatedTime: number; tools: string[]; steps: any[]; passFailCriteria: string[]; troubleshootingGuide: any[]; }' is not assignable to parameter of type 'Partial<DiagnosticTest>'.
+  Types of property 'category' are incompatible.
+    Type 'string' is not assignable to type '"performance" | "software" | "hardware" | "connectivity" | undefined'.
+src/pages/admin/DiagnosticTools.tsx(618,60): error TS6133: 'index' is declared but its value is never read.
+src/pages/admin/DiagnosticTools.tsx(676,76): error TS6133: 'index' is declared but its value is never read.
+src/pages/admin/FAQManagement.tsx(149,40): error TS2345: Argument of type '{ tags: string[]; question: string; answer: string; category: string; order: number; isActive: boolean; }' is not assignable to parameter of type 'Partial<FAQ>'.
+  Types of property 'category' are incompatible.
+    Type 'string' is not assignable to type '"General" | "Repairs" | "Pricing" | "Warranty" | "Shipping" | "Account" | "Technical" | undefined'.
+src/pages/admin/FAQManagement.tsx(191,56): error TS2345: Argument of type '{ tags: string[]; question: string; answer: string; category: string; order: number; isActive: boolean; }' is not assignable to parameter of type 'Partial<FAQ>'.
+  Types of property 'category' are incompatible.
+    Type 'string' is not assignable to type '"General" | "Repairs" | "Pricing" | "Warranty" | "Shipping" | "Account" | "Technical" | undefined'.
+src/pages/admin/FinancialManagement.tsx(5880,57): error TS2339: Property 'vatId' does not exist on type 'CustomerSearchResult'.
+src/pages/admin/FinancialManagement.tsx(5880,68): error TS2339: Property 'country' does not exist on type 'CustomerSearchResult'.
+src/pages/admin/FinancialManagement.tsx(5880,81): error TS2339: Property 'country' does not exist on type 'CustomerSearchResult'.
+src/pages/admin/FinancialManagement.tsx(5886,42): error TS2339: Property 'vatId' does not exist on type 'CustomerSearchResult'.
+src/pages/admin/FinancialManagement.tsx(5896,28): error TS2339: Property 'vatId' does not exist on type 'CustomerSearchResult'.
+src/pages/admin/FinancialManagement.tsx(5896,144): error TS2339: Property 'vatId' does not exist on type 'CustomerSearchResult'.
+src/pages/admin/FinancialManagement.tsx(5898,83): error TS2339: Property 'country' does not exist on type 'CustomerSearchResult'.
+src/pages/admin/FinancialManagement.tsx(5898,100): error TS2339: Property 'country' does not exist on type 'CustomerSearchResult'.
+src/pages/admin/FinancialManagement.tsx(8908,79): error TS2554: Expected 1 arguments, but got 2.
+src/pages/admin/FinancialManagement.tsx(9013,70): error TS2554: Expected 1 arguments, but got 2.
+src/pages/admin/FinancialManagement.tsx(9293,79): error TS2554: Expected 1 arguments, but got 2.
+src/pages/admin/FinancialManagement.tsx(9302,73): error TS2554: Expected 1 arguments, but got 2.
+src/pages/admin/FinancialManagement.tsx(9311,80): error TS2554: Expected 1 arguments, but got 2.
+src/pages/admin/FinancialManagement.tsx(9355,81): error TS2554: Expected 1 arguments, but got 2.
+src/pages/admin/FinancialManagement.tsx(9520,79): error TS2554: Expected 1 arguments, but got 2.
+src/pages/admin/FinancialManagement.tsx(9529,80): error TS2554: Expected 1 arguments, but got 2.
+src/pages/admin/FinancialManagement.tsx(9538,77): error TS2554: Expected 1 arguments, but got 2.
+src/pages/admin/FinancialManagement.tsx(9588,81): error TS2554: Expected 1 arguments, but got 2.
+src/pages/admin/HomepageManagement.tsx(15,34): error TS6133: 'Settings' is declared but its value is never read.
+src/pages/admin/HomepageManagement.tsx(15,50): error TS6133: 'Wand2' is declared but its value is never read.
+src/pages/admin/HomepageManagement.tsx(16,60): error TS6133: 'RotateCcw' is declared but its value is never read.
+src/pages/admin/HomepageManagement.tsx(16,71): error TS6133: 'ZoomIn' is declared but its value is never read.
+src/pages/admin/HomepageManagement.tsx(20,3): error TS6133: 'getHomepageSections' is declared but its value is never read.
+src/pages/admin/HomepageManagement.tsx(22,3): error TS6133: 'getLayoutTemplates' is declared but its value is never read.
+src/pages/admin/HomepageManagement.tsx(24,3): error TS6133: 'getABTests' is declared but its value is never read.
+src/pages/admin/HomepageManagement.tsx(30,8): error TS6133: 'LayoutTemplate' is declared but its value is never read.
+src/pages/admin/HomepageManagement.tsx(31,8): error TS6133: 'ABTest' is declared but its value is never read.
+src/pages/admin/HomepageManagement.tsx(37,7): error TS6133: 'MCREPAIR_PRESETS' is declared but its value is never read.
+src/pages/admin/HomepageManagement.tsx(264,14): error TS2367: This comparison appears to be unintentional because the types '"html" | "banner" | "services" | "stats" | "features" | "hero" | "testimonials" | "cta" | "gallery"' and '"about"' have no overlap.
+src/pages/admin/HomepageManagement.tsx(333,14): error TS2367: This comparison appears to be unintentional because the types '"html" | "banner" | "services" | "stats" | "features" | "hero" | "testimonials" | "cta" | "gallery"' and '"blog"' have no overlap.
+src/pages/admin/HomepageManagement.tsx(356,14): error TS2367: This comparison appears to be unintentional because the types '"html" | "banner" | "services" | "stats" | "features" | "hero" | "testimonials" | "cta" | "gallery"' and '"shop"' have no overlap.
+src/pages/admin/HomepageManagement.tsx(405,14): error TS2367: This comparison appears to be unintentional because the types '"html" | "banner" | "services" | "stats" | "features" | "hero" | "testimonials" | "cta" | "gallery"' and '"contact"' have no overlap.
+src/pages/admin/HomepageManagement.tsx(441,14): error TS2367: This comparison appears to be unintentional because the types '"html" | "banner" | "services" | "stats" | "features" | "hero" | "testimonials" | "cta" | "gallery"' and '"footer"' have no overlap.
+src/pages/admin/HomepageManagement.tsx(878,47): error TS2339: Property 'layout' does not exist on type '{ backgroundColor?: string | undefined; textColor?: string | undefined; padding?: string | undefined; margin?: string | undefined; alignment?: "center" | "right" | "left" | undefined; ... 16 more ...; hover?: { ...; } | undefined; }'.
+src/pages/admin/HomepageManagement.tsx(900,47): error TS2339: Property 'maxWidth' does not exist on type '{ backgroundColor?: string | undefined; textColor?: string | undefined; padding?: string | undefined; margin?: string | undefined; alignment?: "center" | "right" | "left" | undefined; ... 16 more ...; hover?: { ...; } | undefined; }'.
+src/pages/admin/HomepageManagement.tsx(912,47): error TS2339: Property 'minHeight' does not exist on type '{ backgroundColor?: string | undefined; textColor?: string | undefined; padding?: string | undefined; margin?: string | undefined; alignment?: "center" | "right" | "left" | undefined; ... 16 more ...; hover?: { ...; } | undefined; }'.
+src/pages/admin/HomepageManagement.tsx(924,47): error TS2339: Property 'gap' does not exist on type '{ backgroundColor?: string | undefined; textColor?: string | undefined; padding?: string | undefined; margin?: string | undefined; alignment?: "center" | "right" | "left" | undefined; ... 16 more ...; hover?: { ...; } | undefined; }'.
+src/pages/admin/HomepageManagement.tsx(969,47): error TS2339: Property 'animationDuration' does not exist on type '{ backgroundColor?: string | undefined; textColor?: string | undefined; padding?: string | undefined; margin?: string | undefined; alignment?: "center" | "right" | "left" | undefined; ... 16 more ...; hover?: { ...; } | undefined; }'.
+src/pages/admin/HomepageManagement.tsx(985,47): error TS2339: Property 'animationDelay' does not exist on type '{ backgroundColor?: string | undefined; textColor?: string | undefined; padding?: string | undefined; margin?: string | undefined; alignment?: "center" | "right" | "left" | undefined; ... 16 more ...; hover?: { ...; } | undefined; }'.
+src/pages/admin/HomepageManagement.tsx(999,62): error TS2339: Property 'enabled' does not exist on type '{ backgroundColor?: string | undefined; textColor?: string | undefined; transform?: string | undefined; opacity?: number | undefined; transition?: string | undefined; }'.
+src/pages/admin/HomepageManagement.tsx(1010,48): error TS2339: Property 'enabled' does not exist on type '{ backgroundColor?: string | undefined; textColor?: string | undefined; transform?: string | undefined; opacity?: number | undefined; transition?: string | undefined; }'.
+src/pages/admin/HomepageManagement.tsx(1682,59): error TS2554: Expected 0 arguments, but got 1.
+src/pages/admin/HomepageManagement.tsx(1718,18): error TS2790: The operand of a 'delete' operator must be optional.
+src/pages/admin/HomepageManagement.tsx(1723,20): error TS2790: The operand of a 'delete' operator must be optional.
+src/pages/admin/LegacyOrdersArchive.tsx(2,18): error TS7016: Could not find a declaration file for module 'papaparse'. '/home/adar/Projects/FixitHub/node_modules/papaparse/papaparse.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/papaparse` if it exists or add a new declaration (.d.ts) file containing `declare module 'papaparse';`
+src/pages/admin/LegacyOrdersArchive.tsx(952,18): error TS7006: Parameter 'result' implicitly has an 'any' type.
+src/pages/admin/LegacyOrdersArchive.tsx(962,17): error TS7006: Parameter 'entry' implicitly has an 'any' type.
+src/pages/admin/LegacyOrdersArchive.tsx(963,20): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/pages/admin/LegacyOrdersArchive.tsx(966,17): error TS7006: Parameter 'field' implicitly has an 'any' type.
+src/pages/admin/LegacyOrdersArchive.tsx(967,20): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/pages/admin/LegacyOrdersArchive.tsx(974,11): error TS2322: Type 'unknown[]' is not assignable to type 'string[]'.
+  Type 'unknown' is not assignable to type 'string'.
+src/pages/admin/LegacyOrdersArchive.tsx(996,15): error TS7006: Parameter 'error' implicitly has an 'any' type.
+src/pages/admin/PartsManagement.tsx(257,9): error TS6133: 'generateItemName' is declared but its value is never read.
+src/pages/admin/PartsManagement.tsx(906,35): error TS2322: Type '{ checked: true; readOnly: true; }' is not assignable to type 'IntrinsicAttributes & Omit<CheckboxProps & RefAttributes<HTMLButtonElement>, "ref"> & RefAttributes<...>'.
+  Property 'readOnly' does not exist on type 'IntrinsicAttributes & Omit<CheckboxProps & RefAttributes<HTMLButtonElement>, "ref"> & RefAttributes<...>'.
+src/pages/admin/PartsManagement.tsx(1712,46): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/admin/PartsManagement.tsx(1722,44): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/admin/PartsManagement.tsx(1853,44): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/admin/QualityControl.tsx(18,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/pages/admin/QualityControl.tsx(346,70): error TS6133: 'index' is declared but its value is never read.
+src/pages/admin/SEOManagement.tsx(36,3): error TS6133: 'Globe' is declared but its value is never read.
+src/pages/admin/SEOManagement.tsx(38,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/pages/admin/SEOManagement.tsx(39,3): error TS6133: 'Eye' is declared but its value is never read.
+src/pages/admin/SEOManagement.tsx(51,3): error TS6133: 'Settings' is declared but its value is never read.
+src/pages/admin/ServiceCategoryManagement.tsx(66,9): error TS6133: 't' is declared but its value is never read.
+src/pages/admin/StaffManagement.tsx(19,3): error TS6133: 'createStaffMember' is declared but its value is never read.
+src/pages/admin/StaffManagement.tsx(20,3): error TS6133: 'createTeam' is declared but its value is never read.
+src/pages/admin/StaffManagement.tsx(21,3): error TS6133: 'updateStaffMember' is declared but its value is never read.
+src/pages/admin/StaffManagement.tsx(28,3): error TS6133: 'deleteTask' is declared but its value is never read.
+src/pages/admin/StaffManagement.tsx(43,3): error TS6133: 'Calendar' is declared but its value is never read.
+src/pages/admin/StaffManagement.tsx(45,3): error TS6133: 'Target' is declared but its value is never read.
+src/pages/admin/StaffManagement.tsx(48,3): error TS6133: 'AlertTriangle' is declared but its value is never read.
+src/pages/admin/StaffManagement.tsx(59,1): error TS6192: All imports in import declaration are unused.
+src/pages/admin/StaffManagement.tsx(188,24): error TS2345: Argument of type '{ dueDate: string; title: string; description: string; assignedTo: string; priority: "low" | "normal" | "high" | "urgent"; category: "repair" | "maintenance" | "training" | "meeting" | "other"; estimatedHours: number; }' is not assignable to parameter of type 'Partial<Task>'.
+  Types of property 'assignedTo' are incompatible.
+    Type 'string' is not assignable to type '{ _id: string; name: string; email: string; avatar: string; }'.
+src/pages/admin/StaffManagement.tsx(235,31): error TS2339: Property 'userId' does not exist on type 'StaffMember'.
+src/pages/admin/StaffManagement.tsx(235,56): error TS2339: Property 'userId' does not exist on type 'StaffMember'.
+src/pages/admin/StaffManagement.tsx(235,67): error TS2339: Property 'userId' does not exist on type 'StaffMember'.
+src/pages/admin/StaffManagement.tsx(235,82): error TS2339: Property 'userId' does not exist on type 'StaffMember'.
+src/pages/admin/StaffManagement.tsx(246,84): error TS2339: Property '_id' does not exist on type 'never'.
+src/pages/admin/StaffManagement.tsx(261,41): error TS2345: Argument of type '{ name: string; description: string; leaderId: string; department: string; specializations: string[]; permissions: string[]; members: Array<{ userId: string; role: string; }>; }' is not assignable to parameter of type 'Partial<Team>'.
+  Types of property 'members' are incompatible.
+    Type '{ userId: string; role: string; }[]' is not assignable to type 'StaffMember[]'.
+      Type '{ userId: string; role: string; }' is missing the following properties from type 'StaffMember': _id, name, email, phone, and 8 more.
+src/pages/admin/StaffManagement.tsx(506,35): error TS2339: Property 'department' does not exist on type 'StaffMember'.
+src/pages/admin/StaffManagement.tsx(659,47): error TS2339: Property 'userId' does not exist on type 'StaffMember'.
+src/pages/admin/StaffManagement.tsx(660,54): error TS2339: Property 'userId' does not exist on type 'StaffMember'.
+src/pages/admin/StaffManagement.tsx(662,39): error TS2339: Property 'userId' does not exist on type 'StaffMember'.
+src/pages/admin/StaffManagement.tsx(662,66): error TS7006: Parameter 'n' implicitly has an 'any' type.
+src/pages/admin/StaffManagement.tsx(959,84): error TS2322: Type '{ children: "high" | "low" | "normal" | "urgent"; className: string; size: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/pages/admin/StaffManagement.tsx(963,82): error TS2322: Type '{ children: string; className: string; size: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/pages/admin/StaffManagement.tsx(1055,86): error TS2322: Type '{ children: "high" | "low" | "normal" | "urgent"; className: string; size: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/pages/admin/StaffManagement.tsx(1058,82): error TS2322: Type '{ children: string; className: string; size: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/pages/admin/StaffManagement.tsx(1081,68): error TS2322: Type 'string' is not assignable to type '"completed" | "pending" | "cancelled" | "in_progress" | undefined'.
+src/pages/admin/SystemConfiguration.tsx(956,31): error TS2345: Argument of type '(prev: SystemConfig | null) => { templateLinkSettings: { productionBaseUrl: string; mode: string; localhostBaseUrl: string; }; _id?: string | undefined; siteName: string; ... 10 more ...; updatedAt: string; } | null' is not assignable to parameter of type 'SetStateAction<SystemConfig | null>'.
+  Type '(prev: SystemConfig | null) => { templateLinkSettings: { productionBaseUrl: string; mode: string; localhostBaseUrl: string; }; _id?: string | undefined; siteName: string; ... 10 more ...; updatedAt: string; } | null' is not assignable to type '(prevState: SystemConfig | null) => SystemConfig | null'.
+    Type '{ templateLinkSettings: { productionBaseUrl: string; mode: string; localhostBaseUrl: string; }; _id?: string | undefined; siteName: string; adminEmail: string; timezone: string; maintenanceMode: boolean; ... 7 more ...; updatedAt: string; } | null' is not assignable to type 'SystemConfig | null'.
+      Type '{ templateLinkSettings: { productionBaseUrl: string; mode: string; localhostBaseUrl: string; }; _id?: string; siteName: string; adminEmail: string; timezone: string; maintenanceMode: boolean; ... 7 more ...; updatedAt: string; }' is not assignable to type 'SystemConfig'.
+        The types of 'templateLinkSettings.mode' are incompatible between these types.
+          Type 'string' is not assignable to type '"production" | "localhost"'.
+src/pages/admin/SystemConfiguration.tsx(1243,63): error TS6133: 'match' is declared but its value is never read.
+src/pages/admin/SystemConfiguration.tsx(2549,17): error TS2322: Type 'unknown' is not assignable to type 'string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | null | undefined'.
+src/pages/admin/SystemConfiguration.tsx(2575,17): error TS2322: Type 'unknown' is not assignable to type 'string | number | boolean | ReactElement<any, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | null | undefined'.
+src/pages/admin/SystemConfiguration.tsx(2581,68): error TS2322: Type '{}' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+src/pages/admin/SystemConfiguration.tsx(2585,68): error TS2322: Type '{}' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+src/pages/admin/SystemConfiguration.tsx(2597,58): error TS2322: Type '{}' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+src/pages/admin/SystemConfiguration.tsx(2601,58): error TS2322: Type 'unknown' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+src/pages/admin/SystemConfiguration.tsx(2614,58): error TS2322: Type '{}' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+src/pages/admin/SystemConfiguration.tsx(2618,58): error TS2322: Type '{}' is not assignable to type 'ReactI18NextChildren | Iterable<ReactI18NextChildren>'.
+src/pages/admin/UserManagement.tsx(20,3): error TS6133: 'Plus' is declared but its value is never read.
+src/pages/admin/UserManagement.tsx(32,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/pages/admin/UserManagement.tsx(36,3): error TS6133: 'MapPin' is declared but its value is never read.
+src/pages/admin/UserManagement.tsx(37,3): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/admin/UserManagement.tsx(39,3): error TS6133: 'ChevronLeft' is declared but its value is never read.
+src/pages/admin/UserManagement.tsx(40,3): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/pages/admin/UserManagement.tsx(272,13): error TS6133: 'response' is declared but its value is never read.
+src/pages/admin/UserManagement.tsx(1030,33): error TS2322: Type '{ checked: boolean; onCheckedChange: () => Promise<void>; disabled: boolean; size: string; }' is not assignable to type 'IntrinsicAttributes & Omit<SwitchProps & RefAttributes<HTMLButtonElement>, "ref"> & RefAttributes<HTMLButtonElement>'.
+  Property 'size' does not exist on type 'IntrinsicAttributes & Omit<SwitchProps & RefAttributes<HTMLButtonElement>, "ref"> & RefAttributes<HTMLButtonElement>'.
+src/pages/admin/VisualPageBuilder.tsx(10,3): error TS6133: 'Eye' is declared but its value is never read.
+src/pages/admin/VisualPageBuilder.tsx(14,3): error TS6133: 'Settings' is declared but its value is never read.
+src/pages/admin/VisualPageBuilder.tsx(15,3): error TS6133: 'Plus' is declared but its value is never read.
+src/pages/admin/VisualPageBuilder.tsx(17,3): error TS6133: 'Download' is declared but its value is never read.
+src/pages/admin/VisualPageBuilder.tsx(80,13): error TS2353: Object literal may only specify known properties, and 'primaryColor' does not exist in type '{ backgroundColor?: string | undefined; backgroundImage?: string | undefined; fontFamily?: string | undefined; colorScheme?: { primary?: string | undefined; secondary?: string | undefined; accent?: string | undefined; text?: string | undefined; background?: string | undefined; } | undefined; }'.
+src/pages/admin/VisualPageBuilder.tsx(92,11): error TS2322: Type 'string' is not assignable to type 'Date'.
+src/pages/admin/VisualPageBuilder.tsx(93,11): error TS2322: Type 'string' is not assignable to type 'Date'.
+src/pages/admin/WebShopManagement.tsx(286,44): error TS2345: Argument of type '{ name: string; description: string; price: number; originalPrice: number | undefined; category: string; brand: string; stockCount: number; images: string[]; features: string[]; compatibility: string[]; ... 6 more ...; seoMetaDescription: string | undefined; }' is not assignable to parameter of type 'Partial<Product>'.
+  Types of property 'dimensions' are incompatible.
+    Type '{ length: number | undefined; width: number | undefined; height: number | undefined; } | undefined' is not assignable to type '{ length: number; width: number; height: number; } | undefined'.
+      Type '{ length: number | undefined; width: number | undefined; height: number | undefined; }' is not assignable to type '{ length: number; width: number; height: number; }'.
+        Types of property 'length' are incompatible.
+          Type 'number | undefined' is not assignable to type 'number'.
+            Type 'undefined' is not assignable to type 'number'.
+src/pages/admin/WebShopManagement.tsx(357,65): error TS2345: Argument of type '{ name: string; description: string; price: number; originalPrice: number | undefined; category: string; brand: string; stockCount: number; images: string[]; features: string[]; compatibility: string[]; ... 6 more ...; seoMetaDescription: string | undefined; }' is not assignable to parameter of type 'Partial<Product>'.
+  Types of property 'dimensions' are incompatible.
+    Type '{ length: number | undefined; width: number | undefined; height: number | undefined; } | undefined' is not assignable to type '{ length: number; width: number; height: number; } | undefined'.
+      Type '{ length: number | undefined; width: number | undefined; height: number | undefined; }' is not assignable to type '{ length: number; width: number; height: number; }'.
+        Types of property 'length' are incompatible.
+          Type 'number | undefined' is not assignable to type 'number'.
+            Type 'undefined' is not assignable to type 'number'.
+src/pages/admin/WebsiteBuilder.tsx(8,3): error TS6133: 'Type' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(12,3): error TS6133: 'Share2' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(14,3): error TS6133: 'Eye' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(18,3): error TS6133: 'Navigation' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(19,11): error TS6133: 'MenuIcon' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(20,12): error TS6133: 'ImageIcon' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(22,3): error TS6133: 'CheckSquare' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(23,3): error TS6133: 'Video' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(24,3): error TS6133: 'MapPin' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(47,79): error TS6133: 'DialogTrigger' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(68,3): error TS6133: 'reorderPages' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(75,9): error TS6133: 't' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(1291,17): error TS6133: 'setPages' is declared but its value is never read.
+src/pages/admin/WebsiteBuilder.tsx(1323,21): error TS2345: Argument of type '{ title: string; slug: string; isPublished: false; showInNavigation: true; }' is not assignable to parameter of type 'Omit<Page, "id" | "order">'.
+  Property '_id' is missing in type '{ title: string; slug: string; isPublished: false; showInNavigation: true; }' but required in type 'Omit<Page, "id" | "order">'.
+src/pages/admin/WorkflowManagement.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(3,29): error TS6133: 'CardDescription' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(11,93): error TS6133: 'DialogTrigger' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(12,1): error TS6192: All imports in import declaration are unused.
+src/pages/admin/WorkflowManagement.tsx(30,3): error TS6133: 'Filter' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(41,3): error TS6133: 'AlertTriangle' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(42,3): error TS6133: 'Users' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(43,3): error TS6133: 'BarChart3' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(45,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(46,3): error TS6133: 'Calendar' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(47,3): error TS6133: 'FileText' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(48,3): error TS6133: 'Workflow' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(58,10): error TS6133: 'addOnWorkflows' is declared but its value is never read.
+src/pages/admin/WorkflowManagement.tsx(239,17): error TS2345: Argument of type '{ name: string; description: string; deviceTypes: string[]; serviceTypes: string[]; isActive: boolean; }' is not assignable to parameter of type 'SetStateAction<{ name: string; description: string; deviceTypes: string[]; serviceTypes: string[]; isActive: boolean; estimatedTotalTime: number; }>'.
+  Property 'estimatedTotalTime' is missing in type '{ name: string; description: string; deviceTypes: string[]; serviceTypes: string[]; isActive: boolean; }' but required in type '{ name: string; description: string; deviceTypes: string[]; serviceTypes: string[]; isActive: boolean; estimatedTotalTime: number; }'.
+src/pages/admin/WorkflowManagement.tsx(262,17): error TS2345: Argument of type '{ name: string; description: string; deviceTypes: never[]; serviceTypes: never[]; isActive: true; }' is not assignable to parameter of type 'SetStateAction<{ name: string; description: string; deviceTypes: string[]; serviceTypes: string[]; isActive: boolean; estimatedTotalTime: number; }>'.
+  Property 'estimatedTotalTime' is missing in type '{ name: string; description: string; deviceTypes: never[]; serviceTypes: never[]; isActive: true; }' but required in type '{ name: string; description: string; deviceTypes: string[]; serviceTypes: string[]; isActive: boolean; estimatedTotalTime: number; }'.
+src/pages/admin/marketing-promo/MarketingPromoNewsletters.tsx(227,45): error TS2345: Argument of type '{ internalName: string; subject: string; preheader: string; content: string; templateName: string; status: string; segmentId: string | null; promoCodeIds: string[]; }' is not assignable to parameter of type 'Partial<Newsletter> & Record<string, unknown>'.
+  Type '{ internalName: string; subject: string; preheader: string; content: string; templateName: string; status: string; segmentId: string | null; promoCodeIds: string[]; }' is not assignable to type 'Partial<Newsletter>'.
+    Types of property 'status' are incompatible.
+      Type 'string' is not assignable to type 'MarketingStatus | undefined'.
+src/pages/admin/marketing-promo/MarketingPromoNewsletters.tsx(229,32): error TS2345: Argument of type '{ internalName: string; subject: string; preheader: string; content: string; templateName: string; status: string; segmentId: string | null; promoCodeIds: string[]; }' is not assignable to parameter of type 'Partial<Newsletter> & Record<string, unknown>'.
+  Type '{ internalName: string; subject: string; preheader: string; content: string; templateName: string; status: string; segmentId: string | null; promoCodeIds: string[]; }' is not assignable to type 'Partial<Newsletter>'.
+    Types of property 'status' are incompatible.
+      Type 'string' is not assignable to type 'MarketingStatus | undefined'.
+src/pages/admin/marketing-promo/MarketingPromoPromoCodes.tsx(118,44): error TS2345: Argument of type '{ internalName: string; code: string; description: string; discountType: string; value: number; startDate: string; endDate: string; status: string; rules: { minimumOrderValue: number; usageLimitTotal: number; usageLimitPerCustomer: number; combinable: boolean; }; }' is not assignable to parameter of type 'Partial<PromoCode> & Record<string, unknown>'.
+  Type '{ internalName: string; code: string; description: string; discountType: string; value: number; startDate: string; endDate: string; status: string; rules: { minimumOrderValue: number; usageLimitTotal: number; usageLimitPerCustomer: number; combinable: boolean; }; }' is not assignable to type 'Partial<PromoCode>'.
+    Types of property 'discountType' are incompatible.
+      Type 'string' is not assignable to type '"percentage" | "fixed_amount" | undefined'.
+src/pages/admin/marketing-promo/MarketingPromoPromoCodes.tsx(120,31): error TS2345: Argument of type '{ internalName: string; code: string; description: string; discountType: string; value: number; startDate: string; endDate: string; status: string; rules: { minimumOrderValue: number; usageLimitTotal: number; usageLimitPerCustomer: number; combinable: boolean; }; }' is not assignable to parameter of type 'Partial<PromoCode> & Record<string, unknown>'.
+  Type '{ internalName: string; code: string; description: string; discountType: string; value: number; startDate: string; endDate: string; status: string; rules: { minimumOrderValue: number; usageLimitTotal: number; usageLimitPerCustomer: number; combinable: boolean; }; }' is not assignable to type 'Partial<PromoCode>'.
+    Types of property 'discountType' are incompatible.
+      Type 'string' is not assignable to type '"percentage" | "fixed_amount" | undefined'.
+src/pages/admin/marketing-promo/MarketingPromoSegments.tsx(105,42): error TS2345: Argument of type '{ internalName: string; description: string; status: string; rules: { roles: string[]; statuses: string[]; newsletterOptInOnly: boolean; includeCountries: string[]; minTotalOrders: number; minTotalSpent: number; }; }' is not assignable to parameter of type 'Partial<MarketingSegment> & Record<string, unknown>'.
+  Type '{ internalName: string; description: string; status: string; rules: { roles: string[]; statuses: string[]; newsletterOptInOnly: boolean; includeCountries: string[]; minTotalOrders: number; minTotalSpent: number; }; }' is not assignable to type 'Partial<MarketingSegment>'.
+    Types of property 'status' are incompatible.
+      Type 'string' is not assignable to type '"active" | "archived" | undefined'.
+src/pages/admin/marketing-promo/MarketingPromoSegments.tsx(107,29): error TS2345: Argument of type '{ internalName: string; description: string; status: string; rules: { roles: string[]; statuses: string[]; newsletterOptInOnly: boolean; includeCountries: string[]; minTotalOrders: number; minTotalSpent: number; }; }' is not assignable to parameter of type 'Partial<MarketingSegment> & Record<string, unknown>'.
+  Type '{ internalName: string; description: string; status: string; rules: { roles: string[]; statuses: string[]; newsletterOptInOnly: boolean; includeCountries: string[]; minTotalOrders: number; minTotalSpent: number; }; }' is not assignable to type 'Partial<MarketingSegment>'.
+    Types of property 'status' are incompatible.
+      Type 'string' is not assignable to type '"active" | "archived" | undefined'.
+src/pages/staff/Performance.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/staff/Performance.tsx(57,9): error TS6133: 'user' is declared but its value is never read.
+src/pages/staff/Performance.tsx(150,9): error TS6133: 'getProgressColor' is declared but its value is never read.
+src/pages/staff/Schedule.tsx(428,62): error TS6133: 'order' is declared but its value is never read.
+src/pages/staff/Schedule.tsx(515,49): error TS2347: Untyped function calls may not accept type arguments.
+src/pages/staff/Schedule.tsx(515,95): error TS7006: Parameter 'accumulator' implicitly has an 'any' type.
+src/pages/staff/Schedule.tsx(515,108): error TS7006: Parameter 'manufacturer' implicitly has an 'any' type.
+src/pages/staff/Schedule.tsx(573,47): error TS7006: Parameter 'model' implicitly has an 'any' type.
+src/pages/staff/Schedule.tsx(579,47): error TS7006: Parameter 'model' implicitly has an 'any' type.
+src/pages/staff/Schedule.tsx(585,74): error TS7006: Parameter 'model' implicitly has an 'any' type.
+src/pages/staff/Schedule.tsx(896,20): error TS18046: 'workflow' is of type 'unknown'.
+src/pages/staff/Schedule.tsx(897,19): error TS2698: Spread types may only be created from object types.
+src/pages/staff/StaffDashboard.tsx(1528,16): error TS2741: Property 'workflows' is missing in type '{ compact: true; className: string; breakHours: number; breaks: { startTime: Date; endTime?: Date | null | undefined; durationHours: number; reason?: string | undefined; }[]; orders: { ...; }[]; selectedDate: string | Date; }' but required in type 'TimeTrackingBreakdownProps'.
+src/pages/staff/StaffOrders.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/staff/StaffOrders.tsx(27,3): error TS6133: 'Camera' is declared but its value is never read.
+src/pages/staff/StaffOrders.tsx(29,3): error TS6133: 'Mail' is declared but its value is never read.
+src/pages/staff/StaffOrders.tsx(30,3): error TS6133: 'DollarSign' is declared but its value is never read.
+src/pages/staff/StaffOrders.tsx(182,9): error TS6133: 't' is declared but its value is never read.
+src/pages/staff/StaffOrders.tsx(230,72): error TS2537: Type '{ _id: string; workflowName?: string | undefined; assignedStaffId?: string | { _id?: string | undefined; } | undefined; assignedStaff?: { staffId?: string | { _id?: string | undefined; } | undefined; name?: string | undefined; }[] | undefined; ... 5 more ...; steps?: { ...; }[] | undefined; }[] | undefined' has no matching index signature for type 'number'.
+src/pages/staff/StaffOrders.tsx(236,35): error TS7006: Parameter 'step' implicitly has an 'any' type.
+src/pages/staff/StaffOrders.tsx(241,69): error TS2537: Type '{ _id: string; workflowName?: string | undefined; assignedStaffId?: string | { _id?: string | undefined; } | undefined; assignedStaff?: { staffId?: string | { _id?: string | undefined; } | undefined; name?: string | undefined; }[] | undefined; ... 5 more ...; steps?: { ...; }[] | undefined; }[] | undefined' has no matching index signature for type 'number'.
+src/pages/staff/StaffOrders.tsx(244,42): error TS7006: Parameter 'step' implicitly has an 'any' type.
+src/pages/staff/StaffOrders.tsx(279,82): error TS2537: Type '{ _id: string; workflowName?: string | undefined; assignedStaffId?: string | { _id?: string | undefined; } | undefined; assignedStaff?: { staffId?: string | { _id?: string | undefined; } | undefined; name?: string | undefined; }[] | undefined; ... 5 more ...; steps?: { ...; }[] | undefined; }[] | undefined' has no matching index signature for type 'number'.
+src/pages/staff/StaffOrders.tsx(286,39): error TS7006: Parameter 'assignment' implicitly has an 'any' type.
+src/pages/staff/StaffOrders.tsx(295,24): error TS7006: Parameter 'step' implicitly has an 'any' type.
+src/pages/staff/StaffOrders.tsx(299,37): error TS7006: Parameter 'assignment' implicitly has an 'any' type.
+src/pages/staff/TeamChat.tsx(382,56): error TS7006: Parameter 'member' implicitly has an 'any' type.
+src/pages/staff/TeamChat.tsx(382,89): error TS7006: Parameter 'member' implicitly has an 'any' type.

@@ -18,3 +18,21 @@ server/config/gateways/
 server/config/secrets/
 *.key
 *.cert
+
+# Laufzeit-Logs des Servers (enthalten E-Mail-Adressen/Betreffzeilen; werden vom Server selbst
+# angelegt: utils/logger.js, utils/emailLogger.js - mkdir recursive, fehlende/leere/kaputte JSON tolerant)
+server/logs/
+
+# Laufzeit-Uploads mit Kundendaten (Pruefberichte, Rechnungen, Chat-/Nachrichtenanhaenge, CSV-Importe,
+# Avatare). Die Verzeichnisse bleiben ueber .gitkeep erhalten; Katalogbilder (device-images) bleiben versioniert.
+server/uploads/reports/*
+server/uploads/invoices/*
+server/uploads/chat/*
+server/uploads/messages/*
+server/uploads/csv/*
+server/uploads/avatars/*
+!server/uploads/*/.gitkeep
+
+# Lauf-Ausgaben im Projektwurzelverzeichnis
+/server_output.log
+/test-results.log

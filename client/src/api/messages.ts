@@ -358,3 +358,161 @@ export const completeQuickAction = async (orderId: string, messageId: string) =>
     throw new Error(error?.response?.data?.error || error.message);
   }
 };
+// ============================================
+// ZENTRALES POSTFACH (GET /api/communications/...)
+// Lesender Adapter ueber Auftraege, Reparaturanfragen, Reklamationen und (nur Admin)
+// Kontaktanfragen. Antworten laufen ueber die Endpunkte der jeweiligen Quelle.
+// Fehler werden IMMER geworfen - niemals als leere Liste verschluckt.
+// ============================================
+
+export type InboxSourceType = 'order' | 'repair_request' | 'complaint' | 'contact';
+export type InboxFilter = 'all' | 'unread' | 'awaiting_reply';
+
+export interface InboxSourceError {
+  source: InboxSourceType;
+  label: string;
+  message: string;
+}
+
+export interface InboxItem {
+  key: string;
+  sourceType: InboxSourceType;
+  sourceId: string;
+  sourceLabel: string;
+  title: string;
+  subtitle?: string;
+  reference: {
+    orderNumber?: string;
+    bookingNumber?: string;
+    bookingId?: string | null;
+    requestNumber?: string;
+    complaintNumber?: string;
+  };
+  customer: { name: string; email: string; isGuest: boolean } | null;
+  device: string;
+  lastMessage: {
+    preview: string;
+    senderType: 'staff' | 'customer' | 'system';
+    senderName: string;
+    kind: 'text' | 'question' | 'action' | 'offer' | 'system' | 'internal';
+    createdAt: string | null;
+  } | null;
+  lastActivityAt: string | null;
+  unreadCount: number;
+  awaitingReply: boolean;
+  pendingQuestions: number;
+  pendingActions: number;
+  messageCount: number;
+  internalNotesCount?: number;
+  legacyMessageCount?: number;
+  link: string | null;
+  linkLabel: string;
+  threadUrl: string;
+  replyChannel: 'order' | 'repair_request' | 'complaint' | 'none';
+  canReply: boolean;
+}
+
+export interface InboxCounts {
+  all: number;
+  unread: number;
+  unreadMessages: number;
+  awaitingReply: number;
+  bySource: Record<string, { all: number; unread: number; awaitingReply: number }>;
+}
+
+export interface InboxResponse {
+  success: boolean;
+  items: InboxItem[];
+  page: number;
+  limit: number;
+  totalCount: number;
+  totalPages: number;
+  hasMore: boolean;
+  source: InboxSourceType | 'all';
+  filter: InboxFilter;
+  q: string;
+  counts: InboxCounts;
+  availableSources: Array<{ source: InboxSourceType; label: string }>;
+  sourceErrors: InboxSourceError[];
+  partial: boolean;
+  viewerRole: string;
+}
+
+export interface CommunicationSummary {
+  success: boolean;
+  unread: number;
+  unreadMessages: number;
+  awaitingReply: number;
+  bySource: Record<string, { all: number; unread: number; awaitingReply: number }>;
+  recent: InboxItem[];
+  sourceErrors: InboxSourceError[];
+  partial: boolean;
+}
+
+export interface ConversationThreadMessage {
+  _id: string;
+  senderType: 'staff' | 'customer' | 'system';
+  senderName: string;
+  kind: string;
+  content: string;
+  createdAt: string | null;
+  isInternal: boolean;
+  legacy: boolean;
+}
+
+const inboxError = (error: any, fallback: string) =>
+  new Error(error?.response?.data?.error || error?.message || fallback);
+
+// Description: Unified inbox list (server-side pagination over all sources)
+// Endpoint: GET /api/communications/inbox
+// Request: { source?, filter?, q?, page?, limit? (max 50) }
+// Response: InboxResponse
+export const getInbox = async (params: {
+  source?: InboxSourceType | 'all';
+  filter?: InboxFilter;
+  q?: string;
+  page?: number;
+  limit?: number;
+} = {}): Promise<InboxResponse> => {
+  try {
+    const response = await api.get('/api/communications/inbox', { params });
+    return response.data;
+  } catch (error: any) {
+    throw inboxError(error, 'Nachrichten konnten nicht geladen werden.');
+  }
+};
+
+// Description: Counters for sidebar and dashboard (unread = per user, awaitingReply = team)
+// Endpoint: GET /api/communications/summary?recent=<n>
+// Response: CommunicationSummary
+export const getCommunicationSummary = async (recent = 0): Promise<CommunicationSummary> => {
+  try {
+    const response = await api.get('/api/communications/summary', { params: recent ? { recent } : {} });
+    return response.data;
+  } catch (error: any) {
+    throw inboxError(error, 'Nachrichtenzähler konnten nicht geladen werden.');
+  }
+};
+
+// Description: Read-only thread (complaint comments, contact request, legacy repair-request messages)
+// Endpoint: GET /api/communications/thread/:sourceType/:sourceId
+// Response: { thread: { key, sourceType, sourceId, messages: ConversationThreadMessage[] } }
+export const getConversationThread = async (sourceType: InboxSourceType, sourceId: string) => {
+  try {
+    const response = await api.get(`/api/communications/thread/${sourceType}/${sourceId}`);
+    return response.data.thread as { key: string; sourceType: InboxSourceType; sourceId: string; messages: ConversationThreadMessage[] };
+  } catch (error: any) {
+    throw inboxError(error, 'Der Verlauf konnte nicht geladen werden.');
+  }
+};
+
+// Description: Mark a conversation read for the current user only
+// Endpoint: PUT /api/communications/:sourceType/:sourceId/read
+export const markConversationRead = async (sourceType: InboxSourceType, sourceId: string) => {
+  try {
+    const response = await api.put(`/api/communications/${sourceType}/${sourceId}/read`, {});
+    return response.data;
+  } catch (error: any) {
+    throw inboxError(error, 'Das Gespräch konnte nicht als gelesen markiert werden.');
+  }
+};

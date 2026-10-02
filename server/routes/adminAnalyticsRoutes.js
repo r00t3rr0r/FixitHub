@@ -24,9 +24,9 @@ router.get('/profitability', requireAdmin, async (req, res) => {
     });
   } catch (error) {
     console.error('Admin analytics profitability error:', error);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to fetch profitability report',
+      error: error.statusCode ? error.message : 'Die Auswertung konnte nicht geladen werden.',
     });
   }
 });
@@ -42,24 +42,28 @@ router.get('/profitability/settings', requireAdmin, async (_req, res) => {
     console.error('Admin analytics settings error:', error);
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to fetch profitability settings',
+      error: 'Die Auswertungs-Einstellungen konnten nicht geladen werden.',
     });
   }
 });
 
 router.put('/profitability/settings', requireAdmin, async (req, res) => {
   try {
+    // Die Antwort enthaelt die nach dem Speichern NEU GELESENEN Werte (nicht das Echo
+    // der Anfrage) - so sieht die Oberflaeche genau das, was gespeichert ist.
     const settings = await ProfitabilityService.updateSettings(req.body || {});
     return res.status(200).json({
       success: true,
       settings,
-      message: 'Profitability settings updated successfully',
+      message: 'Gespeichert – Auswertung wird mit den neuen Werten berechnet.',
     });
   } catch (error) {
     console.error('Admin analytics settings update error:', error);
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      error: error.message || 'Failed to update profitability settings',
+      code: error.code,
+      problems: error.problems,
+      error: error.statusCode ? error.message : 'Die Einstellungen konnten nicht gespeichert werden.',
     });
   }
 });

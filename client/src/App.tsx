@@ -3,12 +3,13 @@ import { lazy, Suspense, useEffect, useRef } from "react"
 import { Helmet } from "react-helmet-async"
 import { ThemeProvider } from "./components/ui/theme-provider"
 import { Toaster } from "./components/ui/toaster"
-import { AuthProvider } from "./contexts/AuthContext"
+import { AuthProvider, useAuth } from "./contexts/AuthContext"
 import { ProtectedRoute } from "./components/ProtectedRoute"
 import { Layout } from "./components/Layout"
 import { CustomerLayout } from "./components/CustomerLayout"
 import { BlankPage } from "./pages/BlankPage"
 import { RepairRequestsManagement } from "./pages/admin/RepairRequestsManagement"
+import { LegacyRepairRequestRedirect } from "./components/repair-request/LegacyRepairRequestRedirect"
 import { PageTracker } from "./components/PageTracker"
 import { GlobalScrollToTopButton } from "./components/GlobalScrollToTopButton"
 
@@ -19,7 +20,11 @@ const Register = lazy(() => import("./pages/Register").then((m) => ({ default: m
 const VerifyEmail = lazy(() => import("./pages/VerifyEmail").then((m) => ({ default: m.VerifyEmail })))
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword").then((m) => ({ default: m.ForgotPassword })))
 const ResetPassword = lazy(() => import("./pages/ResetPassword").then((m) => ({ default: m.ResetPassword })))
-const DebugLogin = lazy(() => import("./pages/DebugLogin").then((m) => ({ default: m.DebugLogin })))
+// SEC-LOGIN: Diagnose-Seite (/debug) nur im Entwicklungsmodus; im Produktions-Build ist
+// import.meta.env.DEV === false, der dynamische Import entfällt und der Chunk wird nicht erzeugt.
+const DebugLogin = import.meta.env.DEV
+  ? lazy(() => import("./pages/DebugLogin").then((m) => ({ default: m.DebugLogin })))
+  : null
 const NewOrder = lazy(() => import("./pages/NewOrder").then((m) => ({ default: m.NewOrder })))
 const OrderTracking = lazy(() => import("./pages/OrderTracking").then((m) => ({ default: m.OrderTracking })))
 const OrderDetails = lazy(() => import("./pages/OrderDetails").then((m) => ({ default: m.OrderDetails })))
@@ -153,6 +158,22 @@ function ScrollToTop() {
  * sofort wieder aufzuspringen. `highlightBookingId` hat eine andere Bedeutung
  * (Zeile hervorheben) und wird nur ergaenzt, wenn er fehlt.
  */
+/**
+ * /messages im passenden Rahmen: Personal/Admin behalten die Seitenleiste des Backoffice
+ * (Layout), Kunden die Kundennavigation (CustomerLayout). Dieselbe Seite, kein zweites Postfach.
+ */
+function MessagesRoleLayout() {
+  const { user } = useAuth()
+  const role = (user as { role?: string } | null)?.role
+  return role === "admin" || role === "staff" ? <Layout /> : <CustomerLayout />
+}
+
+/**
+ * /orders/:id im passenden Rahmen: dieselbe Auftragsdetailseite, für Personal/Admin in der
+ * Backoffice-Shell (Seitenleiste), für Kunden in der Kundennavigation. Kein zweites Detail.
+ */
+const OrderDetailsRoleLayout = MessagesRoleLayout
+
 function BookingDeepLinkBridge() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -418,7 +439,7 @@ function App() {
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/debug" element={<DebugLogin />} />
+            {import.meta.env.DEV && DebugLogin && <Route path="/debug" element={<DebugLogin />} />}
 
             {/* Guest tracking routes - public access with CustomerLayout */}
             <Route path="/track-order" element={<CustomerLayout />}>
@@ -478,10 +499,10 @@ function App() {
             <Route path="/orders" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<OrderTracking />} />
             </Route>
-            <Route path="/orders/:id" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
+            <Route path="/orders/:id" element={<ProtectedRoute><OrderDetailsRoleLayout /></ProtectedRoute>}>
               <Route index element={<OrderDetails />} />
             </Route>
-            <Route path="/messages" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
+            <Route path="/messages" element={<ProtectedRoute><MessagesRoleLayout /></ProtectedRoute>}>
               <Route index element={<Messages />} />
             </Route>
             <Route path="/notifications" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
@@ -499,6 +520,8 @@ function App() {
             <Route path="/my-repair-requests" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<CustomerRepairRequests />} />
             </Route>
+            {/* Alte Links aus bereits versendeten E-Mails (/repair-requests/:id) → rollenrichtige Detailansicht */}
+            <Route path="/repair-requests/:id" element={<ProtectedRoute><LegacyRepairRequestRedirect /></ProtectedRoute>} />
             <Route path="/my-complaints" element={<ProtectedRoute><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<CustomerComplaints />} />
               <Route path=":complaintId" element={<CustomerComplaints />} />

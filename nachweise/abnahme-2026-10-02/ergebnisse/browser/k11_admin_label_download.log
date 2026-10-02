@@ -1,0 +1,71 @@
+   DHL-Integration: name="DHL Paket (E2E)" bookingLabelMode=dummy Zugangsdaten/EKP hinterlegt=false
+  PASS DHL-Integration in e2e_after ist im Dummy-/Testmodus (keine Zugangsdaten, kein EKP) :: dummy
+   Testdaten: Warenkorb (Kunde partner@e2e.invalid, API) Reparatur "E2E K11L-MUQSRWDH Labeltest Admin" -> 200
+   Testdaten: Checkout (API, PayPal ausstehend, keine Zahlung) -> 200 BKG-2026-0015
+  PASS Testbuchung enthaelt genau den eigenen Auftrag (keine fremden Warenkorbposten) :: BKG-2026-0015 orders=1
+   Testdaten: Buchung BKG-2026-0015 (6abf81eb2a854d3cec74454a), Auftrag ORD-2026-072 (6abf81eb2a854d3cec74453a)
+  PASS Checkout hat im Dummy-Modus genau ein Einsendelabel (Kunde -> McRepair) an der Buchung erzeugt :: DHL-DUMMY-KG20260015-531964
+   Testdaten: Admin setzt Auftrag per API auf "quality-check" (Voraussetzung fuer "An Kunden versenden") -> 200
+   [shot] 01_versand_vor_auslieferung.png
+   Einsendung-Karte: Einsendung Kunde → McRepair Absender Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Rechnungsadresse im Kundenprofil Empfänger McRepair Adresse fehlt – bitte prüfen (fehlt: Firmenname, Straße, Hausnummer, PLZ, Ort) – Systemkonfiguration → Integrationen → DHL Quelle: DHL-Integration (Shop-Ansc
+   Auslieferung-Karte: Auslieferung McRepair → Kunde Absender McRepair Adresse fehlt – bitte prüfen (fehlt: Firmenname, Straße, Hausnummer, PLZ, Ort) – Systemkonfiguration → Integrationen → DHL Quelle: DHL-Integration (Shop-Anschrift) Empfänger Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Lieferadresse des Auftra
+  PASS Einsendung (Kunde → McRepair) zeigt die Sendungsnummer dieser Buchung :: DHL-DUMMY-KG20260015-531964
+  PASS Einsendung ist sichtbar als Testlabel gekennzeichnet 
+  PASS Auslieferung (McRepair → Kunde) getrennt, ohne die Einsende-Sendungsnummer 
+  PASS Auslieferung nennt Richtung/Parteien (Absender McRepair, Empfänger Lieferadresse Kunde) 
+  PASS Hinweis "Testmodus – Dummy-Label (kein echtes DHL-Label)" sichtbar 
+   erwartet: Kunde "Paula Partner", Einsende-Absender Teststraße 1, 10115 Berlin | Auslieferungs-Empfaenger Teststraße 1, 10115 Berlin (Quelle Lieferadresse Auftrag)
+   erwartet: McRepair laut DHL-Integration unvollstaendig -> "Adresse fehlt – bitte prüfen"
+   UI Einsendung: [Absender Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Rechnungsadresse im Kundenprofil] -> [Empfänger McRepair Adresse fehlt – bitte prüfen (fehlt: Firmenname, Straße, Hausnummer, PLZ, Ort) – Systemkonfiguration → Integrationen → DHL Quelle: DHL-Integration (Shop-Anschrift)]
+   UI Auslieferung: [Absender McRepair Adresse fehlt – bitte prüfen (fehlt: Firmenname, Straße, Hausnummer, PLZ, Ort) – Systemkonfiguration → Integrationen → DHL Quelle: DHL-Integration (Shop-Anschrift)] -> [Empfänger Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Lieferadresse des Auftrags]
+  PASS Einsendung: Absender = Kunde (Name + Anschrift wie das Buchungs-Einsendelabel) :: Absender Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Rechnungsadresse im Kundenprofil
+  PASS Einsendung: Empfänger = McRepair (Anschrift aus der DHL-Integration bzw. "Adresse fehlt – bitte prüfen") :: Empfänger McRepair Adresse fehlt – bitte prüfen (fehlt: Firmenname, Straße, Hausnummer, PLZ, Ort) – Systemkonfiguration → Integrationen → DHL Quelle: DHL-Integration (Shop-Anschrift)
+  PASS Auslieferung: Absender = McRepair (Anschrift aus der DHL-Integration bzw. "Adresse fehlt – bitte prüfen") :: Absender McRepair Adresse fehlt – bitte prüfen (fehlt: Firmenname, Straße, Hausnummer, PLZ, Ort) – Systemkonfiguration → Integrationen → DHL Quelle: DHL-Integration (Shop-Anschrift)
+  PASS Auslieferung: Empfänger = Kunde (Lieferadresse wie bei der Label-Erstellung) :: Empfänger Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Lieferadresse des Auftrags
+  PASS Reihenfolge je Karte: erst Absender, dann Empfänger (Richtung eindeutig) :: inbound-sender,inbound-recipient,outbound-sender,outbound-recipient
+   [shot] 02_versand_parteien_vor_auslieferung.png
+  PASS Kopf "Reparaturstatus" zeigt den deutschen Status (nicht das Roh-Enum "quality-check") :: Qualitätskontrolle
+  PASS Einsendelabel-Download (Admin) ist eine PDF-Datei :: DHL-Testlabel_BKG-2026-0015.pdf 873 B
+  PASS Einsendelabel gehoert zu dieser Buchung (Dateiname + PDF-Inhalt: Buchungsnummer und Sendungsnummer) :: DHL-Testlabel_BKG-2026-0015.pdf
+   [shot] 03_einsendelabel_heruntergeladen.png
+  PASS "An Kunden versenden" ist im Status Qualitätsprüfung freigegeben 
+   [shot] 04_auslieferung_dummymodus_fehlermeldung.png
+  PASS Dummy-Modus: klare deutsche Fehlermeldung statt stiller Erstellung :: Versandlabel konnte nicht erstellt werden Die DHL Abrechnungsnummer (EKP) fehlt in den Integrationseinstellungen.
+  PASS Dummy-Modus: kein Auslieferungslabel und keine haengende Sperre gespeichert :: {"status":"quality-check","tracking":"","labelLen":0,"inProgress":false,"returnTracking":"","labelCreatedEntries":0}
+  PASS Dummy-Modus: kein externer Verbindungsversuch (netguard unveraendert) 
+   Testdaten: DHL-Integration (e2e_after) temporaer auf LOKALEN Mock http://127.0.0.1:41243 gesetzt (Sandbox, Test-EKP, Test-Shopadresse Werkstattweg 5, 20095 Hamburg); bookingLabelMode bleibt dummy
+   gleichzeitige Anfragen waehrend der laufenden Erstellung: 409 LABEL_CREATION_IN_PROGRESS | 409 LABEL_CREATION_IN_PROGRESS
+   [shot] 05_auslieferung_erstellt.png
+  PASS UI meldet "Versandlabel für den Kunden erstellt" :: Versandlabel für den Kunden erstellt Sendungsnummer: DHL-DUMMY-K11M355525141. Das Gerät gilt erst nach Übergabe an DHL als versendet.
+  PASS Auslieferungslabel am Auftrag gespeichert (Mock-Sendungsnummer, PDF, Sperre geloest) :: DHL-DUMMY-K11M355525141
+  PASS Doppelklick in der UI sendet nur EINE Erstellungsanfrage (Button sofort gesperrt) :: UI-Anfragen=1
+  PASS gleichzeitige Anfragen waehrend der laufenden Erstellung werden vom Server mit 409 LABEL_CREATION_IN_PROGRESS abgewiesen :: 409 LABEL_CREATION_IN_PROGRESS | 409 LABEL_CREATION_IN_PROGRESS
+  PASS insgesamt genau EIN Label-Aufruf beim Provider und ein Verlaufseintrag :: orders=1 verlauf=1
+  PASS Auslieferung an DHL: Absender = konfigurierte Shop-Adresse (McRepair) :: {"name1":"McRepair E2E Werkstatt","addressStreet":"Werkstattweg","addressHouse":"5","postalCode":"20095","city":"Hamburg","country":"DEU"}
+  PASS Auslieferung an DHL: Empfänger = Kundenadresse (Paula Partner, Teststraße 1, 10115 Berlin) :: {"name1":"Paula Partner","addressStreet":"Teststraße","addressHouse":"1","postalCode":"10115","city":"Berlin","country":"DEU","email":"partner@e2e.invalid","phone":"+49 30 1111111"}
+   UI Auslieferung (Mock-Konfiguration): [Absender McRepair McRepair E2E Werkstatt Werkstattweg 5 20095 Hamburg Quelle: DHL-Integration (Shop-Anschrift)] -> [Empfänger Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Lieferadresse des Auftrags]
+  PASS UI Auslieferung: Absender = Mock-Payload shipper (McRepair E2E Werkstatt, Werkstattweg 5, 20095 Hamburg) :: Absender McRepair McRepair E2E Werkstatt Werkstattweg 5 20095 Hamburg Quelle: DHL-Integration (Shop-Anschrift) || payload McRepair E2E Werkstatt, Werkstattweg 5
+  PASS UI Auslieferung: Empfänger = Mock-Payload consignee = Lieferadresse des Auftrags :: Empfänger Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Lieferadresse des Auftrags || payload Paula Partner, Teststraße 1
+  PASS UI Einsendung: Empfänger McRepair aus derselben DHL-Integration (Mock-Shopadresse) :: Empfänger McRepair McRepair E2E Werkstatt Werkstattweg 5 20095 Hamburg Quelle: DHL-Integration (Shop-Anschrift)
+  PASS Hinweis: Anschriften aus aktuellen Stammdaten, maßgeblich ist das erstellte Label 
+   [shot] 06_versand_parteien_nach_auslieferung.png
+  PASS UI: nach Erstellung kein zweiter "An Kunden versenden"-Button, Sendungsnummer in der Auslieferung 
+  PASS Wiederholung + 3 parallele Erstellungsversuche (Provider erreichbar) erzeugen KEIN zweites Label (DB + Mock-Zaehler) :: retry=200/alreadyExists parallel=200,200,200 orders=1
+   Restore DHL-Konfiguration: wiederhergestellt
+  PASS Auslieferungslabel-Download (Admin) ist eine PDF-Datei :: DHL-Versandlabel_ORD-2026-072.pdf 901 B
+  PASS Auslieferungslabel gehoert zu diesem Auftrag (Auftragsnummer, eigene Sendungsnummer, Absender Shop -> Empfänger Kunde) und ist nicht das Einsendelabel :: DHL-Versandlabel_ORD-2026-072.pdf
+   [shot] 07_versand_nach_reload.png
+  PASS nach Reload: Einsendung mit eigener Sendungsnummer + Download-Button 
+  PASS nach Reload: Auslieferung mit eigener Sendungsnummer + Download, keine Erstellen-Buttons mehr 
+   UI nach Reload: Einsendung [Absender Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Rechnungsadresse im Kundenprofil] -> [Empfänger McRepair Adresse fehlt – bitte prüfen (fehlt: Firmenname, Straße, Hausnummer, PLZ, Ort) – Systemkonfiguration → Integrationen → DHL Quelle: DHL-Integration (Shop-Anschrift)] | Auslieferung [Absender McRepair Adresse fehlt – bitte prüfen (fehlt: Firmenname, Straße, Hausnummer, PLZ, Ort) – Systemkonfiguration → Integrationen → DHL Quelle: DHL-Integration (Shop-Anschrift)] -> [Empfänger Kunde Paula Partner Teststraße 1 10115 Berlin Quelle: Lieferadresse des Auftrags]
+  PASS nach Reload: McRepair-Anschrift folgt der wiederhergestellten DHL-Integration (keine Mock-Adresse mehr) :: unvollstaendig
+  PASS nach Reload: Kundenseite beider Karten unverändert 
+  PASS API: Parteien nur für das Team; Kunde (Inhaber) erhält weder in /shipments noch im Auftragsdetail Team-Felder :: 200/200/200
+  PASS nach Reload: erneuter Einsende-Download liefert dasselbe Label 
+  PASS DB: genau ein Einsendelabel (Buchung) und genau ein Auslieferungslabel (Auftrag), Downloads erzeugen nichts Neues :: {"in":"DHL-DUMMY-KG20260015-531964","inEntries":1,"out":"DHL-DUMMY-K11M355525141","outEntries":1}
+  PASS fremder Kunde: Einsendelabel der Buchung nicht abrufbar :: 403
+  PASS fremder Kunde: Auslieferungslabel des Auftrags nicht abrufbar :: 403
+  PASS fremder Kunde: kein Versandstand, keine Label-Erstellung :: 403/403
+  PASS Positivkontrolle: der Inhaber (partner) erhaelt beide PDFs ueber dieselben Routen :: 200/200
+  PASS netguard_after.log ist waehrend des Laufs nicht gewachsen (kein externer Aufruf) :: 0 -> 0 B
+==== k11_admin_label_download: 47 bestanden, 0 fehlgeschlagen ====

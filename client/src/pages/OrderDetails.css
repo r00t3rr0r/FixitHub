@@ -128,7 +128,10 @@
 .order-details-page .order-dialog-content {
   border-radius: 10px;
   padding: 0;
-  overflow: hidden;
+  /* ADMUX-2: ohne Scroll-Body (DialogBody / .order-dialog-body) scrollt der ganze Dialog,
+     statt Fuß und untere Felder abzuschneiden. Mit Scroll-Body scrollt nur dieser. */
+  overflow-x: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -888,7 +891,8 @@
   border-radius: var(--radius-sm, 6px);
   font-size: 0.875rem;
   font-weight: 600;
-  text-transform: capitalize;
+  /* K09: deutsche Statustexte unverändert anzeigen (kein "Versand An Sie Wird …"). */
+  text-transform: none;
 }
 
 .order-status-badge.status-pending {
@@ -942,7 +946,7 @@
   border-radius: var(--radius-sm, 6px);
   font-size: 0.8rem;
   font-weight: 600;
-  text-transform: capitalize;
+  text-transform: none;
 }
 
 .payment-status-badge.payment-paid {
@@ -3027,14 +3031,9 @@
 }
 
 .admin-order-workspace .order-nested-block .order-section-card .text-sm,
-.admin-order-workspace .order-nested-block .order-section-card .text-xs,
-.admin-order-workspace .order-nested-block .order-section-card p,
-.admin-order-workspace .order-nested-block .order-section-card span,
-.admin-order-workspace .order-nested-block .order-section-card button,
-.admin-order-workspace .order-nested-block .order-section-card input,
-.admin-order-workspace .order-nested-block .order-section-card textarea {
-  font-size: 0.68rem;
-  line-height: 1.25;
+.admin-order-workspace .order-nested-block .order-section-card p {
+  font-size: 0.8125rem;
+  line-height: 1.4;
 }
 
 .admin-order-workspace .order-section-card {
@@ -3061,20 +3060,20 @@
 }
 
 .admin-order-workspace .order-section-title {
-  font-size: 0.74rem;
-  gap: 5px;
-  line-height: 1.1;
+  font-size: 0.95rem;
+  gap: 6px;
+  line-height: 1.2;
 }
 
 .admin-order-workspace .order-section-title svg {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
 }
 
 .admin-order-workspace .order-section-description {
-  font-size: 0.64rem;
-  margin-top: 1px;
-  line-height: 1.15;
+  font-size: 0.8125rem;
+  margin-top: 2px;
+  line-height: 1.35;
 }
 
 .admin-order-workspace .order-section-card [data-slot="card-content"] {
@@ -3093,7 +3092,7 @@
 .admin-order-workspace .customer-info-card .details h3,
 .admin-order-workspace .device-info-card .details h3,
 .admin-order-workspace .service-list-item .service-info h4 {
-  font-size: 0.69rem;
+  font-size: 0.9rem;
   margin-bottom: 1px;
 }
 
@@ -3101,11 +3100,11 @@
 .admin-order-workspace .device-info-card .details p,
 .admin-order-workspace .service-list-item .service-info p,
 .admin-order-workspace .service-list-item .service-meta {
-  font-size: 0.61rem;
+  font-size: 0.75rem;
 }
 
 .admin-order-workspace .service-list-item .service-price {
-  font-size: 0.7rem;
+  font-size: 0.8125rem;
 }
 
 .admin-order-workspace .order-total-cost {
@@ -3123,14 +3122,14 @@
 }
 
 .admin-order-workspace .order-section-card .text-sm,
-.admin-order-workspace .order-section-card .text-xs,
-.admin-order-workspace .order-section-card p,
-.admin-order-workspace .order-section-card span,
-.admin-order-workspace .order-section-card button,
-.admin-order-workspace .order-section-card input,
-.admin-order-workspace .order-section-card textarea {
-  font-size: 0.66rem;
-  line-height: 1.2;
+.admin-order-workspace .order-section-card p {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.admin-order-workspace .order-section-card .text-xs {
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
 
 .admin-order-workspace #order-device-inspection {
@@ -4496,7 +4495,9 @@
 }
 
 .admin-order-workspace .order-details-header::before {
-  content: "Schritt 1 · Status & Übersicht prüfen";
+  /* ADMUX-7: die absolut positionierten "Schritt 1-6"-Bänder sind entfernt (die Bereiche ersetzen die Führung). */
+  content: none;
+  display: none;
   position: absolute;
   top: -10px;
   left: 16px;
@@ -4626,70 +4627,7 @@
   overflow: visible;
 }
 
-.admin-order-workspace .order-section-card[id="order-device-info"] .order-section-title::before,
-.admin-order-workspace .order-section-card[id="order-device-inspection"] .order-section-title::before,
-.admin-order-workspace .order-section-card[id="order-eparts"] .order-section-title::before,
-.admin-order-workspace .order-section-card[id="order-workflows"] .order-section-title::before,
-.admin-order-workspace .order-section-card[id="order-progress"] .order-section-title::before,
-.admin-order-workspace .order-section-card[id="order-staff"] .order-section-title::before {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  min-width: 20px;
-  border-radius: 999px;
-  background: var(--accent-yellow, #f5b800);
-  color: var(--primary-blue, #1a2a5e);
-  font-size: 0.7rem;
-  font-weight: 800;
-  margin-right: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  line-height: 1;
-}
 
-.admin-order-workspace #order-device-info .order-section-title::before { content: "2"; }
-.admin-order-workspace #order-device-inspection .order-section-title::before { content: "3"; }
-.admin-order-workspace #order-eparts .order-section-title::before { content: "4"; }
-.admin-order-workspace #order-workflows .order-section-title::before { content: "5"; }
-.admin-order-workspace #order-progress .order-section-title::before { content: "5"; }
-.admin-order-workspace #order-staff .order-section-title::before { content: "6"; }
-
-/* Subtle step hint label above each card */
-.admin-order-workspace #order-device-info,
-.admin-order-workspace #order-device-inspection,
-.admin-order-workspace #order-eparts,
-.admin-order-workspace #order-workflows,
-.admin-order-workspace #order-staff {
-  margin-top: 14px !important;
-}
-
-.admin-order-workspace #order-device-info::before,
-.admin-order-workspace #order-device-inspection::before,
-.admin-order-workspace #order-eparts::before,
-.admin-order-workspace #order-workflows::before,
-.admin-order-workspace #order-staff::before {
-  position: absolute;
-  top: -9px;
-  left: 12px;
-  background: var(--accent-yellow, #f5b800);
-  color: var(--primary-blue, #1a2a5e);
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
-  z-index: 2;
-  white-space: nowrap;
-}
-
-.admin-order-workspace #order-device-info::before { content: "Schritt 2 · Gerät & Sperre verifizieren"; }
-.admin-order-workspace #order-device-inspection::before { content: "Schritt 3 · Inspektion durchführen"; }
-.admin-order-workspace #order-eparts::before { content: "Schritt 4 · Leistungen & Teile bearbeiten"; }
-.admin-order-workspace #order-workflows::before { content: "Schritt 5 · Workflow zuweisen & starten"; }
-.admin-order-workspace #order-staff::before { content: "Schritt 6 · Personalzuordnung pflegen"; }
 
 /* ---------- General admin button polish ---------- */
 .admin-order-workspace .order-section-card [data-slot="card-content"] button,
@@ -4782,27 +4720,6 @@ body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-footer"
   background: var(--primary-blue-dark, #0f1d45) !important;
 }
 
-/* Small responsive tweaks so the step ribbons don't overflow */
-@media (max-width: 640px) {
-  .admin-order-workspace .order-details-header::before,
-  .admin-order-workspace #order-device-info::before,
-  .admin-order-workspace #order-device-inspection::before,
-  .admin-order-workspace #order-eparts::before,
-  .admin-order-workspace #order-workflows::before,
-  .admin-order-workspace #order-staff::before {
-    font-size: 0.55rem;
-    padding: 2px 6px;
-    left: 8px;
-  }
-
-  .admin-order-workspace #order-device-info,
-  .admin-order-workspace #order-device-inspection,
-  .admin-order-workspace #order-eparts,
-  .admin-order-workspace #order-workflows,
-  .admin-order-workspace #order-staff {
-    margin-top: 12px !important;
-  }
-}
 
 /* ============================================================
    Admin Order Details – Redesign Phase 2 (refinements)
@@ -4823,30 +4740,7 @@ body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-footer"
   position: relative;
   border-left: 4px solid var(--accent-yellow, #f5b800);
   border-color: #d4dae7;
-  margin-top: 14px !important;
   overflow: visible;
-}
-
-.admin-order-workspace #order-repair-info::before {
-  content: "Schritt 4 · Leistungen, Zusatzleistungen & Shop-Produkte";
-  position: absolute;
-  top: -9px;
-  left: 12px;
-  background: var(--accent-yellow, #f5b800);
-  color: var(--primary-blue, #1a2a5e);
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
-  z-index: 2;
-  white-space: nowrap;
-}
-
-.admin-order-workspace #order-repair-info .order-section-title::before {
-  content: "4";
 }
 
 .admin-order-workspace .repair-info-subsection {
@@ -4938,10 +4832,6 @@ body.order-details-admin [data-slot="dialog-content"] [data-slot="dialog-footer"
   white-space: nowrap;
 }
 
-/* ----- Step 5: Workflow card visibility ----- */
-.admin-order-workspace #order-progress .order-section-title::before {
-  content: "5"; /* same step as workflows */
-}
 
 /* Mark the OrderProgressTimeline wrapper as the visible Step 1 anchor end */
 .admin-order-workspace > .order-section-card:has(.order-progress-timeline) {
@@ -4962,13 +4852,1492 @@ body.order-details-admin [data-slot="dialog-content"] button:focus-visible {
 }
 
 @media (max-width: 640px) {
-  .admin-order-workspace #order-repair-info::before {
-    font-size: 0.55rem;
-    padding: 2px 6px;
-    left: 8px;
-  }
-
   .admin-order-workspace .order-section-title {
     white-space: normal;
   }
+}
+
+/* ══ KUNDENSICHT: "Auf einen Blick", Meilensteine, Zwei-Spalten-Layout (CUSTUX-6/9/10/11, DHL-9) ══ */
+.order-loading-text {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: #506078;
+}
+
+.customer-order-workspace .customer-section-header-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  text-align: left;
+}
+
+.customer-order-workspace .customer-section-header-row > * {
+  margin-top: 0;
+}
+
+/* Sichtbarer Tastaturfokus auf der Kundenseite (die globale Rücksetzung entfernt ihn). */
+.customer-order-workspace button:focus-visible,
+.customer-order-workspace a:focus-visible,
+.customer-order-workspace [role="button"]:focus-visible,
+.customer-order-workspace [tabindex]:focus-visible,
+body.order-details-page [role="dialog"] button:focus-visible {
+  outline: 2px solid #f5b800;
+  outline-offset: 2px;
+}
+
+#order-customer-messages:focus {
+  outline: none;
+}
+
+#order-customer-messages:focus-visible {
+  outline: 2px solid #f5b800;
+  outline-offset: 2px;
+}
+
+/* Auf einen Blick */
+.customer-glance-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(26, 42, 94, 0.12);
+  background: #ffffff;
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+  min-width: 0;
+}
+
+.customer-glance-heading {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #4a5b78;
+}
+
+.customer-glance-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.customer-glance-status {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.customer-glance-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #4a5b78;
+}
+
+.customer-glance-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.customer-glance-stage {
+  font-size: 0.92rem;
+  color: #13213f;
+}
+
+.customer-glance-payment-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.86rem;
+  color: #4a5b78;
+}
+
+.customer-glance-payment-word strong {
+  color: #13213f;
+}
+
+.customer-glance-money {
+  min-width: 0;
+}
+
+.customer-money-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.customer-money-item {
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid #dde5f2;
+  background: #f8fbff;
+}
+
+.customer-money-item.is-wide {
+  grid-column: span 2;
+}
+
+.customer-money-item dt {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #4a5b78;
+  line-height: 1.3;
+}
+
+.customer-money-item dd {
+  margin: 4px 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #13213f;
+  overflow-wrap: anywhere;
+}
+
+.customer-money-item dd.is-muted {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a5b78;
+}
+
+.customer-money-item.is-open {
+  border-color: #f1c75a;
+  background: #fff8e1;
+}
+
+.customer-money-item.is-open dd {
+  color: #7a4d00;
+}
+
+.customer-money-item.is-settled dd {
+  color: #1f7a45;
+}
+
+.customer-money-item.is-overpaid {
+  border-color: #d9c8f5;
+  background: #f6f1ff;
+}
+
+.customer-money-item.is-overpaid dd {
+  color: #5b2ba6;
+}
+
+.customer-money-note {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #4a5b78;
+}
+
+.customer-glance-next {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #dde5f2;
+  background: #f8fbff;
+  min-width: 0;
+}
+
+.customer-glance-next.tone-action {
+  border: 2px solid #f5b800;
+  background: #fffbea;
+}
+
+.customer-glance-next.tone-waiting {
+  border-color: #cfe0ff;
+  background: #f3f8ff;
+}
+
+.customer-glance-next-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #1a2a5e;
+}
+
+.customer-glance-next-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+
+.customer-glance-next-copy {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.customer-glance-next-copy h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #13213f;
+}
+
+.customer-glance-next-copy p {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #405069;
+}
+
+.customer-glance-next-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #e3b23c;
+  background: #fff2c4;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #6b4500;
+}
+
+.customer-glance-next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.customer-next-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  max-width: 100%;
+}
+
+.customer-next-btn span {
+  overflow-wrap: anywhere;
+}
+
+.customer-next-btn.is-primary {
+  border: 1px solid #1a2a5e;
+  background: #1a2a5e;
+  color: #ffffff;
+}
+
+.customer-next-btn.is-primary:hover:not(:disabled) {
+  background: #24397a;
+}
+
+.customer-next-btn.is-secondary {
+  border: 1px solid #c8d3e6;
+  background: #ffffff;
+  color: #1a2a5e;
+}
+
+.customer-next-btn.is-secondary:hover:not(:disabled) {
+  border-color: #1a2a5e;
+  background: #f3f6fc;
+}
+
+.customer-next-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.customer-next-btn.is-small {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  border-radius: 10px;
+}
+
+.customer-glance-more {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(26, 42, 94, 0.1);
+}
+
+.customer-glance-more-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1a2a5e;
+}
+
+.customer-glance-more ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.customer-glance-more li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.customer-glance-more li > div {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.customer-glance-more li strong {
+  font-size: 0.88rem;
+  color: #13213f;
+}
+
+.customer-glance-more li span {
+  font-size: 0.82rem;
+  color: #4a5b78;
+}
+
+/* Hinweise (keine Aufgabe für den Kunden) - ruhiger als die offenen Schritte */
+.customer-glance-more.is-hints li strong {
+  font-weight: 600;
+  color: #33415c;
+}
+
+/* Meilensteine */
+.customer-milestones-summary {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #405069;
+}
+
+.customer-milestones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.customer-milestone {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  min-width: 0;
+}
+
+.customer-milestone-dot {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.customer-milestone-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.customer-milestone-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #13213f;
+  line-height: 1.25;
+}
+
+.customer-milestone-meta {
+  font-size: 0.76rem;
+  color: #4a5b78;
+  line-height: 1.35;
+}
+
+.customer-milestone.is-reached {
+  border-color: #e5ab00;
+  background: #fff6d6;
+}
+
+.customer-milestone.is-reached .customer-milestone-dot {
+  background: #1a2a5e;
+  color: #ffffff;
+}
+
+.customer-milestone.is-current {
+  border: 2px solid #1a2a5e;
+  background: #ffffff;
+}
+
+.customer-milestone.is-current .customer-milestone-dot {
+  background: #f5b800;
+  color: #1a2a5e;
+}
+
+.customer-milestone.is-skipped {
+  border-style: dashed;
+  background: #f8fafc;
+}
+
+.customer-milestone.is-skipped .customer-milestone-label,
+.customer-milestone.is-pending .customer-milestone-label {
+  color: #475569;
+}
+
+.customer-progress-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.customer-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #c8d3e6;
+  background: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #1a2a5e;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.customer-link-btn:hover {
+  border-color: #1a2a5e;
+  background: #f3f6fc;
+}
+
+/* Zwei Spalten ab 1100 px: links Nachrichten, rechts Abschnitte */
+.customer-order-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  align-items: start;
+  min-width: 0;
+}
+
+.customer-order-col {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+@media (min-width: 1100px) {
+  .customer-order-columns {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  }
+}
+
+.customer-order-section-card {
+  border-radius: 20px;
+  border-color: rgba(26, 42, 94, 0.09);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+  min-width: 0;
+}
+
+.customer-section-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  width: 100%;
+  padding: 16px 20px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.customer-section-toggle-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #13213f;
+}
+
+.customer-section-toggle-title svg {
+  color: #1f4aa2;
+}
+
+.customer-section-toggle-summary {
+  margin-left: auto;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #405069;
+}
+
+.customer-section-toggle-summary .is-open {
+  color: #7a4d00;
+  font-weight: 700;
+}
+
+.customer-section-toggle-chevron {
+  flex-shrink: 0;
+  color: #1a2a5e;
+  transition: transform 0.15s ease;
+}
+
+.customer-section-toggle[data-state="open"] .customer-section-toggle-chevron {
+  transform: rotate(180deg);
+}
+
+/* Radix setzt [hidden] auf den zugeklappten Inhalt - display:grid darf das nicht aufheben. */
+.customer-section-body[hidden] {
+  display: none;
+}
+
+.customer-section-body {
+  display: grid;
+  gap: 14px;
+  padding: 4px 20px 18px;
+  border-top: 1px solid rgba(26, 42, 94, 0.06);
+}
+
+.customer-subsection {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.customer-subsection h4 {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1a2a5e;
+}
+
+.customer-section-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.86rem;
+  color: #4a5b78;
+}
+
+.customer-section-state.is-error {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #f6caca;
+  background: #fff4f4;
+  color: #9a2f2f;
+}
+
+.customer-document-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.customer-document-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.customer-document-title {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #13213f;
+  overflow-wrap: anywhere;
+}
+
+.customer-document-meta {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: #4a5b78;
+  overflow-wrap: anywhere;
+}
+
+.customer-document-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.customer-testlabel-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #f2c1c1;
+  background: #fff1f1;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #a33b3b;
+}
+
+.customer-history-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0 0 0 14px;
+  list-style: none;
+  border-left: 2px solid #e2e8f0;
+}
+
+.customer-history-list li {
+  display: grid;
+  gap: 2px;
+}
+
+.customer-history-list strong {
+  font-size: 0.86rem;
+  color: #13213f;
+}
+
+.customer-history-list span {
+  font-size: 0.82rem;
+  color: #405069;
+}
+
+.customer-history-list time {
+  font-size: 0.76rem;
+  color: #4a5b78;
+}
+
+/* Nachrichten: auf schmalen Bildschirmen keine verschachtelte Scroll-Falle */
+.customer-order-messages-card {
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .customer-glance-top {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .customer-glance-card {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .customer-money-grid {
+    gap: 6px;
+  }
+
+  .customer-money-item {
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  .customer-money-item dt {
+    font-size: 0.7rem;
+  }
+
+  .customer-money-item dd {
+    font-size: 0.98rem;
+  }
+
+  .customer-money-item.is-wide {
+    grid-column: span 2;
+  }
+
+  /* Der Status steht schon im Kopf direkt darüber - hier nur der aktuelle Schritt. */
+  .customer-glance-label,
+  .customer-glance-status-line .order-status-badge {
+    display: none;
+  }
+
+  .customer-glance-card {
+    gap: 10px;
+  }
+
+  .customer-glance-next {
+    padding: 12px;
+  }
+
+  .customer-glance-next-actions,
+  .customer-glance-next-actions .customer-next-btn {
+    width: 100%;
+  }
+
+  .customer-milestones {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .customer-milestone {
+    padding: 6px 8px;
+    border-radius: 10px;
+  }
+
+  .customer-section-toggle {
+    padding: 14px 16px;
+  }
+
+  .customer-section-toggle-summary {
+    margin-left: 0;
+    flex-basis: 100%;
+    order: 3;
+  }
+
+  .customer-section-body {
+    padding: 4px 16px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-progress-step--active .inline-flex,
+  .order-loading-skeleton {
+    animation: none !important;
+  }
+}
+
+/* Personal/Admin sehen /orders/:id jetzt in der Backoffice-Shell (Seitenleiste 16rem): die
+   verfügbare Breite ist kleiner als der Viewport. Die Drei-Spalten-Anordnung richtet sich
+   deshalb zusätzlich nach der Containerbreite (gleiche Regeln wie die 1100-px-Media-Query),
+   damit nichts rechts abgeschnitten wird bzw. horizontal scrollt. */
+.order-details-container.admin-order-workspace {
+  container-type: inline-size;
+}
+
+@container (max-width: 1120px) {
+  .admin-order-workspace .order-nested-top-grid.is-admin-nested,
+  .admin-order-workspace .order-nested-ops-grid.is-admin-nested,
+  .admin-order-workspace .order-nested-admin-grid.is-admin-nested {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-order-workspace .order-nested-top-grid.is-admin-nested > *,
+  .admin-order-workspace .order-nested-ops-grid.is-admin-nested > *,
+  .admin-order-workspace .order-nested-admin-grid.is-admin-nested > * {
+    /* !important: die Platzierungen je Karte (#order-…) nutzen ID-Selektoren mit festen
+       Spalten/Zeilen; in einer Spalte würden sie sich sonst überlagern. */
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+
+  .admin-order-workspace .order-admin-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ══ PERSONAL/ADMIN: Kurzübersicht + Bereiche (ADMUX-7, HIST-18, DHL-4/5/8) ══
+   Kopf mit Identität, Reparatur-/Zahlungs-/Versandstand und Hauptaktionen; darunter die
+   Bereiche "Übersicht | Kommunikation | Verlauf | Rechnungen & Zahlungen | Versand".
+   Fließtext mindestens 13 px, Meta 12 px; Farbe nie allein (immer Text + Icon). */
+.admin-order-workspace .admin-od-header {
+  position: relative;
+  padding: 14px 16px 12px;
+  margin-bottom: 12px;
+  border-left: 6px solid var(--accent-yellow, #f5b800);
+}
+
+.admin-od-header-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-od-identity {
+  min-width: 0;
+  flex: 1 1 380px;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-order-workspace .admin-od-header .admin-od-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1.3rem;
+  line-height: 1.25;
+  color: #ffffff;
+}
+
+.admin-od-title-device {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.admin-order-workspace .admin-od-header .admin-od-identity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 0.8125rem;
+  opacity: 1;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.admin-od-identity-meta strong {
+  color: var(--accent-yellow, #f5b800);
+}
+
+.admin-od-on-dark-muted {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.admin-od-on-dark-link {
+  color: #ffffff;
+}
+
+.admin-od-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-od-actions button {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.admin-od-action-primary {
+  background: var(--accent-yellow, #f5b800) !important;
+  color: var(--primary-blue, #1a2a5e) !important;
+  border: 1px solid #e5ab00 !important;
+}
+
+.admin-od-action-primary:hover {
+  background: #e5ab00 !important;
+}
+
+.admin-od-action-secondary {
+  background: #ffffff !important;
+  color: var(--primary-blue, #1a2a5e) !important;
+  border: 1px solid #d8dce6 !important;
+}
+
+.admin-od-action-secondary:hover {
+  background: #eef1f8 !important;
+}
+
+.admin-od-action-more {
+  background: transparent !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.55) !important;
+}
+
+.admin-od-action-more:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.admin-od-status-row {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 0.95fr) minmax(0, 0.95fr);
+  gap: 8px;
+}
+
+.admin-od-status-item {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  text-align: left;
+}
+
+.admin-od-status-item--button {
+  cursor: pointer;
+  font: inherit;
+}
+
+.admin-od-status-item--button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.admin-od-status-item--button:focus-visible {
+  outline: 2px solid var(--accent-yellow, #f5b800);
+  outline-offset: 2px;
+}
+
+.admin-od-status-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.admin-od-status-value {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-od-status-item [data-slot="dropdown-menu-trigger"],
+.admin-od-status-item > button {
+  justify-self: start;
+  max-width: 100%;
+  font-size: 0.8125rem !important;
+  white-space: normal;
+  height: auto;
+  text-align: left;
+}
+
+.admin-od-money-part {
+  white-space: nowrap;
+}
+
+.admin-od-money {
+  font-size: 0.8125rem;
+  color: #ffffff;
+  overflow-wrap: anywhere;
+}
+
+.admin-od-money strong {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.admin-od-money-note {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.admin-od-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  justify-self: start;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.admin-od-pill.is-ok,
+.admin-od-pill.is-paid { background: #dcfce7; color: #14532d; border-color: #86efac; }
+.admin-od-pill.is-warn,
+.admin-od-pill.is-open { background: #fef3c7; color: #78350f; border-color: #fcd34d; }
+.admin-od-pill.is-partial { background: #ffedd5; color: #7c2d12; border-color: #fdba74; }
+.admin-od-pill.is-overpaid { background: #ede9fe; color: #4c1d95; border-color: #c4b5fd; }
+.admin-od-pill.is-info { background: #dbeafe; color: #1e3a8a; border-color: #93c5fd; }
+.admin-od-pill.is-muted { background: rgba(255, 255, 255, 0.14); color: #ffffff; border-color: rgba(255, 255, 255, 0.3); }
+.admin-od-pill.is-neutral { background: #f1f5f9; color: #1e293b; border-color: #cbd5e1; }
+
+.admin-od-header-notes {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.admin-order-workspace .admin-od-header .admin-od-header-meta {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Bereiche */
+.admin-od-tabs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.admin-od-tabs > * {
+  min-width: 0;
+}
+
+.admin-order-workspace .admin-od-tablist {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  height: auto;
+  gap: 4px;
+  padding: 4px;
+  background: #ffffff;
+  border: 1px solid #d4dae7;
+  border-radius: 10px;
+}
+
+.admin-order-workspace .admin-od-tab {
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--primary-blue, #1a2a5e);
+  padding: 8px 12px;
+  border-radius: 7px;
+}
+
+.admin-order-workspace .admin-od-tab:hover {
+  background: #eef1f8;
+}
+
+.admin-order-workspace .admin-od-tab[data-state="active"] {
+  background: var(--primary-blue, #1a2a5e);
+  color: #ffffff;
+  box-shadow: inset 0 -3px 0 var(--accent-yellow, #f5b800);
+}
+
+.admin-od-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.5;
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.admin-od-tab-badge.is-alert {
+  background: #fef3c7;
+  color: #78350f;
+}
+
+.admin-od-tab-content {
+  margin-top: 0;
+}
+
+.admin-od-tab-panel {
+  background: #ffffff;
+  border: 1px solid #d4dae7;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 0.8125rem;
+}
+
+.admin-od-tab-panel:has(> .order-section-card) {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.admin-od-tab-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.admin-od-tab-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--primary-blue, #1a2a5e);
+}
+
+.admin-od-tab-description {
+  margin: 2px 0 0;
+  max-width: 72ch;
+  font-size: 0.8125rem;
+  color: #4b5568;
+}
+
+/* Übersicht: zwei Spalten ab ausreichender Inhaltsbreite, sonst eine. Die Containerbreite
+   zählt (Backoffice-Seitenleiste), nicht der Viewport. */
+.admin-od-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.admin-od-overview-main,
+.admin-od-overview-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+
+@container (min-width: 980px) {
+  .admin-od-overview {
+    grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+  }
+}
+
+.admin-od-reported-device {
+  margin-top: 2px;
+  font-size: 0.8125rem !important;
+  color: #7c2d12 !important;
+}
+
+/* Verlauf */
+.admin-od-milestones {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-od-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-od-chip:hover {
+  background: #eef1f8;
+}
+
+.admin-od-chip.is-active {
+  background: var(--primary-blue, #1a2a5e);
+  border-color: var(--primary-blue, #1a2a5e);
+  color: #ffffff;
+}
+
+.admin-od-chip:focus-visible,
+.admin-od-history-link:focus-visible {
+  outline: 2px solid var(--accent-yellow, #f5b800);
+  outline-offset: 2px;
+}
+
+.admin-od-chip-count {
+  font-size: 0.72rem;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.admin-od-chip.is-active .admin-od-chip-count {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.admin-od-history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid #e2e8f0;
+}
+
+.admin-od-history-item {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-od-history-time {
+  font-size: 0.8125rem;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-od-history-type,
+.admin-od-history-source {
+  display: inline-flex;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.admin-od-history-type {
+  background: #e0e7ff;
+  color: #1e3a8a;
+}
+
+.admin-od-history-source {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.admin-od-history-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--primary-blue, #1a2a5e);
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .admin-od-history-item {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
+
+/* Rechnungen & Zahlungen */
+.admin-od-money-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.admin-od-money-grid > div {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #f8f9fc;
+}
+
+.admin-od-money-grid dt {
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.admin-od-money-grid dd {
+  margin: 2px 0 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--primary-blue, #1a2a5e);
+}
+
+.admin-od-invoice-row {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  text-align: left;
+  font-size: 0.8125rem;
+}
+
+.admin-od-invoice-row:hover {
+  background: #f8f9fc;
+}
+
+.admin-od-invoice-row.is-static {
+  display: grid;
+  gap: 2px;
+}
+
+/* Versand: Einsendung und Auslieferung getrennt */
+.admin-od-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+}
+
+.admin-od-banner.is-warn {
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  color: #78350f;
+}
+
+.admin-od-banner.is-error {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #7f1d1d;
+}
+
+.admin-od-shipping-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.admin-od-shipping-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #d4dae7;
+  border-top: 4px solid var(--primary-blue, #1a2a5e);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.admin-od-shipping-card:first-child {
+  border-top-color: var(--accent-yellow, #f5b800);
+}
+
+.admin-od-shipping-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--primary-blue, #1a2a5e);
+}
+
+.admin-od-direction {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.admin-od-shipping-facts {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.admin-od-shipping-facts > div {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+
+.admin-od-shipping-facts dt {
+  color: #475569;
+}
+
+.admin-od-shipping-facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* K11: Absender / Empfänger je Versandrichtung (nur Team). */
+.admin-od-parties {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.admin-od-party {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+
+.admin-od-party + .admin-od-party {
+  padding-top: 6px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.admin-od-party-role {
+  font-weight: 700;
+  color: #334155;
+}
+
+.admin-od-party-body {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-od-party-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.admin-od-party-who {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #1e293b;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.admin-od-party-missing {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 2px;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.admin-od-party-source,
+.admin-od-party-note {
+  margin: 0;
+  color: #475569;
+  font-size: 0.75rem;
+}
+
+@container (max-width: 900px) {
+  .admin-od-status-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 560px) {
+  .admin-od-status-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-od-actions {
+    justify-content: flex-start;
+  }
+}
+
+/* Schmale Breiten: Kopfzeilen der Unterabschnitte (z. B. "Zusatzdienst hinzufügen") umbrechen
+   statt seitlich überzustehen. */
+.admin-order-workspace .repair-info-subsection-header {
+  flex-wrap: wrap;
+}
+
+/* Sperr-/Abgleich-Panels tragen aus dem früheren Zwei-Spalten-Raster "sm:col-span-2" - in der
+   Versandkarte immer volle Breite (sonst entstünde eine zweite, schmale Spalte). */
+.admin-od-shipping-card > * {
+  grid-column: 1 / -1;
 }

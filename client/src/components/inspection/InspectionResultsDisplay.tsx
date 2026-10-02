@@ -28,6 +28,8 @@ interface InspectionResultsDisplayProps {
   userRole?: string;
   currentDevice?: { brand?: string; model?: string };
   orderTimeline?: Array<{ status?: string; description?: string; completedAt?: string }>;
+  /** Gesetzt (z. B. Auftrag storniert): Starten/Fortsetzen ist gesperrt, der Text erklaert warum. Lesen bleibt moeglich. */
+  startBlockedReason?: string;
 }
 
 export function InspectionResultsDisplay({
@@ -36,6 +38,7 @@ export function InspectionResultsDisplay({
   userRole = 'customer',
   currentDevice,
   orderTimeline = [],
+  startBlockedReason,
 }: InspectionResultsDisplayProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -192,11 +195,13 @@ export function InspectionResultsDisplay({
         </div>
         <Button
           onClick={handleStartInspection}
+          disabled={Boolean(startBlockedReason)}
+          title={startBlockedReason || undefined}
           className="bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0 w-full"
           size="sm"
         >
           <ArrowRight className="h-4 w-4 mr-1.5" />
-          {t('deviceInspection.startDeviceInspection')}
+          {startBlockedReason || t('deviceInspection.startDeviceInspection')}
         </Button>
       </div>
     );
@@ -265,7 +270,9 @@ export function InspectionResultsDisplay({
   };
 
   // ── In-Progress ──────────────────────────────────────────────────────────
-  if (inspection.status === 'in-progress') {
+  // Gesperrt (z. B. Auftrag storniert): statt "Fortfahren" die bisher erfassten Daten nur lesend
+  // zeigen (Berichtsansicht unten; der PDF-Knopf bleibt abgeschlossenen Inspektionen vorbehalten).
+  if (inspection.status === 'in-progress' && !startBlockedReason) {
     const progress = calculateProgress();
     const currentStep = getCurrentStep();
 
@@ -319,11 +326,13 @@ export function InspectionResultsDisplay({
             {canAccessInspectionWorkflow && (
               <Button
                 onClick={handleStartInspection}
+                disabled={Boolean(startBlockedReason)}
+                title={startBlockedReason || undefined}
                 className="w-full bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00] font-semibold border-0"
                 size="sm"
               >
                 <Play className="h-3.5 w-3.5 mr-1.5" />
-                {t('deviceInspection.continueInspection')}
+                {startBlockedReason || t('deviceInspection.continueInspection')}
               </Button>
             )}
 
@@ -420,7 +429,12 @@ export function InspectionResultsDisplay({
             <ShieldCheck className="h-4 w-4 text-white" />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-white leading-tight">Inspektionsbericht</p>
+            <p className="text-sm font-semibold text-white leading-tight">
+              {inspection.status === 'completed' ? 'Inspektionsbericht' : 'Erfasste Inspektionsdaten (nur lesen)'}
+            </p>
+            {inspection.status !== 'completed' && startBlockedReason && (
+              <p className="text-[10px] text-white/80 leading-none mt-0.5">{startBlockedReason}</p>
+            )}
             {inspection.completedAt && (
               <p className="text-[10px] text-white/60 leading-none mt-0.5">
                 Abgeschlossen {new Date(inspection.completedAt).toLocaleDateString('de-DE')}
@@ -434,7 +448,8 @@ export function InspectionResultsDisplay({
               Tests fehlgeschlagen
             </Badge>
           )}
-          <Badge className={`border text-[10px] ${sc.bg}`}>{sc.label}</Badge>
+          {/* Im dunklen Kopf: helle Darstellung für nicht abgeschlossene Inspektionen (Nur-Lese-Ansicht bei Storno). */}
+          <Badge className={`border text-[10px] ${inspection.status === 'completed' ? sc.bg : 'bg-white/15 text-white border-white/30'}`}>{sc.label}</Badge>
         </div>
       </div>
 

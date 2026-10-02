@@ -1,0 +1,144 @@
+(node:1101128) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1101128) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1101128) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[1] POST /api/orders mit manipulierten Summen (Kunde)
+Create order request received from user: http-haendler@test.invalid
+Order data: {
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  services: [ '6abf933e10c052575a2cab01' ],
+  addOns: [
+    {
+      name: 'Expressbearbeitung',
+      description: 'Express',
+      price: 0.01,
+      status: 'pending'
+    }
+  ],
+  totalCost: 1,
+  discount: 50,
+  dealerDiscountPercent: 90,
+  paymentStatus: 'paid',
+  pricingConditions: { groupDiscountPercent: 99 }
+}
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf933e10c052575a2caa71'),
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  services: [ '6abf933e10c052575a2cab01' ],
+  addOns: [
+    {
+      name: 'Expressbearbeitung',
+      description: 'Express',
+      price: 0.01,
+      status: 'pending'
+    }
+  ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf933f10c052575a2cab62')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+Order confirmation email sent to: http-haendler@test.invalid
+  PASS HTTP 201 :: 201
+  PASS DB: Auftragswert serverseitig 117,00 :: 117
+  PASS DB: Rabatt serverseitig 13,00 :: 13
+  PASS DB: Zusatzleistung zum Katalogpreis :: 30
+  PASS DB: Zahlstatus nicht vom Client setzbar :: pending
+  PASS DB: Client-Haendlerrabatt ignoriert :: 0
+
+[2] Kunde darf keine Positionen aendern
+RequireRole middleware: User http-haendler@test.invalid has role customer, but requires one of: admin, staff
+  PASS HTTP 403 :: 403
+
+[3] Personal fuegt Katalogservice hinzu
+RequireRole middleware: User http-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding service 6abf933e10c052575a2cab08 to order 6abf933f10c052575a2cab62
+[OrderServiceManagement] Service 6abf933e10c052575a2cab08 added to order 6abf933f10c052575a2cab62. List price: 50. Order value: 162
+[OrderServiceRoutes] Position added by user 6abf933e10c052575a2caae5 to order 6abf933f10c052575a2cab62
+  PASS HTTP 201 :: 201
+  PASS DB: 180 - 18 = 162,00 :: 162
+  PASS Antwort enthaelt Brutto 162,00 :: 162
+
+[4] Validierungsfehler: 400, deutsch, nichts gespeichert
+RequireRole middleware: User http-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding manual line to order 6abf933f10c052575a2cab62
+[OrderServiceManagement] Error adding service to order: Bitte geben Sie einen Namen für die manuelle Reparaturposition an.
+[OrderServiceRoutes] Error adding service: Bitte geben Sie einen Namen für die manuelle Reparaturposition an.
+  PASS manuelle Position ohne Namen: HTTP 400 :: 400
+  PASS deutsche Meldung :: Bitte geben Sie einen Namen für die manuelle Reparaturposition an.
+RequireRole middleware: User http-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding service 6abf933e10c052575a2cab15 to order 6abf933f10c052575a2cab62
+[OrderServiceManagement] Error adding service to order: Der Service „Displaytausch Pixel 8“ passt nicht zu dem Gerät dieses Auftrags (Apple iPhone 15) (anderer Hersteller).
+[OrderServiceRoutes] Error adding service: Der Service „Displaytausch Pixel 8“ passt nicht zu dem Gerät dieses Auftrags (Apple iPhone 15) (anderer Hersteller).
+  PASS Service fuer anderes Modell: HTTP 400 :: 400
+  PASS deutsche Meldung :: Der Service „Displaytausch Pixel 8“ passt nicht zu dem Gerät dieses Auftrags (Apple iPhone 15) (anderer Hersteller).
+RequireRole middleware: User http-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding service 6abf933e10c052575a2cab08 to order 6abf933f10c052575a2cab62
+[OrderServiceManagement] Error adding service to order: Der Service „Akkutausch“ ist bereits in diesem Auftrag enthalten.
+[OrderServiceRoutes] Error adding service: Der Service „Akkutausch“ ist bereits in diesem Auftrag enthalten.
+  PASS doppelter Service: HTTP 409 :: 409
+  PASS weiterhin 2 Positionen :: 2
+RequireRole middleware: User http-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding service 6abf933e10c052575a2cab08 to order 6abf933f10c052575a2caba4
+[OrderServiceManagement] Error adding service to order: Auftrag wurde nicht gefunden.
+[OrderServiceRoutes] Error adding service: Auftrag wurde nicht gefunden.
+  PASS unbekannter Auftrag: HTTP 404 :: 404
+  PASS deutsche Meldung :: Auftrag wurde nicht gefunden.
+
+[5] Personal fuegt manuelle Position hinzu (Standardpreis brutto 100,00)
+RequireRole middleware: User http-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding manual line to order 6abf933f10c052575a2cab62
+[OrderServiceManagement] Manual line added to order 6abf933f10c052575a2cab62. List price: 100. Order value: 252
+[OrderServiceRoutes] Position added by user 6abf933e10c052575a2caae5 to order 6abf933f10c052575a2cab62
+  PASS HTTP 201 :: 201
+  PASS DB: Name, keine Katalog-ID :: Platinenreparatur / undefined
+  PASS DB: 280 - 28 = 252,00 :: 252
+
+[6] Lese-API (Kunde, eigener Auftrag)
+[OrderServiceRoutes] GET /:orderId - Fetching services for order: 6abf933f10c052575a2cab62
+[OrderServiceManagement] Retrieved 3 services for order 6abf933f10c052575a2cab62
+  PASS HTTP 200 :: 200
+  PASS Zwischensumme 280,00 :: 280
+  PASS Rabatt 28,00 :: 28
+  PASS Rabatt 10 % :: 10
+  PASS Brutto 252,00 :: 252
+  PASS Positionen stimmen mit Gesamt :: true
+  PASS manuelle Position sichtbar :: 3
+
+[7] Preisaenderung und Loeschen
+RequireRole middleware: User http-staff@test.invalid has required role staff
+[OrderServiceRoutes] PUT /:orderId/:serviceId - Updating service 6abf933f10c052575a2cabb1 in order 6abf933f10c052575a2cab62
+[OrderServiceManagement] Service 6abf933f10c052575a2cabb1 updated in order 6abf933f10c052575a2cab62. List price: 150. Order value: 297
+[OrderServiceRoutes] Service 6abf933f10c052575a2cabb1 updated by user 6abf933e10c052575a2caae5 in order 6abf933f10c052575a2cab62
+  PASS PUT HTTP 200 :: 200
+  PASS DB: 330 - 33 = 297,00 :: 297
+RequireRole middleware: User http-staff@test.invalid has required role staff
+[OrderServiceRoutes] DELETE /:orderId/:serviceId - Removing service 6abf933f10c052575a2cab7e from order 6abf933f10c052575a2cab62
+[OrderServiceManagement] Service 6abf933f10c052575a2cab7e removed from order 6abf933f10c052575a2cab62. Order value: 252
+[OrderServiceRoutes] Service 6abf933f10c052575a2cab7e removed by user 6abf933e10c052575a2caae5 from order 6abf933f10c052575a2cab62
+  PASS DELETE HTTP 200 :: 200
+  PASS DB: 280 - 28 = 252,00 :: 252
+
+[8] Rechnungsbrutto === Auftragswert
+FinancialService: Generating invoice from repair orders: [ '6abf933f10c052575a2cab62' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0001
+  PASS Rechnungsbrutto === Auftragswert :: 252 === 252
+  PASS Benachrichtigungen ausgeloest (Mock) :: 4
+
+[9] Fehler im Finanzabgleich wird sichtbar gemeldet, Wiederholung ohne Duplikate
+RequireRole middleware: User http-staff@test.invalid has required role staff
+[OrderServiceRoutes] POST /:orderId - Adding service 6abf933e10c052575a2cab08 to order 6abf933f10c052575a2cab62
+[OrderServiceManagement] Financial sync failed for order 6abf933f10c052575a2cab62: Simulierter DB-Ausfall
+[OrderServiceManagement] Service 6abf933e10c052575a2cab08 added to order 6abf933f10c052575a2cab62. List price: 50. Order value: 297
+[OrderServiceRoutes] Position added by user 6abf933e10c052575a2caae5 to order 6abf933f10c052575a2cab62
+  PASS Position gespeichert (HTTP 201) :: 201
+  PASS Warnung zum Finanzabgleich in der Antwort (deutsch) :: ["Die Position wurde gespeichert, der Abgleich mit Buchung/Rechnung ist jedoch fehlgeschlagen. Bitte den Finanzabgleich für diesen Auftrag erneut ausführen."]
+  PASS DB: Auftragswert 297,00 gespeichert :: 297
+  PASS Rechnung noch auf altem Stand (Abgleich fehlte) = 252,00 :: 252
+  PASS nach Wiederholung: Rechnungsbrutto === Auftragswert 297,00 :: 297
+  PASS keine doppelten Finanzbelege :: 1
+
+==== 40 bestanden, 0 fehlgeschlagen ====

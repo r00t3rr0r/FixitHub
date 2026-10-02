@@ -60,6 +60,14 @@ const quickActionSchema = new mongoose.Schema({
   completedAt: {
     type: Date,
   },
+  // Wer hat die Aktion erledigt? (additiv; Altdaten ohne Angabe gelten als Kunde)
+  completedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  completedByRole: {
+    type: String,
+  },
   status: {
     type: String,
     enum: ['pending', 'completed', 'cancelled'],
@@ -115,6 +123,11 @@ const communicationMessageSchema = new mongoose.Schema({
     fileUrl: String,
     fileType: String,
   }],
+  // Idempotenz: vom Client je Entwurf erzeugte ID. Dieselbe ID wird nur EINMAL gespeichert
+  // (Doppelklick, Enter-Wiederholung, Netzwerk-Retry). Optional, keine Rueckbefuellung.
+  clientMessageId: {
+    type: String,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -171,6 +184,11 @@ const InspectionCommunicationSchema = new mongoose.Schema({
 
 // Index for efficient queries
 InspectionCommunicationSchema.index({ orderId: 1, createdAt: -1 });
+// Genau EIN Thread pro Auftrag. Bestehende Duplikate vorher pruefen mit
+// node server/scripts/reportInspectionCommunicationDuplicates.js (nur lesend). Scheitert der
+// Indexaufbau an Altdaten, laeuft die Anwendung weiter (Lesepfade nehmen den aeltesten Thread).
+InspectionCommunicationSchema.index({ orderId: 1 }, { unique: true, name: 'orderId_unique_thread' });
+InspectionCommunicationSchema.index({ lastMessageAt: -1 });
 InspectionCommunicationSchema.index({ inspectionId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('InspectionCommunication', InspectionCommunicationSchema);

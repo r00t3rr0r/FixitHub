@@ -314,6 +314,12 @@ const bookingSchema = new mongoose.Schema({
     default: '',
     index: true,
   },
+  // Idempotenzschluessel des Checkouts (vom Client je Bezahlversuch erzeugt). Eine
+  // Wiederholung nach verlorener Antwort liefert die bestehende Buchung statt einer zweiten
+  // Buchung mit zweitem DHL-Label. Kein Standardwert: Bestandsdaten haben das Feld nicht.
+  checkoutAttemptId: {
+    type: String,
+  },
   timeline: [bookingTimelineSchema],
   createdAt: {
     type: Date,
@@ -383,6 +389,11 @@ bookingSchema.pre('save', async function(next) {
 bookingSchema.index({ customerId: 1 });
 bookingSchema.index({ status: 1 });
 bookingSchema.index({ createdAt: -1 });
+// Partiell: nur Buchungen MIT Idempotenzschluessel (Bestand ohne Feld bleibt unberuehrt).
+bookingSchema.index(
+  { checkoutAttemptId: 1 },
+  { unique: true, partialFilterExpression: { checkoutAttemptId: { $type: 'string' } } }
+);
 // bookingNumber already has unique: true index at line 81, no need for duplicate
 
 // Populate customer when querying

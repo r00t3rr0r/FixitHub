@@ -21,6 +21,8 @@
  *      startet dann eine zweite Wiederholung: es darf genau EINE Rechnung entstehen.
  *      Ausserdem: wiederholt scheiternde Nachholversuche fuellen das Protokoll nicht
  *      unbegrenzt; ein abgebrochener Versuch (Prozessabbruch) erzeugt nie eine Doppelrechnung.
+ *      (Der haengende Stub wird erst ersetzt, nachdem der Lauf ihn nachweislich erreicht hat -
+ *      unter CPU-Last war die fruehere Wartezeit von 50 x 20 ms zu kurz.)
  *   D. Loeschbestaetigung einer Reparaturposition (OrderDetails.tsx) uebergibt die gezeigte
  *      Abweichung (repricingBasis) statt eines nackten confirmRepricing-Booleans
  *      (Quelltextpruefung der Komponente + Verhaltensprobe des echten Clients).
@@ -425,14 +427,24 @@ async function main() {
         // Verdacht (sie koennte noch laufen); legt das Personal die Rechnung manuell an, wird
         // genau diese geliefert.
         const { complaint: c3, followUpId: f3 } = await makeRejectedWithoutInvoice();
-        FinancialService.createInvoice = async () => new Promise(() => {}); // haengt fuer immer
+        // Deterministisch: der haengende Stub meldet, dass der Lauf ihn ERREICHT hat; erst dann
+        // wird das Original wiederhergestellt. Frueher wartete der Test nur auf den
+        // Beanspruchungs-Eintrag (max. 50 x 20 ms) - unter CPU-Last erreichte der Lauf
+        // createInvoice erst NACH dem Wiederherstellen und erstellte wirklich eine Rechnung.
+        let markStubReached;
+        const stubReached = new Promise((resolve) => { markStubReached = resolve; });
+        FinancialService.createInvoice = async () => {
+          markStubReached(true);
+          return new Promise(() => {}); // haengt fuer immer
+        };
         const hanging = call('POST', `/api/complaints/${c3._id}/reject-offer`, owner, {}).catch(() => null);
-        for (let i = 0; i < 50; i += 1) {
-          const probe = await readComplaint(c3._id);
-          if (retryLogEntries(probe).length) break;
-          await new Promise((resolve) => setTimeout(resolve, 20));
-        }
+        const reached = await Promise.race([
+          stubReached,
+          new Promise((resolve) => setTimeout(() => resolve(false), 30000)),
+        ]);
         FinancialService.createInvoice = originalCreateInvoice;
+        check(reached === true && retryLogEntries(await readComplaint(c3._id)).length === 1,
+          'Vorbedingung: haengender Lauf hat die Beanspruchung gesetzt und steckt in createInvoice', `erreicht=${reached}`);
         await mongoose.connection.db.collection('complaints').updateOne(
           { _id: c3._id },
           { $set: { 'complaintLogs.$[entry].createdAt': new Date(Date.now() - 60 * 60 * 1000) } },

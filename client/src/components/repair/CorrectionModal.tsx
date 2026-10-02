@@ -15,6 +15,8 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/useToast';
+import { approveRepairStart, defaultRepairCustomerMessage, describeCustomerNotification } from '@/api/repairWorkflow';
+import { formatEUR } from '@/lib/utils';
 import {
   FileText,
   Bell,
@@ -22,6 +24,8 @@ import {
   AlertCircle,
   Smartphone,
   Euro,
+  Lock,
+  Send,
 } from 'lucide-react';
 
 interface CorrectionModalProps {
@@ -36,6 +40,7 @@ export function CorrectionModal({ orderId, inspection, order, onClose, onApprove
   const { toast } = useToast();
   const [internalNotes, setInternalNotes] = useState('');
   const [notifyCustomer, setNotifyCustomer] = useState(false);
+  const [customerMessage, setCustomerMessage] = useState(() => defaultRepairCustomerMessage('approve', order));
   const [loading, setLoading] = useState(false);
 
   // Dynamic order changes based on inspection data
@@ -69,35 +74,34 @@ export function CorrectionModal({ orderId, inspection, order, onClose, onApprove
     return Object.keys(changes).length > 0 ? changes : null;
   };
 
+  // Ueber den gemeinsamen API-Client (CSRF-Header, deutsche Servermeldungen) - NOTIF-6.
+  // Speichern und Kundenbenachrichtigung werden getrennt gemeldet.
   const handleSave = async () => {
+    if (notifyCustomer && !customerMessage.trim()) {
+      toast({ title: 'Hinweis', description: 'Bitte die Nachricht an den Kunden eingeben oder „Kunde informieren“ ausschalten.', variant: 'destructive' });
+      return;
+    }
     try {
       setLoading(true);
-
-      const response = await fetch(`/api/repair-workflows/${orderId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          internalNotes,
-          orderChanges: buildOrderChanges(),
-          notifyCustomer,
-        }),
+      const result = await approveRepairStart(orderId, internalNotes, buildOrderChanges(), notifyCustomer, customerMessage.trim());
+      toast({ title: 'Gespeichert', description: 'Korrekturen gespeichert, die Reparatur wurde gestartet.' });
+      const described = describeCustomerNotification(result.customerNotification);
+      if (described) {
+        toast({
+          title: described.title,
+          description: described.description,
+          variant: described.tone === 'success' || described.tone === 'info' ? undefined : 'destructive',
+        });
+      }
+      (result.warnings || []).filter((warning) => /Auftragsstatus/.test(warning)).forEach((warning) => {
+        toast({ title: 'Hinweis', description: warning, variant: 'destructive' });
       });
-
-      if (!response.ok) throw new Error('Korrektur konnte nicht gespeichert werden');
-
-      const data = await response.json();
-      toast({
-        title: 'Erfolg',
-        description: notifyCustomer
-          ? 'Korrekturen gespeichert & Kunde wird benachrichtigt'
-          : 'Korrekturen gespeichert & Workflow gestartet',
-      });
-      onApprove(data.workflow);
+      onApprove(result.workflow);
     } catch (err: any) {
       console.error('Error saving corrections:', err);
       toast({
-        title: 'Fehler',
-        description: err.message || 'Ein Fehler ist aufgetreten',
+        title: 'Nicht gespeichert',
+        description: err.message || 'Die Korrektur konnte nicht gespeichert werden.',
         variant: 'destructive',
       });
     } finally {
@@ -122,13 +126,16 @@ export function CorrectionModal({ orderId, inspection, order, onClose, onApprove
 
           {/* Interne Notiz */}
           <div className="space-y-2">
-            <Label htmlFor="correction-notes" className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+            <Label htmlFor="correction-notes" className="text-sm font-medium text-slate-700 flex flex-wrap items-center gap-1.5">
               <FileText className="h-3.5 w-3.5 text-slate-500" />
               Interne Notiz
+              <Badge variant="outline" className="gap-1 border-slate-300 bg-slate-100 text-[10px] text-slate-700">
+                <Lock className="h-3 w-3" aria-hidden="true" /> Intern – nur für das Team
+              </Badge>
             </Label>
             <Textarea
               id="correction-notes"
-              placeholder="z. B. spezielle Handlungsschritte, Abweichungen, Kundenabsprachen …"
+              placeholder="z. B. spezielle Handlungsschritte, Abweichungen – wird dem Kunden nie gesendet"
               value={internalNotes}
               onChange={(e) => setInternalNotes(e.target.value)}
               disabled={loading}
@@ -184,7 +191,7 @@ export function CorrectionModal({ orderId, inspection, order, onClose, onApprove
                 <p className="text-[11px] text-orange-700">
                   Preisdifferenz: <span className="font-semibold">
                     {inspection.modelVerification.costDifference > 0 ? '+' : ''}
-                    {inspection.modelVerification.costDifference} €
+                    {formatEUR(inspection.modelVerification.costDifference)}
                   </span>
                 </p>
                 <Input
@@ -248,20 +255,40 @@ export function CorrectionModal({ orderId, inspection, order, onClose, onApprove
 
           <Separator />
 
-          {/* Kunde informieren Toggle */}
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div className="flex items-center gap-2.5">
-              <Bell className="h-4 w-4 text-[#1a2a5e]" />
-              <div>
-                <p className="text-sm font-medium text-slate-800">Kunde informieren?</p>
-                <p className="text-[11px] text-slate-500">Automatische Benachrichtigung bei Speichern</p>
+          {/* Kunde informieren: nur der Text "Nachricht an Kunden" geht hinaus, nie die interne Notiz */}
+          <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Bell className="h-4 w-4 text-[#1a2a5e]" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Kunde informieren</p>
+                  <p className="text-[11px] text-slate-500">Benachrichtigung im Kundenkonto und E-Mail beim Speichern</p>
+                </div>
               </div>
+              <Switch
+                checked={notifyCustomer}
+                onCheckedChange={setNotifyCustomer}
+                disabled={loading}
+                aria-label="Kunde informieren"
+              />
             </div>
-            <Switch
-              checked={notifyCustomer}
-              onCheckedChange={setNotifyCustomer}
-              disabled={loading}
-            />
+            {notifyCustomer && (
+              <div className="space-y-1.5">
+                <Label htmlFor="correction-customer-message" className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-slate-700">
+                  Nachricht an Kunden
+                  <Badge variant="outline" className="gap-1 border-blue-300 bg-blue-50 text-[10px] text-blue-800">
+                    <Send className="h-3 w-3" aria-hidden="true" /> An Kunden
+                  </Badge>
+                </Label>
+                <Textarea
+                  id="correction-customer-message"
+                  value={customerMessage}
+                  onChange={(e) => setCustomerMessage(e.target.value)}
+                  disabled={loading}
+                  className="min-h-[70px] resize-none text-sm bg-white"
+                />
+              </div>
+            )}
           </div>
         </div>
 

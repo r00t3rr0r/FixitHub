@@ -98,7 +98,15 @@ class Logger {
       const logFile = path.join(this.logDir, `${this.serviceName}-${date}.log`);
       
       const logLine = JSON.stringify(logEntry) + '\n';
-      fs.appendFileSync(logFile, logLine);
+      try {
+        fs.appendFileSync(logFile, logLine);
+      } catch (error) {
+        // Verzeichnis zur Laufzeit entfernt (z. B. nach git pull ohne die nicht mehr
+        // versionierten Logdateien): neu anlegen und einmal erneut schreiben.
+        if (error.code !== 'ENOENT') throw error;
+        fs.mkdirSync(this.logDir, { recursive: true });
+        fs.appendFileSync(logFile, logLine);
+      }
     } catch (error) {
       console.error(`Failed to write log file: ${error.message}`);
     }

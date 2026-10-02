@@ -1,4 +1,5 @@
 import api from './api';
+import { invoicePdfRequestConfig } from './invoices';
 
 export interface User {
   _id: string;
@@ -325,9 +326,9 @@ export const exportUsersToCSV = async (userIds?: string[], filters?: any) => {
       if (filters.status) params.append('status', filters.status);
     }
 
-    const response = await api.get(`/api/admin/users/export/csv?${params.toString()}`, {
-      responseType: 'blob'
-    });
+    // Gemeinsame Blob-Konfiguration (Identitaets-Transform): der JSON-Transform der Instanz
+    // wuerde den Blob als Text parsen und mit "data.trim is not a function" scheitern.
+    const response = await api.get(`/api/admin/users/export/csv?${params.toString()}`, invoicePdfRequestConfig());
 
     console.log('exportUsersToCSV API response received');
 

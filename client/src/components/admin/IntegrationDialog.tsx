@@ -75,12 +75,12 @@ export function IntegrationDialog({
   })
 
   const integrationTypes = [
-    { value: 'email', label: 'Email Service' },
-    { value: 'sms', label: 'SMS Service' },
-    { value: 'payment', label: 'Payment Gateway' },
-    { value: 'storage', label: 'Cloud Storage' },
-    { value: 'analytics', label: 'Analytics' },
-    { value: 'shipping', label: 'Shipping & Tracking' }
+    { value: 'email', label: 'E-Mail-Dienst' },
+    { value: 'sms', label: 'SMS-Dienst' },
+    { value: 'payment', label: 'Zahlungsanbieter' },
+    { value: 'storage', label: 'Cloud-Speicher' },
+    { value: 'analytics', label: 'Analyse' },
+    { value: 'shipping', label: 'Versand & Sendungsverfolgung' }
   ]
 
   const providers = {
@@ -188,8 +188,8 @@ export function IntegrationDialog({
   const handleSave = async () => {
     if (!formData.name || !formData.provider || !formData.apiKey) {
       toast({
-        title: "Error",
-        description: "Name, provider, and API key are required",
+        title: "Fehler",
+        description: "Name, Anbieter und API Key sind Pflichtfelder.",
         variant: "destructive"
       })
       return
@@ -197,8 +197,8 @@ export function IntegrationDialog({
 
     if (showsDhlBusinessCustomerFields && (!formData.apiSecret || !formData.credentials?.username || !formData.credentials?.password)) {
       toast({
-        title: "Error",
-        description: "For DHL Shipping, API secret plus Shipping API username/password are required",
+        title: "Fehler",
+        description: "Für DHL-Versand sind API Secret sowie Benutzername und Passwort der Shipping API erforderlich.",
         variant: "destructive"
       })
       return
@@ -206,8 +206,8 @@ export function IntegrationDialog({
 
     if (showsDhlBusinessCustomerFields && !formData.settings?.accountNumber) {
       toast({
-        title: "Error",
-        description: "For DHL Shipping, Account/Billing Number is required",
+        title: "Fehler",
+        description: "Für DHL-Versand ist die Abrechnungsnummer erforderlich.",
         variant: "destructive"
       })
       return
@@ -245,12 +245,12 @@ export function IntegrationDialog({
       await onSave(dataToSave)
       onOpenChange(false)
       toast({
-        title: "Success",
-        description: `Integration ${mode === 'create' ? 'created' : 'updated'} successfully`
+        title: "Gespeichert",
+        description: `Integration wurde ${mode === 'create' ? 'angelegt' : 'aktualisiert'}.`
       })
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Fehler",
         description: error.message,
         variant: "destructive"
       })
@@ -264,10 +264,10 @@ export function IntegrationDialog({
       <DialogContent className="w-[96vw] max-w-4xl h-[92vh] max-h-[92vh] p-0 flex flex-col overflow-hidden">
         <DialogHeader className="bg-gradient-to-r from-[#1a2a5e] to-[#2a3f7f] text-white p-6 rounded-t-lg">
           <DialogTitle className="text-xl">
-            {mode === 'create' ? 'Add Integration' : 'Edit Integration'}
+            {mode === 'create' ? 'Integration hinzufügen' : 'Integration bearbeiten'}
           </DialogTitle>
           <DialogDescription className="text-blue-100 text-sm mt-2">
-            Configure third-party service integration settings
+            Einstellungen für die Anbindung externer Dienste
           </DialogDescription>
         </DialogHeader>
 
@@ -275,17 +275,17 @@ export function IntegrationDialog({
           <div className="grid gap-3">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="name" className="text-sm">Integration Name *</Label>
+              <Label htmlFor="name" className="text-sm">Name der Integration *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter integration name"
+                placeholder="Name der Integration eingeben"
                 className="h-9 text-sm"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="type" className="text-sm">Type *</Label>
+              <Label htmlFor="type" className="text-sm">Typ *</Label>
               <Select
                 value={formData.type}
                 onValueChange={(value: any) => setFormData(prev => ({ ...prev, type: value, provider: '' }))}
@@ -306,7 +306,7 @@ export function IntegrationDialog({
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="provider" className="text-sm">Provider *</Label>
+              <Label htmlFor="provider" className="text-sm">Anbieter *</Label>
               <Select
                 value={formData.provider}
                 onValueChange={(value) => setFormData(prev => ({
@@ -344,7 +344,7 @@ export function IntegrationDialog({
                 }))}
               >
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Select provider" />
+                  <SelectValue placeholder="Anbieter auswählen" />
                 </SelectTrigger>
                 <SelectContent>
                   {providers[formData.type as keyof typeof providers]?.map(provider => (
@@ -356,7 +356,7 @@ export function IntegrationDialog({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="endpoint" className="text-sm">{showsDhlBusinessCustomerFields ? 'Endpoint URL (Base)' : 'Endpoint URL'}</Label>
+              <Label htmlFor="endpoint" className="text-sm">{showsDhlBusinessCustomerFields ? 'Endpoint-URL (Basis)' : 'Endpoint-URL'}</Label>
               <Input
                 id="endpoint"
                 value={formData.endpoint}
@@ -366,7 +366,7 @@ export function IntegrationDialog({
               />
               {showsDhlBusinessCustomerFields && (
                 <p className="text-xs text-muted-foreground">
-                  Base URL only. Shipping endpoint is built automatically as /parcel/de/shipping/v2/orders.
+                  Nur die Basis-URL. Der Versand-Endpoint /parcel/de/shipping/v2/orders wird automatisch ergänzt.
                 </p>
               )}
             </div>
@@ -380,7 +380,7 @@ export function IntegrationDialog({
                 type={showApiKey ? 'text' : 'password'}
                 value={formData.apiKey}
                 onChange={(e) => setFormData(prev => ({ ...prev, apiKey: e.target.value }))}
-                placeholder={showsDhlBusinessCustomerFields ? 'DHL App client_id' : 'Enter API key'}
+                placeholder={showsDhlBusinessCustomerFields ? 'DHL App client_id' : 'API Key eingeben'}
                 className="h-9 text-sm pr-9"
               />
               <button
@@ -403,7 +403,7 @@ export function IntegrationDialog({
                 type={showApiSecret ? 'text' : 'password'}
                 value={formData.apiSecret}
                 onChange={(e) => setFormData(prev => ({ ...prev, apiSecret: e.target.value }))}
-                placeholder={showsDhlBusinessCustomerFields ? 'DHL App client_secret' : 'Enter API secret (if required)'}
+                placeholder={showsDhlBusinessCustomerFields ? 'DHL App client_secret' : 'API Secret eingeben (falls erforderlich)'}
                 className="h-9 text-sm pr-9"
               />
               <button
@@ -428,7 +428,7 @@ export function IntegrationDialog({
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm">Parcel DE Shipping</p>
-                      <p className="text-xs text-muted-foreground">Versandauftraege und Labelerstellung</p>
+                      <p className="text-xs text-muted-foreground">Versandaufträge und Labelerstellung</p>
                     </div>
                     <Switch
                       checked={Boolean(formData.settings?.dhlApis?.parcelDeShipping ?? true)}
@@ -474,7 +474,7 @@ export function IntegrationDialog({
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm">Parcel DE Returns</p>
-                      <p className="text-xs text-muted-foreground">Ruecksendelabel via Returns API</p>
+                      <p className="text-xs text-muted-foreground">Rücksendelabel über die Returns API</p>
                     </div>
                     <Switch
                       checked={Boolean(formData.settings?.dhlApis?.parcelDeReturns ?? false)}
@@ -520,11 +520,11 @@ export function IntegrationDialog({
 
                 {Boolean(formData.settings?.dhlApis?.parcelDePickup ?? false) && (
                   <div className="rounded-md border bg-white p-3 space-y-3">
-                    <p className="text-sm font-medium">DHL Parcel DE Pickup Settings</p>
+                    <p className="text-sm font-medium">DHL Parcel DE Pickup – Einstellungen</p>
 
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1">
-                        <Label htmlFor="dhlPickupLocationType" className="text-sm">Location Type</Label>
+                        <Label htmlFor="dhlPickupLocationType" className="text-sm">Standorttyp</Label>
                         <Select
                           value={String(formData.settings?.pickup?.locationType || 'branch')}
                           onValueChange={(value: 'branch' | 'locker' | 'retail') => setFormData(prev => ({
@@ -542,15 +542,15 @@ export function IntegrationDialog({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="branch">Branch</SelectItem>
-                            <SelectItem value="locker">Locker</SelectItem>
-                            <SelectItem value="retail">Retail</SelectItem>
+                            <SelectItem value="branch">Filiale</SelectItem>
+                            <SelectItem value="locker">Packstation</SelectItem>
+                            <SelectItem value="retail">Paketshop</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
                       <div className="space-y-1">
-                        <Label htmlFor="dhlPickupCountryCode" className="text-sm">Country Code (ISO2)</Label>
+                        <Label htmlFor="dhlPickupCountryCode" className="text-sm">Ländercode (ISO2)</Label>
                         <Input
                           id="dhlPickupCountryCode"
                           value={String(formData.settings?.pickup?.countryCode || 'DE')}
@@ -572,7 +572,7 @@ export function IntegrationDialog({
 
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1">
-                        <Label htmlFor="dhlPickupBranchCode" className="text-sm">Branch Code (optional)</Label>
+                        <Label htmlFor="dhlPickupBranchCode" className="text-sm">Filialnummer (optional)</Label>
                         <Input
                           id="dhlPickupBranchCode"
                           value={String(formData.settings?.pickup?.branchCode || '')}
@@ -592,7 +592,7 @@ export function IntegrationDialog({
                       </div>
 
                       <div className="space-y-1">
-                        <Label htmlFor="dhlPickupRetailId" className="text-sm">Retail ID (optional)</Label>
+                        <Label htmlFor="dhlPickupRetailId" className="text-sm">Paketshop-ID (optional)</Label>
                         <Input
                           id="dhlPickupRetailId"
                           value={String(formData.settings?.pickup?.retailID || '')}
@@ -606,7 +606,7 @@ export function IntegrationDialog({
                               }
                             }
                           }))}
-                          placeholder="Retail ID"
+                          placeholder="Paketshop-ID"
                           className="h-9 text-sm"
                         />
                       </div>
@@ -614,7 +614,7 @@ export function IntegrationDialog({
 
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1">
-                        <Label htmlFor="dhlPickupMaxResults" className="text-sm">Max Results</Label>
+                        <Label htmlFor="dhlPickupMaxResults" className="text-sm">Max. Ergebnisse</Label>
                         <Input
                           id="dhlPickupMaxResults"
                           type="number"
@@ -636,7 +636,7 @@ export function IntegrationDialog({
                       </div>
 
                       <div className="space-y-1">
-                        <Label htmlFor="dhlPickupProbePath" className="text-sm">Pickup Probe Path</Label>
+                        <Label htmlFor="dhlPickupProbePath" className="text-sm">Pickup-Prüfpfad</Label>
                         <Input
                           id="dhlPickupProbePath"
                           value={String(formData.settings?.pickup?.probePath || '/parcel/de/shipping/v2/pickup')}
@@ -658,8 +658,8 @@ export function IntegrationDialog({
 
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm">Prefer Nearest Pickup Point</p>
-                        <p className="text-xs text-muted-foreground">Bevorzugt den naechstgelegenen Standort, falls mehrere verfuegbar sind</p>
+                        <p className="text-sm">Nächstgelegenen Abholpunkt bevorzugen</p>
+                        <p className="text-xs text-muted-foreground">Bevorzugt den nächstgelegenen Standort, falls mehrere verfügbar sind</p>
                       </div>
                       <Switch
                         checked={Boolean(formData.settings?.pickup?.preferNearest ?? true)}
@@ -680,7 +680,7 @@ export function IntegrationDialog({
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <Label htmlFor="dhlEnvironment" className="text-sm">Environment *</Label>
+                    <Label htmlFor="dhlEnvironment" className="text-sm">Umgebung *</Label>
                     <Select
                       value={String(formData.metadata?.environment || 'sandbox')}
                       onValueChange={(value: 'sandbox' | 'production') => setFormData(prev => ({
@@ -705,14 +705,14 @@ export function IntegrationDialog({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sandbox">Sandbox (Integration Testing)</SelectItem>
-                        <SelectItem value="production">Production (Live)</SelectItem>
+                        <SelectItem value="sandbox">Sandbox (Integrationstest)</SelectItem>
+                        <SelectItem value="production">Produktion (Live)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="dhlAccountNumber" className="text-sm">Account/Billing Number *</Label>
+                    <Label htmlFor="dhlAccountNumber" className="text-sm">Abrechnungsnummer *</Label>
                     <Input
                       id="dhlAccountNumber"
                       value={String(formData.settings?.accountNumber || '')}
@@ -731,7 +731,7 @@ export function IntegrationDialog({
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <Label htmlFor="dhlProfile" className="text-sm">Profile</Label>
+                    <Label htmlFor="dhlProfile" className="text-sm">Profil</Label>
                     <Input
                       id="dhlProfile"
                       value={String(formData.settings?.profile || 'STANDARD_GRUPPENPROFIL')}
@@ -748,7 +748,7 @@ export function IntegrationDialog({
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="dhlProduct" className="text-sm">Product</Label>
+                    <Label htmlFor="dhlProduct" className="text-sm">Produkt</Label>
                     <Input
                       id="dhlProduct"
                       value={String(formData.settings?.product || 'V01PAK')}
@@ -771,11 +771,11 @@ export function IntegrationDialog({
               </div>
 
               <div className="rounded-md border p-3 space-y-3 bg-slate-50/60">
-                <p className="text-sm font-medium">DHL Shipper Default Address (Fallback)</p>
+                <p className="text-sm font-medium">DHL-Absenderadresse (Standard, Fallback)</p>
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <Label htmlFor="shipperCompany" className="text-sm">Company</Label>
+                    <Label htmlFor="shipperCompany" className="text-sm">Firma</Label>
                     <Input
                       id="shipperCompany"
                       value={String(formData.settings?.shipperCompany || '')}
@@ -792,7 +792,7 @@ export function IntegrationDialog({
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="shipperCountry" className="text-sm">Country (ISO2)</Label>
+                    <Label htmlFor="shipperCountry" className="text-sm">Land (ISO2)</Label>
                     <Input
                       id="shipperCountry"
                       value={String(formData.settings?.shipperCountry || 'DE')}
@@ -811,7 +811,7 @@ export function IntegrationDialog({
 
                 <div className="grid gap-3 md:grid-cols-3">
                   <div className="space-y-1 md:col-span-2">
-                    <Label htmlFor="shipperStreet" className="text-sm">Street</Label>
+                    <Label htmlFor="shipperStreet" className="text-sm">Straße</Label>
                     <Input
                       id="shipperStreet"
                       value={String(formData.settings?.shipperStreet || '')}
@@ -828,7 +828,7 @@ export function IntegrationDialog({
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="shipperNumber" className="text-sm">No.</Label>
+                    <Label htmlFor="shipperNumber" className="text-sm">Nr.</Label>
                     <Input
                       id="shipperNumber"
                       value={String(formData.settings?.shipperNumber || '')}
@@ -847,7 +847,7 @@ export function IntegrationDialog({
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <Label htmlFor="shipperPostalCode" className="text-sm">Postal Code</Label>
+                    <Label htmlFor="shipperPostalCode" className="text-sm">PLZ</Label>
                     <Input
                       id="shipperPostalCode"
                       value={String(formData.settings?.shipperPostalCode || '')}
@@ -864,7 +864,7 @@ export function IntegrationDialog({
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="shipperCity" className="text-sm">City</Label>
+                    <Label htmlFor="shipperCity" className="text-sm">Ort</Label>
                     <Input
                       id="shipperCity"
                       value={String(formData.settings?.shipperCity || '')}
@@ -883,7 +883,7 @@ export function IntegrationDialog({
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <Label htmlFor="shipperEmail" className="text-sm">Shipper Email</Label>
+                    <Label htmlFor="shipperEmail" className="text-sm">Absender-E-Mail</Label>
                     <Input
                       id="shipperEmail"
                       value={String(formData.settings?.shipperEmail || '')}
@@ -900,7 +900,7 @@ export function IntegrationDialog({
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="shipperPhone" className="text-sm">Shipper Phone</Label>
+                    <Label htmlFor="shipperPhone" className="text-sm">Absender-Telefon</Label>
                     <Input
                       id="shipperPhone"
                       value={String(formData.settings?.shipperPhone || '')}
@@ -929,7 +929,7 @@ export function IntegrationDialog({
                 </p>
 
                 <div className="space-y-1">
-                  <Label htmlFor="dhlShippingAuthUrl" className="text-sm">Auth URL *</Label>
+                  <Label htmlFor="dhlShippingAuthUrl" className="text-sm">Auth-URL *</Label>
                   <Input
                     id="dhlShippingAuthUrl"
                     value={formData.credentials?.shippingAuthUrl || ''}
@@ -947,7 +947,7 @@ export function IntegrationDialog({
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <Label htmlFor="dhlShippingUsername" className="text-sm">Username *</Label>
+                    <Label htmlFor="dhlShippingUsername" className="text-sm">Benutzername *</Label>
                     <Input
                       id="dhlShippingUsername"
                       value={formData.credentials?.username || ''}
@@ -964,7 +964,7 @@ export function IntegrationDialog({
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="dhlShippingPassword" className="text-sm">Password *</Label>
+                    <Label htmlFor="dhlShippingPassword" className="text-sm">Passwort *</Label>
                     <Input
                       id="dhlShippingPassword"
                       type="password"
@@ -983,7 +983,7 @@ export function IntegrationDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="dhlShippingGrantType" className="text-sm">Grant Type</Label>
+                  <Label htmlFor="dhlShippingGrantType" className="text-sm">Grant-Typ</Label>
                   <Input
                     id="dhlShippingGrantType"
                     value={formData.credentials?.shippingGrantType || 'password'}
@@ -1007,7 +1007,7 @@ export function IntegrationDialog({
                 </p>
 
                 <div className="space-y-1">
-                  <Label htmlFor="dhlTrackingBaseUrl" className="text-sm">Base URL</Label>
+                  <Label htmlFor="dhlTrackingBaseUrl" className="text-sm">Basis-URL</Label>
                   <Input
                     id="dhlTrackingBaseUrl"
                     value={formData.credentials?.trackingBaseUrl || ''}
@@ -1025,7 +1025,7 @@ export function IntegrationDialog({
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <Label htmlFor="dhlTrackingUsername" className="text-sm">Username</Label>
+                    <Label htmlFor="dhlTrackingUsername" className="text-sm">Benutzername</Label>
                     <Input
                       id="dhlTrackingUsername"
                       value={formData.credentials?.trackingUsername || ''}
@@ -1042,7 +1042,7 @@ export function IntegrationDialog({
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="dhlTrackingPassword" className="text-sm">Password</Label>
+                    <Label htmlFor="dhlTrackingPassword" className="text-sm">Passwort</Label>
                     <Input
                       id="dhlTrackingPassword"
                       type="password"
@@ -1061,7 +1061,7 @@ export function IntegrationDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="dhlTrackingAuthType" className="text-sm">Auth Type</Label>
+                  <Label htmlFor="dhlTrackingAuthType" className="text-sm">Authentifizierung</Label>
                   <Select
                     value={formData.credentials?.trackingAuthType || 'basic'}
                     onValueChange={(value) => setFormData(prev => ({
@@ -1152,7 +1152,7 @@ export function IntegrationDialog({
 
           {showsBookingLabelMode && (
             <div className="space-y-1">
-              <Label htmlFor="bookingLabelMode" className="text-sm">Booking Label Mode</Label>
+              <Label htmlFor="bookingLabelMode" className="text-sm">Buchungslabel-Modus (Einsendelabel)</Label>
               <Select
                 value={formData.settings?.bookingLabelMode || 'dummy'}
                 onValueChange={(value: 'dummy' | 'live') => setFormData(prev => ({
@@ -1167,12 +1167,12 @@ export function IntegrationDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="dummy">Dummy PDF Label</SelectItem>
-                  <SelectItem value="live">Live DHL Label</SelectItem>
+                  <SelectItem value="dummy">Dummy – Testlabel (kein echtes DHL-Label)</SelectItem>
+                  <SelectItem value="live">Live – echtes DHL-Label</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Dummy creates a placeholder PDF for bookings. Live uses the DHL API and falls back to dummy on failure.
+                Dummy erzeugt für neue Buchungen ein Testlabel (PDF, Sendungsnummer „DHL-DUMMY-…“), das nicht für den Versand verwendet werden darf; es wird in Buchungen und Aufträgen als „Testlabel“ gekennzeichnet. Live erstellt echte DHL-Labels über die DHL-Schnittstelle. Eine gesetzte Server-Variable BOOKING_DHL_LABEL_MODE hat Vorrang vor dieser Einstellung.
               </p>
             </div>
           )}
@@ -1182,25 +1182,25 @@ export function IntegrationDialog({
               checked={formData.isActive}
               onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isActive: checked }))}
             />
-            <Label className="text-sm">Active Integration</Label>
+            <Label className="text-sm">Integration aktiv</Label>
           </div>
           </div>
         </div>
 
         <DialogFooter className="bg-gray-50 px-4 md:px-6 py-4 rounded-b-lg border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)} size="sm">
-            Cancel
+            Abbrechen
           </Button>
           <Button onClick={handleSave} disabled={loading} size="sm" className="bg-[#1a2a5e] hover:bg-[#2a3f7f]">
             {loading ? (
               <>
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
-                Saving...
+                Wird gespeichert …
               </>
             ) : (
               <>
                 <Save className="h-3 w-3 mr-1" />
-                {mode === 'create' ? 'Add Integration' : 'Update Integration'}
+                {mode === 'create' ? 'Integration hinzufügen' : 'Integration speichern'}
               </>
             )}
           </Button>

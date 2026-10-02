@@ -17,6 +17,31 @@ const pauseHistorySchema = new mongoose.Schema({
   resumedByTechnicianName: String,
 }, { _id: true });
 
+// Ergebnis einer ausdruecklichen Kundenbenachrichtigung (In-App + E-Mail). Additiv, ohne Defaults.
+const customerNotificationSchema = new mongoose.Schema({
+  status: String,
+  reason: String,
+  error: String,
+  message: String,
+  inApp: Boolean,
+  email: String,
+  at: Date,
+}, { _id: false });
+
+// Wiederaufnahme eines abgeschlossenen Reparatur-Workflows (HIST-11). gapMs = Zeit zwischen
+// Abschluss und Wiederaufnahme; sie zaehlt als Pausenzeit (totalPausedMs), nicht als Arbeitszeit.
+const reopenSchema = new mongoose.Schema({
+  reopenedAt: Date,
+  previousCompletedAt: Date,
+  gapMs: Number,
+  reason: String,
+  technicianId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  technicianName: String,
+}, { _id: true });
+
 const incidentSchema = new mongoose.Schema({
   type: {
     type: String,
@@ -44,6 +69,9 @@ const incidentSchema = new mongoose.Schema({
   },
   resolvedByTechnicianName: String,
   resolutionNote: String,
+  // Ergebnis der ausdruecklichen Kundenbenachrichtigung (NOTIF-5), getrennt vom Speichererfolg:
+  // status 'sent' | 'failed' | 'skipped' | 'duplicate'; message = der an den Kunden gesendete Text.
+  customerNotification: customerNotificationSchema,
   reportedByTechnicianId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -97,6 +125,9 @@ const repairWorkflowSchema = new mongoose.Schema({
       ref: 'User',
     },
     approvedByTechnicianName: String,
+    // Text an den Kunden (nie die internen Notizen) und Ergebnis der Benachrichtigung.
+    customerMessage: String,
+    customerNotification: customerNotificationSchema,
   },
 
   timerData: {
@@ -122,6 +153,11 @@ const repairWorkflowSchema = new mongoose.Schema({
   },
 
   incidents: [incidentSchema],
+
+  reopenHistory: [reopenSchema],
+
+  // Benachrichtigung "Reparatur abgeschlossen" (ausdruecklich im Abschlussdialog gewaehlt).
+  completionNotification: customerNotificationSchema,
 
   lastStatusChangeAt: {
     type: Date,

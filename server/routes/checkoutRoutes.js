@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { requireUser } = require('./middleware/auth');
+// Endpunkte ohne Anmeldung (Gast-Checkout, PayPal-Gast, Konto im Checkout, Mail erneut senden)
+// sind je Client-IP/E-Mail begrenzt - Werte und Begruendung in middleware/guestAccess.js.
+const { guestCreateLimits, guestPaymentLimit, resendVerificationLimits } = require('./middleware/guestAccess');
 const CartService = require('../services/cartService');
 const UserService = require('../services/userService');
 const OrderService = require('../services/orderService');
@@ -63,6 +66,12 @@ const linkCheckoutPayment = async ({ paymentMethod, paymentData = {}, booking, o
     : null;
 
   if (!payment) return null;
+  // Eine bereits einer ANDEREN Buchung zugeordnete Zahlung wird nie umgehaengt (z. B.
+  // Wiederholung eines Checkouts mit fremdem Idempotenzschluessel).
+  if (payment.bookingId && String(payment.bookingId) !== String(booking._id)) {
+    console.warn('CheckoutRoutes: Payment already linked to another booking, not relinked:', String(payment._id));
+    return null;
+  }
 
   payment.bookingId = booking._id;
   // orderId bleibt der erste Auftrag des Warenkorbs (Rueckwaertskompatibilitaet fuer
@@ -610,20 +619,13 @@ const buildGuestPaypalPayload = async ({ cartData, guestInfo, currencyCode, send
 
   if (Array.isArray(cartData?.repairOrders)) {
     for (const repairOrder of cartData.repairOrders) {
-      const serviceIds = Array.isArray(repairOrder?.services)
-        ? repairOrder.services.map((service) => service?._id || service).filter(Boolean)
-        : [];
-
-      const services = serviceIds.length
-        ? await Service.find({ _id: { $in: serviceIds } }).lean()
-        : [];
-
-      let repairAmount = services.reduce((sum, service) => sum + sanitizeMoney(service.price || 0), 0);
-      if (Array.isArray(repairOrder?.addOns)) {
-        repairAmount += repairOrder.addOns.reduce((sum, addOn) => sum + sanitizeMoney(addOn?.price || 0), 0);
-      }
-
-      repairAmount = sanitizeMoney(repairAmount);
+      // Betrag aus dem Katalog (dieselbe Grundlage wie der Gast-Checkout), keine Client-Preise
+      // fuer Zusatzleistungen; unbekannte Leistung/Zusatzleistung wirft einen 400-Fehler.
+      const catalog = await CartService.resolveRepairOrderCatalog({
+        services: repairOrder?.services,
+        addOns: repairOrder?.addOns,
+      });
+      let repairAmount = sanitizeMoney(catalog.rawTotal);
       if (repairAmount <= 0) continue;
 
       total += repairAmount;
@@ -940,7 +942,7 @@ router.post('/paypal/create-order', requireUser, async (req, res) => {
 // Endpoint: POST /api/checkout/paypal/guest/create-order
 // Request: { guestInfo, cartData, returnPath?: string }
 // Response: { success: boolean, orderId, amount, currency }
-router.post('/paypal/guest/create-order', async (req, res) => {
+router.post('/paypal/guest/create-order', guestPaymentLimit, async (req, res) => {
   try {
     const { guestInfo, cartData, returnPath } = req.body || {};
     validateGuestCheckoutPayload({ guestInfo, cartData });
@@ -1170,7 +1172,7 @@ router.post('/paypal/capture-order', requireUser, async (req, res) => {
 // Endpoint: POST /api/checkout/paypal/guest/capture-order
 // Request: { orderId, guestInfo }
 // Response: { success: boolean, captureId, orderId, amount, currency, receipt }
-router.post('/paypal/guest/capture-order', async (req, res) => {
+router.post('/paypal/guest/capture-order', guestPaymentLimit, async (req, res) => {
   try {
     const { orderId, guestInfo } = req.body || {};
     if (!orderId) {
@@ -1543,7 +1545,7 @@ router.post('/initialize', requireUser, async (req, res) => {
 // Endpoint: POST /api/checkout/register
 // Request: { email, password, firstName, lastName, phone, company, country, vatId, billingAddress: { street, city, state, zipCode, country }, shippingAddress: { street, city, state, zipCode, country } }
 // Response: { success: boolean, message: string, user: User, requiresEmailVerification: boolean }
-router.post('/register', async (req, res) => {
+router.post('/register', ...guestCreateLimits, async (req, res) => {
   try {
     console.log('CheckoutRoutes: Guest registration during checkout');
 
@@ -1669,11 +1671,232 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Gemeinsame Helfer fuer /complete und /guest-complete (DHL-1, DHL-6, DHL-11, DHL-14)
+// ---------------------------------------------------------------------------
+
+// Idempotenzschluessel je Bezahlversuch (vom Client erzeugt, bis zum Erfolg im
+// sessionStorage gehalten). Nur ein unverfaelschter, kurzer Token wird akzeptiert.
+const sanitizeCheckoutAttemptId = (value) => {
+  const text = String(value || '').trim();
+  return /^[A-Za-z0-9_-]{8,80}$/.test(text) ? text : '';
+};
+
+// Buchung fuer die Checkout-Antwort OHNE Base64-PDFs (Einsendelabel/Retoure/QR). Die Seite
+// /order-success laedt den Einsendestatus selbst (GET /api/bookings/:id/inbound-label bzw.
+// Gast-Sendungsverfolgung); das PDF gehoert nicht in sessionStorage.
+// Positivliste (K04): kein Verlauf (kann interne Fehlertexte enthalten), keine Gast-/Kundendaten,
+// keine Labels. Der Client braucht nur Nummer, Betrag und Status.
+const CHECKOUT_BOOKING_FIELDS = [
+  '_id', 'bookingNumber', 'status', 'billingStatus', 'paymentStatus', 'paymentMethod',
+  'totalCost', 'subtotal', 'tax', 'discount', 'currency', 'orderIds', 'items',
+  'shippingStatus', 'trackingNumber', 'createdAt', 'updatedAt',
+];
+const toCheckoutBookingPayload = (booking, orderIds = []) => {
+  if (!booking) return { orderIds };
+  const plain = typeof booking.toObject === 'function' ? booking.toObject() : { ...booking };
+  const payload = {};
+  CHECKOUT_BOOKING_FIELDS.forEach((field) => {
+    if (plain[field] !== undefined) payload[field] = plain[field];
+  });
+  return { ...payload, hasShippingLabel: Boolean(String(plain.shippingLabelUrl || '').trim()) };
+};
+
+// Hat die Rechnungs-/Absenderadresse eine Hausnummer? Das DHL-Einsendelabel (Kunde ist
+// Absender) braucht Strasse UND Hausnummer; ohne sie scheitert das Label nach der Buchung.
+// Dieselbe Zerlegung wie beim Buchungs-Einsendelabel (BookingService.buildBookingShipmentData),
+// damit der Checkout nichts durchlaesst, woran das Label danach scheitert.
+const addressHasHouseNumber = (address = {}) => {
+  const parts = BookingService.splitStreetAndHouse(String(address.street || ''));
+  // Nur die Felder, die buildBookingShipmentData auch liest (Strasse + `number`).
+  return Boolean(String(parts.house || '').trim() || String(address.number || '').trim());
+};
+const HOUSE_NUMBER_REQUIRED_MESSAGE = 'Bitte ergänzen Sie die Hausnummer in Ihrer Rechnungsadresse – sie wird für das DHL-Einsendelabel benötigt.';
+
+const describeCheckoutSuccess = ({ repairCount, hasShopOrder }) => {
+  const repairText = repairCount === 1 ? '1 Reparaturauftrag' : `${repairCount} Reparaturaufträgen`;
+  if (repairCount > 0 && hasShopOrder) return `Ihre Buchung mit ${repairText} und einer Shop-Bestellung wurde angelegt.`;
+  if (repairCount > 0) return `Ihre Buchung mit ${repairText} wurde angelegt.`;
+  if (hasShopOrder) return 'Ihre Shop-Bestellung wurde angelegt.';
+  return 'Ihre Buchung wurde angelegt.';
+};
+
+// Wiederholter Abschluss mit demselben Idempotenzschluessel: dieselbe Buchung zurueckgeben,
+// nichts neu anlegen (kein zweiter Auftrag, kein zweites DHL-Label, keine zweite Mail).
+// K04: die Wiederholung liest Auftraege, die das Team inzwischen bearbeitet haben kann
+// (interne Notizen, Ersatzteile, Workflows). Deshalb nur diese Positivliste.
+const REPEATED_CHECKOUT_ORDER_FIELDS = '_id orderNumber deviceBrand deviceModel deviceType status totalCost guestTrackingToken';
+// Felder der Buchung fuer die Idempotenz-Suche (nie Labels/Verlauf laden).
+const CHECKOUT_ATTEMPT_BOOKING_SELECT = `${CHECKOUT_BOOKING_FIELDS.join(' ')} customerId guestInfo.email guestTrackingToken checkoutAttemptId`;
+
+const buildRepeatedCheckoutResponse = async (booking, {
+  guest = false,
+  guestEmail = '',
+  paymentMethod = '',
+  paymentData = null,
+  customerId = null,
+  guestInfo = null,
+} = {}) => {
+  const Order = require('../models/Order');
+  const Booking = require('../models/Booking');
+  const loaded = await Order.find({ _id: { $in: booking.orderIds || [] } })
+    .setOptions({ skipAutoPopulate: true })
+    .select(REPEATED_CHECKOUT_ORDER_FIELDS)
+    .lean();
+  // Reihenfolge der Buchung beibehalten (orders[0] = erster Auftrag wie beim ersten Abschluss).
+  const position = new Map((booking.orderIds || []).map((id, index) => [String(id), index]));
+  loaded.sort((a, b) => (position.get(String(a._id)) ?? 0) - (position.get(String(b._id)) ?? 0));
+
+  // Wiederholung NACH einer (neuen) PayPal-Erfassung: die Zahlung muss an der vorhandenen
+  // Buchung haengen, sonst bliebe sie unzugeordnet (Kunde sieht Erfolg, Geld ohne Buchung).
+  // linkCheckoutPayment ist idempotent und haengt nie eine fremd zugeordnete Zahlung um;
+  // eine Doppelzahlung erscheint in der Zahlungsuebersicht als "Überzahlt / Erstattung offen".
+  if (String(paymentMethod || '').toLowerCase() === 'paypal' && paymentData?.paypalCaptureId) {
+    try {
+      await linkCheckoutPayment({ paymentMethod, paymentData, booking, orders: loaded, customerId, guestInfo });
+    } catch (paymentLinkError) {
+      console.error('CheckoutRoutes: Error linking repeated checkout payment to booking:', paymentLinkError);
+    }
+  }
+
+  const orders = loaded.map(({ guestTrackingToken, ...order }) => order);
+  const orderIds = orders.map((order) => String(order._id));
+  const hasShippingLabel = Boolean(await Booking.exists({ _id: booking._id, shippingLabelUrl: { $nin: ['', null] } }));
+  return {
+    success: true,
+    alreadyCompleted: true,
+    message: 'Ihre Buchung wurde bereits angelegt.',
+    booking: { ...toCheckoutBookingPayload(booking, orderIds), hasShippingLabel },
+    bookingId: String(booking._id),
+    bookingNumber: booking.bookingNumber || '',
+    orders,
+    orderIds,
+    ...(guest ? {
+      bookingTrackingToken: booking.guestTrackingToken || null,
+      guestEmail,
+      trackingToken: loaded[0]?.guestTrackingToken || null,
+    } : {}),
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Atomarer Anspruch auf den Idempotenzschluessel (DHL-14), BEVOR Auftraege entstehen.
+// Frueher wurde der Schluessel erst beim Speichern der Buchung erzwungen: zwei gleichzeitige
+// Anfragen legten beide Auftraege an, die Auftraege der zweiten blieben ohne Buchung.
+// Ein Dokument je (Kunde bzw. Gast-E-Mail, Schluessel) mit eindeutiger _id; ein verwaister
+// Anspruch (Prozessabbruch) darf nach CHECKOUT_ATTEMPT_CLAIM_STALE_MS uebernommen werden.
+// Erfolgreiche Ansprueche bleiben bestehen (TTL raeumt sie nach 7 Tagen ab; danach schuetzt
+// der eindeutige Index Booking.checkoutAttemptId).
+// ---------------------------------------------------------------------------
+const CHECKOUT_ATTEMPT_CLAIM_STALE_MS = 2 * 60 * 1000;
+const CHECKOUT_ATTEMPT_WAIT_MS = 20 * 1000;
+const CHECKOUT_ATTEMPT_POLL_MS = 300;
+let checkoutAttemptIndexReady = null;
+const checkoutAttemptClaims = () => {
+  const collection = require('mongoose').connection.collection('checkoutattemptclaims');
+  if (!checkoutAttemptIndexReady) {
+    checkoutAttemptIndexReady = collection
+      .createIndex({ claimedAt: 1 }, { expireAfterSeconds: 7 * 24 * 60 * 60, name: 'claimedAt_ttl' })
+      .catch((indexError) => {
+        checkoutAttemptIndexReady = null;
+        console.error('CheckoutRoutes: Could not ensure checkout attempt TTL index:', indexError.message);
+      });
+  }
+  return collection;
+};
+
+const claimCheckoutAttempt = async (scope, checkoutAttemptId) => {
+  const collection = checkoutAttemptClaims();
+  const _id = `${scope}|${checkoutAttemptId}`;
+  const claimedAt = new Date();
+  try {
+    await collection.insertOne({ _id, claimedAt });
+  } catch (claimError) {
+    if (claimError?.code !== 11000) throw claimError;
+    const takeover = await collection.updateOne(
+      { _id, claimedAt: { $lt: new Date(claimedAt.getTime() - CHECKOUT_ATTEMPT_CLAIM_STALE_MS) } },
+      { $set: { claimedAt } }
+    );
+    if (!takeover?.modifiedCount) return null;
+  }
+  return {
+    keep: false,
+    release: () => collection.deleteOne({ _id, claimedAt }).catch((releaseError) => {
+      console.error('CheckoutRoutes: Could not release checkout attempt claim:', releaseError.message);
+    }),
+  };
+};
+
+/**
+ * Anspruch holen oder auf die parallele Anfrage mit demselben Schluessel warten.
+ * Ergebnis: { claim } (diese Anfrage legt an) | { existing } (Buchung der anderen Anfrage)
+ *           | { busy: true } (andere Anfrage laeuft noch nach CHECKOUT_ATTEMPT_WAIT_MS).
+ */
+const acquireCheckoutAttempt = async ({ scope, checkoutAttemptId, findExisting }) => {
+  const deadline = Date.now() + CHECKOUT_ATTEMPT_WAIT_MS;
+  for (;;) {
+    const claim = await claimCheckoutAttempt(scope, checkoutAttemptId);
+    if (claim) {
+      // Uebernommener (verwaister) Anspruch: die Buchung kann trotzdem schon existieren.
+      const existing = await findExisting();
+      if (existing) {
+        await claim.release();
+        return { existing };
+      }
+      return { claim };
+    }
+    const existing = await findExisting();
+    if (existing) return { existing };
+    if (Date.now() >= deadline) return { busy: true };
+    await new Promise((resolve) => setTimeout(resolve, CHECKOUT_ATTEMPT_POLL_MS));
+  }
+};
+
+const CHECKOUT_IN_PROGRESS_RESPONSE = {
+  success: false,
+  code: 'CHECKOUT_IN_PROGRESS',
+  error: 'Ihre Bestellung wird gerade angelegt. Bitte nicht erneut bezahlen – prüfen Sie in einem Moment Ihre Buchungen.',
+};
+
+// Rueckfall, falls trotz Anspruch (z. B. nach Ablauf eines verwaisten Anspruchs) eine andere
+// Anfrage dieselbe Buchung gespeichert hat: die soeben angelegten, noch keiner Buchung
+// zugeordneten Auftraege DIESER Anfrage entfernen, statt Doppelauftraege zu hinterlassen.
+const discardUnbookedOrdersOfRequest = async (orderIds = []) => {
+  if (!orderIds.length) return;
+  try {
+    const Order = require('../models/Order');
+    const result = await Order.deleteMany({
+      _id: { $in: orderIds },
+      $or: [{ bookingId: null }, { bookingId: { $exists: false } }],
+    });
+    console.warn('CheckoutRoutes: Discarded unbooked orders of a repeated checkout request:', orderIds, result?.deletedCount);
+  } catch (discardError) {
+    console.error('CheckoutRoutes: Could not discard unbooked orders of a repeated checkout request:', orderIds, discardError.message);
+  }
+};
+
+// Der Schluessel gehoert bereits einer ANDEREN Buchung (fremder Kunde/andere E-Mail - praktisch
+// nur bei Manipulation): die Auftraege dieser Anfrage existieren schon, also die Buchung ohne
+// Schluessel anlegen statt Auftraege ohne Buchung zurueckzulassen.
+const createBookingWithoutAttemptKey = async (bookingCreateData) => {
+  if (!bookingCreateData) return null;
+  try {
+    const { checkoutAttemptId: _ignored, ...withoutKey } = bookingCreateData;
+    return await BookingService.create(withoutKey);
+  } catch (retryError) {
+    console.error('CheckoutRoutes: Error creating booking without attempt key:', retryError);
+    return null;
+  }
+};
+
 // Description: Complete checkout - creates orders from cart repair orders and shop products, clears cart
 // Endpoint: POST /api/checkout/complete
 // Request: { paymentMethod?: string, paymentData?: object }
 // Response: { success: boolean, message: string, orders: Order[], orderIds: string[] }
 router.post('/complete', requireUser, async (req, res) => {
+  // Anspruch auf den Idempotenzschluessel (DHL-14); wird freigegeben, solange noch kein
+  // Auftrag angelegt wurde (Validierungsfehler -> derselbe Versuch darf erneut senden).
+  let attemptClaim = null;
   try {
     console.log('CheckoutRoutes: Completing checkout for user:', req.user._id);
 
@@ -1696,8 +1919,38 @@ router.post('/complete', requireUser, async (req, res) => {
       console.log('CheckoutRoutes: User not found');
       return res.status(404).json({
         success: false,
-        error: 'User not found'
+        error: 'Das Kundenkonto wurde nicht gefunden.'
       });
+    }
+
+    // Idempotenz (DHL-14): derselbe Bezahlversuch nach verlorener Antwort -> dieselbe Buchung.
+    const checkoutAttemptId = sanitizeCheckoutAttemptId(req.body?.checkoutAttemptId);
+    const findAttemptBooking = async () => {
+      if (!checkoutAttemptId) return null;
+      const Booking = require('../models/Booking');
+      return Booking.findOne({ checkoutAttemptId, customerId: req.user._id })
+        .setOptions({ skipAutoPopulate: true })
+        .select(CHECKOUT_ATTEMPT_BOOKING_SELECT)
+        .lean();
+    };
+    const repeatedOptions = { paymentMethod, paymentData, customerId: req.user._id };
+    if (checkoutAttemptId) {
+      const existingBooking = await findAttemptBooking();
+      if (existingBooking) {
+        console.log('CheckoutRoutes: Repeated checkout attempt, returning existing booking:', existingBooking._id);
+        return res.json(await buildRepeatedCheckoutResponse(existingBooking, repeatedOptions));
+      }
+      const acquired = await acquireCheckoutAttempt({
+        scope: `customer:${req.user._id}`,
+        checkoutAttemptId,
+        findExisting: findAttemptBooking,
+      });
+      if (acquired.existing) {
+        console.log('CheckoutRoutes: Parallel repeated checkout attempt, returning booking of the other request:', acquired.existing._id);
+        return res.json(await buildRepeatedCheckoutResponse(acquired.existing, repeatedOptions));
+      }
+      if (acquired.busy) return res.status(409).json(CHECKOUT_IN_PROGRESS_RESPONSE);
+      attemptClaim = acquired.claim;
     }
 
     // Validate invoice address - required for return label generation
@@ -1708,7 +1961,7 @@ router.post('/complete', requireUser, async (req, res) => {
       console.log('CheckoutRoutes: Incomplete invoice address');
       return res.status(400).json({
         success: false,
-        error: 'Please complete your invoice address in your profile before checkout. Street, city, and postal code are required for return label generation.',
+        error: 'Bitte vervollständigen Sie Ihre Rechnungsadresse (Straße mit Hausnummer, PLZ, Ort) – sie wird für das DHL-Einsendelabel benötigt.',
         missingFields: {
           street: !invoiceAddress.street,
           city: !invoiceAddress.city,
@@ -1728,16 +1981,55 @@ router.post('/complete', requireUser, async (req, res) => {
       console.log('CheckoutRoutes: Cart is empty');
       return res.status(400).json({
         success: false,
-        error: 'Cart is empty. Please add items before checkout.'
+        code: 'CART_EMPTY',
+        error: 'Ihr Warenkorb ist leer. Falls Sie gerade bezahlt haben, prüfen Sie bitte Ihre Buchungen – Ihre Bestellung wurde möglicherweise bereits angelegt.'
+      });
+    }
+
+    // Reparaturen bekommen ein DHL-Einsendelabel mit dem Kunden als Absender: ohne Hausnummer
+    // scheitert es NACH der Buchung (DHL-6). Deshalb hier vor dem Anlegen pruefen.
+    if (hasRepairOrders && !addressHasHouseNumber(invoiceAddress)) {
+      return res.status(400).json({
+        success: false,
+        code: 'HOUSE_NUMBER_REQUIRED',
+        error: HOUSE_NUMBER_REQUIRED_MESSAGE,
+        missingFields: { houseNumber: true }
       });
     }
 
     console.log('CheckoutRoutes: Found', cart.repairOrders?.length || 0, 'repair orders and', cart.items?.length || 0, 'shop products in cart');
 
+    // Preisgrundlage = KATALOG (dieselbe, aus der unten die Auftraege entstehen), nie der im
+    // Warenkorb gespeicherte Betrag: sonst konnten doppelte Leistungs-IDs oder frei gewaehlte
+    // Zusatzleistungspreise die Rabattbasis aufblaehen (Auftraege 0,00 €) und Buchungsbetrag
+    // und Auftragssumme auseinanderlaufen. Unbekannte Leistung/Zusatzleistung -> 400, bevor
+    // irgendetwas angelegt wird.
+    const repairCatalogs = [];
+    if (hasRepairOrders) {
+      try {
+        for (const repairOrder of cart.repairOrders) {
+          repairCatalogs.push(await CartService.resolveRepairOrderCatalog({
+            services: repairOrder.services,
+            addOns: repairOrder.addOns,
+          }));
+        }
+      } catch (catalogError) {
+        return res.status(catalogError.status === 400 ? 400 : 500).json({
+          success: false,
+          code: catalogError.code || 'CART_CATALOG_INVALID',
+          error: catalogError.message || 'Der Warenkorb konnte nicht geprüft werden.'
+        });
+      }
+    }
+    const serverSubtotal = Number((
+      repairCatalogs.reduce((sum, catalog) => sum + catalog.rawTotal, 0)
+      + (hasShopProducts ? CartService.calculateCartSubtotal({ items: cart.items, repairOrders: [] }) : 0)
+    ).toFixed(2));
+
     let appliedPromoData = null;
     if (String(cart.promoCode || '').trim()) {
       try {
-        const promoSubtotal = Number(cart.subtotal || CartService.calculateCartSubtotal(cart));
+        const promoSubtotal = serverSubtotal;
         appliedPromoData = await CartService.resolvePromoCodeForCheckout({
           promoCode: cart.promoCode,
           subtotal: promoSubtotal,
@@ -1760,7 +2052,10 @@ router.post('/complete', requireUser, async (req, res) => {
       }
     }
 
-    const checkoutPricing = await buildCheckoutPricing({ cart, userId: req.user._id });
+    const checkoutPricing = await buildCheckoutPricing({
+      cart: { subtotal: serverSubtotal, discount: cart.discount, items: [], repairOrders: [] },
+      userId: req.user._id,
+    });
     const isInvoiceCheckout = String(paymentMethod || '').toLowerCase() === 'invoice';
     if (isInvoiceCheckout && Number(checkoutPricing.creditLimit || 0) > 0 && Number(checkoutPricing.payableTotal || 0) > Number(checkoutPricing.creditLimit || 0)) {
       return res.status(400).json({
@@ -1827,31 +2122,21 @@ router.post('/complete', requireUser, async (req, res) => {
 
     // Prepare orders from repair orders in the cart
     if (hasRepairOrders) {
-      for (const repairOrder of cart.repairOrders) {
+      for (let repairIndex = 0; repairIndex < cart.repairOrders.length; repairIndex++) {
+        const repairOrder = cart.repairOrders[repairIndex];
         try {
           console.log('CheckoutRoutes: Preparing order from repair order:', repairOrder);
 
-          // Fetch service details to get price and estimated time
-          const serviceDetails = await Service.find({ _id: { $in: repairOrder.services } });
-
-          // Calculate total cost from services
-          let totalCost = 0;
-          const services = serviceDetails.map(service => {
-            totalCost += service.price;
-            return {
-              serviceId: service._id,
-              price: service.price,
-              estimatedTime: parseEstimatedTime(service.estimatedTime),
-              notes: ''
-            };
-          });
-
-          // Add addOns to total cost if present
-          if (repairOrder.addOns && repairOrder.addOns.length > 0) {
-            repairOrder.addOns.forEach(addOn => {
-              totalCost += addOn.price || 0;
-            });
-          }
+          // Leistungen und Zusatzleistungen aus dem oben aufgeloesten Katalog (dedupliziert,
+          // Katalogpreise) - dieselbe Grundlage wie serverSubtotal / checkoutPricing.
+          const catalog = repairCatalogs[repairIndex];
+          const totalCost = catalog.rawTotal;
+          const services = catalog.serviceDocs.map(service => ({
+            serviceId: service._id,
+            price: service.price,
+            estimatedTime: parseEstimatedTime(service.estimatedTime),
+            notes: ''
+          }));
 
           // Prepare order data matching the Order model schema
           const orderData = {
@@ -1860,7 +2145,7 @@ router.post('/complete', requireUser, async (req, res) => {
             deviceModel: repairOrder.deviceModel,
             deviceType: repairOrder.deviceType || 'Smartphone',
             services: services,
-            addOns: repairOrder.addOns || [],
+            addOns: catalog.addOns,
             customerNotes: repairOrder.customerNotes || '',
             photos: repairOrder.photos || [],
             status: 'pending',
@@ -1943,6 +2228,18 @@ router.post('/complete', requireUser, async (req, res) => {
       }
     }
 
+    // Invariante vor jeder Anlage: die vorbereiteten Auftraege bilden genau die Preisgrundlage
+    // der Buchung (checkoutPricing.subtotal). Sonst (Auftrag nicht vorbereitbar) wuerde die
+    // Buchung einen anderen Betrag tragen als ihre Auftraege -> abbrechen, nichts anlegen.
+    const preparedRawTotal = Number(orderSpecs.reduce((sum, spec) => sum + Number(spec.rawTotalCost || 0), 0).toFixed(2));
+    if (Math.abs(preparedRawTotal - Number(checkoutPricing.subtotal || 0)) > 0.004) {
+      console.error('CheckoutRoutes: Prepared orders do not match checkout pricing:', preparedRawTotal, checkoutPricing.subtotal);
+      return res.status(500).json({
+        success: false,
+        error: 'Der Warenkorb konnte nicht vollständig übernommen werden. Es wurde nichts gebucht. Bitte prüfen Sie den Warenkorb und versuchen Sie es erneut.'
+      });
+    }
+
     // Allocate the cart-level discount (promo code + customer group discount)
     // proportionally across the prepared orders so the order price stays in sync
     // with what the customer saw in the cart/booking summary.
@@ -1989,16 +2286,30 @@ router.post('/complete', requireUser, async (req, res) => {
       console.log('CheckoutRoutes: No orders were created');
       return res.status(500).json({
         success: false,
-        error: 'Failed to create orders from cart. Please try again.'
+        error: 'Die Aufträge konnten nicht angelegt werden. Bitte versuchen Sie es erneut.'
       });
     }
+    // Teilweise angelegt: die Buchung traegt den Betrag ALLER Geraete (checkoutPricing) -
+    // mit fehlenden Auftraegen liefen Buchungsbetrag und Auftragssumme auseinander. Die
+    // bereits angelegten (noch ungebuchten) Auftraege dieser Anfrage werden verworfen.
+    if (createdOrders.length !== orderSpecs.length) {
+      console.error('CheckoutRoutes: Only', createdOrders.length, 'of', orderSpecs.length, 'orders created - discarding');
+      await discardUnbookedOrdersOfRequest(orderIds);
+      return res.status(500).json({
+        success: false,
+        error: 'Die Aufträge konnten nicht vollständig angelegt werden. Es wurde nichts gebucht. Bitte versuchen Sie es erneut.'
+      });
+    }
+    // Ab hier existieren Auftraege: der Anspruch bleibt bestehen (keine zweite Anlage).
+    if (attemptClaim) attemptClaim.keep = true;
 
     // Create booking to consolidate all orders
     console.log('CheckoutRoutes: Creating booking to consolidate', createdOrders.length, 'orders');
     let booking = null;
+    let bookingCreateData = null;
     try {
       const mongoose = require('mongoose');
-      booking = await BookingService.create({
+      bookingCreateData = {
         customerId: req.user._id,
         orderIds: orderIds.map(id => new mongoose.Types.ObjectId(id)),
         discount: Number((cart.discount || 0) + (checkoutPricing.groupDiscountAmount || 0)),
@@ -2008,10 +2319,22 @@ router.post('/complete', requireUser, async (req, res) => {
         billingStatus: resolvedBillingStatus,
         paymentStatus: resolvedPaymentStatus,
         paymentMethod: paymentMethod || '',
-      });
+        checkoutAttemptId: checkoutAttemptId || undefined,
+      };
+      booking = await BookingService.create(bookingCreateData);
       console.log('CheckoutRoutes: Booking created successfully:', booking._id);
     } catch (bookingError) {
       console.error('CheckoutRoutes: Error creating booking:', bookingError);
+      // Gleichzeitige Wiederholung desselben Bezahlversuchs (eindeutiger Index): die andere
+      // Anfrage hat die Buchung bereits angelegt -> deren Ergebnis zurueckgeben.
+      if (checkoutAttemptId && bookingError?.code === 11000) {
+        const existingBooking = await findAttemptBooking();
+        if (existingBooking) {
+          await discardUnbookedOrdersOfRequest(orderIds);
+          return res.json(await buildRepeatedCheckoutResponse(existingBooking, repeatedOptions));
+        }
+        booking = await createBookingWithoutAttemptKey(bookingCreateData);
+      }
       // Don't fail checkout if booking creation fails - orders were created
       // This is a graceful degradation scenario
     }
@@ -2064,22 +2387,16 @@ router.post('/complete', requireUser, async (req, res) => {
     const shopProductCount = hasShopProducts ? 1 : 0; // Shop products create 1 combined order
     const totalOrders = createdOrders.length;
 
-    let successMessage = `Successfully created booking with ${totalOrders} order(s)`;
-    if (repairOrderCount > 0 && shopProductCount > 0) {
-      successMessage = `Successfully created booking with ${repairOrderCount} repair order(s) and 1 shop product order`;
-    } else if (repairOrderCount > 0) {
-      successMessage = `Successfully created booking with ${repairOrderCount} repair order(s)`;
-    } else if (shopProductCount > 0) {
-      successMessage = `Successfully created booking with shop product order`;
-    }
-
-    console.log('CheckoutRoutes: Checkout completed successfully. Created booking:', booking?._id);
+    // Deutsche Erfolgsmeldung (DHL-11) - der Client zeigt sie direkt im Toast.
+    const successMessage = describeCheckoutSuccess({ repairCount: repairOrderCount, hasShopOrder: shopProductCount > 0 });
+    console.log('CheckoutRoutes: Checkout completed successfully. Created booking:', booking?._id, 'orders:', totalOrders);
 
     res.json({
       success: true,
       message: successMessage,
-      booking: booking || { orderIds: orderIds },
+      booking: toCheckoutBookingPayload(booking, orderIds),
       bookingId: booking?._id?.toString() || null,
+      bookingNumber: booking?.bookingNumber || '',
       orders: createdOrders,
       orderIds: orderIds,
       checkoutPricing
@@ -2090,6 +2407,8 @@ router.post('/complete', requireUser, async (req, res) => {
       success: false,
       error: error.message
     });
+  } finally {
+    if (attemptClaim && !attemptClaim.keep) await attemptClaim.release();
   }
 });
 
@@ -2097,7 +2416,7 @@ router.post('/complete', requireUser, async (req, res) => {
 // Endpoint: POST /api/checkout/resend-verification-email
 // Request: { email }
 // Response: { success: boolean, message: string }
-router.post('/resend-verification-email', async (req, res) => {
+router.post('/resend-verification-email', ...resendVerificationLimits, async (req, res) => {
   try {
     const normalizedEmail = normalizeEmailAddress(req.body?.email);
 
@@ -2148,11 +2467,57 @@ router.post('/resend-verification-email', async (req, res) => {
   }
 });
 
+// Ein zahlender Gast darf nach der PayPal-Erfassung nie an den Anlege-Limits scheitern
+// (sonst: Geld abgebucht, keine Buchung). Ausgenommen werden deshalb (nur serverseitig
+// geprueft, siehe guestAccess.js isCreationExempt):
+//  - die Wiederholung eines bereits abgeschlossenen Bezahlversuchs (checkoutAttemptId + E-Mail
+//    einer vorhandenen Gast-Buchung) - sie legt nichts an, sondern liefert die Buchung erneut;
+//  - ein Abschluss mit paypalCaptureId einer ERFASSTEN Gast-Zahlung derselben E-Mail, die noch
+//    keiner Buchung zugeordnet ist (danach gilt die Ausnahme fuer diese Zahlung nicht mehr).
+const markExemptGuestCompletion = async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const email = typeof body.guestInfo?.email === 'string' ? normalizeEmailAddress(body.guestInfo.email) : '';
+    if (!email) return next();
+    const checkoutAttemptId = sanitizeCheckoutAttemptId(body.checkoutAttemptId);
+    if (checkoutAttemptId) {
+      const Booking = require('../models/Booking');
+      const existing = await Booking.findOne({ checkoutAttemptId, customerId: null })
+        .setOptions({ skipAutoPopulate: true })
+        .select('guestInfo.email')
+        .lean();
+      if (existing && normalizeEmailAddress(existing.guestInfo?.email) === email) {
+        req.guestCreationLimitExempt = true;
+        return next();
+      }
+    }
+    const captureId = body.paymentMethod === 'paypal' && typeof body.paymentData?.paypalCaptureId === 'string'
+      ? body.paymentData.paypalCaptureId.trim()
+      : '';
+    if (captureId) {
+      const paid = await Payment.exists({
+        isGuest: true,
+        guestEmail: email,
+        paymentMethod: 'paypal',
+        status: 'completed',
+        bookingId: null,
+        $or: [{ 'metadata.providerDetails.captureId': captureId }, { 'metadata.providerReference': captureId }],
+      });
+      if (paid) req.guestCreationLimitExempt = true;
+    }
+  } catch (error) {
+    // Im Zweifel greifen die normalen Limits.
+    console.error('CheckoutRoutes: Paid guest completion could not be checked:', error.message);
+  }
+  return next();
+};
+
 // Description: Complete guest checkout - creates orders from guest cart data without authentication
 // Endpoint: POST /api/checkout/guest-complete
 // Request: { guestInfo: { email, firstName, lastName, billingAddress, shippingAddress }, cartData: { items, repairOrders }, paymentMethod?: string, paymentData?: object }
 // Response: { success: boolean, message: string, orders: Order[], orderIds: string[] }
-router.post('/guest-complete', async (req, res) => {
+router.post('/guest-complete', markExemptGuestCompletion, ...guestCreateLimits, async (req, res) => {
+  let attemptClaim = null; // siehe /complete (DHL-14)
   try {
     console.log('CheckoutRoutes: Processing guest checkout');
 
@@ -2172,8 +2537,41 @@ router.post('/guest-complete', async (req, res) => {
       console.log('CheckoutRoutes: Missing required guest information');
       return res.status(400).json({
         success: false,
-        error: 'Guest information (email, firstName, lastName) is required'
+        error: 'Bitte geben Sie Vorname, Nachname und E-Mail-Adresse an.'
       });
+    }
+
+    // Idempotenz (DHL-14): derselbe Bezahlversuch (Schluessel + E-Mail) nach verlorener
+    // Antwort liefert dieselbe Buchung statt einer zweiten Buchung mit zweitem DHL-Label.
+    const checkoutAttemptId = sanitizeCheckoutAttemptId(req.body?.checkoutAttemptId);
+    const normalizedGuestEmail = normalizeEmailAddress(guestInfo.email);
+    const findGuestAttemptBooking = async () => {
+      if (!checkoutAttemptId) return null;
+      const Booking = require('../models/Booking');
+      const candidate = await Booking.findOne({ checkoutAttemptId, customerId: null })
+        .setOptions({ skipAutoPopulate: true })
+        .select(CHECKOUT_ATTEMPT_BOOKING_SELECT)
+        .lean();
+      return candidate && normalizeEmailAddress(candidate.guestInfo?.email) === normalizedGuestEmail ? candidate : null;
+    };
+    const repeatedGuestOptions = { guest: true, guestEmail: guestInfo.email, paymentMethod, paymentData, guestInfo };
+    const repeatedGuestBooking = await findGuestAttemptBooking();
+    if (repeatedGuestBooking) {
+      console.log('CheckoutRoutes: Repeated guest checkout attempt, returning existing booking:', repeatedGuestBooking._id);
+      return res.json(await buildRepeatedCheckoutResponse(repeatedGuestBooking, repeatedGuestOptions));
+    }
+    if (checkoutAttemptId) {
+      const acquired = await acquireCheckoutAttempt({
+        scope: `guest:${normalizedGuestEmail}`,
+        checkoutAttemptId,
+        findExisting: findGuestAttemptBooking,
+      });
+      if (acquired.existing) {
+        console.log('CheckoutRoutes: Parallel repeated guest checkout, returning booking of the other request:', acquired.existing._id);
+        return res.json(await buildRepeatedCheckoutResponse(acquired.existing, repeatedGuestOptions));
+      }
+      if (acquired.busy) return res.status(409).json(CHECKOUT_IN_PROGRESS_RESPONSE);
+      attemptClaim = acquired.claim;
     }
 
     // Validate billing address
@@ -2182,7 +2580,7 @@ router.post('/guest-complete', async (req, res) => {
       console.log('CheckoutRoutes: Incomplete billing address');
       return res.status(400).json({
         success: false,
-        error: 'Complete billing address (street, city, postal code) is required',
+        error: 'Bitte vervollständigen Sie Ihre Rechnungsadresse (Straße mit Hausnummer, PLZ, Ort).',
         missingFields: {
           street: !billingAddress.street,
           city: !billingAddress.city,
@@ -2196,12 +2594,27 @@ router.post('/guest-complete', async (req, res) => {
       console.log('CheckoutRoutes: Cart is empty');
       return res.status(400).json({
         success: false,
-        error: 'Cart is empty. Please add items before checkout.'
+        code: 'CART_EMPTY',
+        error: 'Ihr Warenkorb ist leer.'
       });
     }
 
     const hasRepairOrders = cartData.repairOrders && cartData.repairOrders.length > 0;
     const hasShopProducts = cartData.items && cartData.items.length > 0;
+
+    // Einsendelabel (Kunde = Absender) braucht eine Hausnummer. Gast-Auftraege nutzen die
+    // Lieferadresse, sonst die Rechnungsadresse (BookingService.buildBookingShipmentData).
+    const guestLabelAddress = (guestInfo.shippingAddress && guestInfo.shippingAddress.street) ? guestInfo.shippingAddress : billingAddress;
+    if (hasRepairOrders && !addressHasHouseNumber(guestLabelAddress)) {
+      return res.status(400).json({
+        success: false,
+        code: 'HOUSE_NUMBER_REQUIRED',
+        error: guestLabelAddress === billingAddress
+          ? HOUSE_NUMBER_REQUIRED_MESSAGE
+          : 'Bitte ergänzen Sie die Hausnummer in Ihrer Lieferadresse – sie wird für das DHL-Einsendelabel benötigt.',
+        missingFields: { houseNumber: true }
+      });
+    }
 
     console.log('CheckoutRoutes: Found', cartData.repairOrders?.length || 0, 'repair orders and', cartData.items?.length || 0, 'shop products in guest cart');
 
@@ -2248,31 +2661,36 @@ router.post('/guest-complete', async (req, res) => {
 
     // Prepare orders from repair orders in the guest cart
     if (hasRepairOrders) {
-      for (const repairOrder of cartData.repairOrders) {
+      // Gast-Warenkorb kommt vollstaendig vom Client: Leistungen (dedupliziert) und
+      // Zusatzleistungen (Katalogpreis) aus dem Katalog; Unbekanntes -> 400, nichts angelegt.
+      const guestRepairCatalogs = [];
+      try {
+        for (const repairOrder of cartData.repairOrders) {
+          guestRepairCatalogs.push(await CartService.resolveRepairOrderCatalog({
+            services: repairOrder?.services,
+            addOns: repairOrder?.addOns,
+          }));
+        }
+      } catch (catalogError) {
+        return res.status(catalogError.status === 400 ? 400 : 500).json({
+          success: false,
+          code: catalogError.code || 'CART_CATALOG_INVALID',
+          error: catalogError.message || 'Der Warenkorb konnte nicht geprüft werden.'
+        });
+      }
+      for (let repairIndex = 0; repairIndex < cartData.repairOrders.length; repairIndex++) {
+        const repairOrder = cartData.repairOrders[repairIndex];
         try {
           console.log('CheckoutRoutes: Preparing order from guest repair order:', repairOrder);
 
-          // Fetch service details to get price and estimated time
-          const serviceDetails = await Service.find({ _id: { $in: repairOrder.services.map(s => s._id || s) } });
-
-          // Calculate total cost from services
-          let totalCost = 0;
-          const services = serviceDetails.map(service => {
-            totalCost += service.price;
-            return {
-              serviceId: service._id,
-              price: service.price,
-              estimatedTime: parseEstimatedTime(service.estimatedTime),
-              notes: ''
-            };
-          });
-
-          // Add addOns to total cost if present
-          if (repairOrder.addOns && repairOrder.addOns.length > 0) {
-            repairOrder.addOns.forEach(addOn => {
-              totalCost += addOn.price || 0;
-            });
-          }
+          const catalog = guestRepairCatalogs[repairIndex];
+          const totalCost = catalog.rawTotal;
+          const services = catalog.serviceDocs.map(service => ({
+            serviceId: service._id,
+            price: service.price,
+            estimatedTime: parseEstimatedTime(service.estimatedTime),
+            notes: ''
+          }));
 
           // Prepare order data with guest information
           const orderData = {
@@ -2282,7 +2700,7 @@ router.post('/guest-complete', async (req, res) => {
             deviceModel: repairOrder.deviceModel,
             deviceType: repairOrder.deviceType || 'Smartphone',
             services: services,
-            addOns: repairOrder.addOns || [],
+            addOns: catalog.addOns,
             customerNotes: repairOrder.customerNotes || '',
             photos: repairOrder.photos || [],
             status: 'pending',
@@ -2362,7 +2780,7 @@ router.post('/guest-complete', async (req, res) => {
       console.log('CheckoutRoutes: No guest orders were prepared');
       return res.status(500).json({
         success: false,
-        error: 'Failed to create orders from cart. Please try again.'
+        error: 'Die Aufträge konnten nicht angelegt werden. Bitte versuchen Sie es erneut.'
       });
     }
 
@@ -2423,13 +2841,25 @@ router.post('/guest-complete', async (req, res) => {
       console.log('CheckoutRoutes: No guest orders were created');
       return res.status(500).json({
         success: false,
-        error: 'Failed to create orders from cart. Please try again.'
+        error: 'Die Aufträge konnten nicht angelegt werden. Bitte versuchen Sie es erneut.'
       });
     }
+    // Teilweise angelegt: Buchungsbetrag (guestRawSubtotal aller Geraete) != Auftragssumme ->
+    // angelegte, ungebuchte Auftraege verwerfen, nichts buchen (wie im Kunden-Checkout).
+    if (createdOrders.length !== orderSpecs.length) {
+      console.error('CheckoutRoutes: Only', createdOrders.length, 'of', orderSpecs.length, 'guest orders created - discarding');
+      await discardUnbookedOrdersOfRequest(orderIds);
+      return res.status(500).json({
+        success: false,
+        error: 'Die Aufträge konnten nicht vollständig angelegt werden. Es wurde nichts gebucht. Bitte versuchen Sie es erneut.'
+      });
+    }
+    if (attemptClaim) attemptClaim.keep = true;
 
     // Create booking to consolidate all guest orders
     console.log('CheckoutRoutes: Creating booking for guest orders:', createdOrders.length);
     let booking = null;
+    let bookingCreateData = null;
     try {
       const mongoose = require('mongoose');
       const guestDiscountAmount = Number(guestPromoData?.discountAmount || 0);
@@ -2441,7 +2871,7 @@ router.post('/guest-complete', async (req, res) => {
       const guestTax = guestTaxRatePercent > 0
         ? Number((guestFinalTotal * (guestTaxRatePercent / (100 + guestTaxRatePercent))).toFixed(2))
         : 0;
-      booking = await BookingService.create({
+      bookingCreateData = {
         customerId: null,
         guestInfo: guestUserData,
         orderIds: orderIds.map(id => new mongoose.Types.ObjectId(id)),
@@ -2461,10 +2891,20 @@ router.post('/guest-complete', async (req, res) => {
         billingStatus: resolvedBillingStatus,
         paymentStatus: resolvedPaymentStatus,
         paymentMethod: paymentMethod || '',
-      });
+        checkoutAttemptId: checkoutAttemptId || undefined,
+      };
+      booking = await BookingService.create(bookingCreateData);
       console.log('CheckoutRoutes: Guest booking created successfully:', booking._id);
     } catch (bookingError) {
       console.error('CheckoutRoutes: Error creating guest booking:', bookingError);
+      if (checkoutAttemptId && bookingError?.code === 11000) {
+        const existingGuestBooking = await findGuestAttemptBooking();
+        if (existingGuestBooking) {
+          await discardUnbookedOrdersOfRequest(orderIds);
+          return res.json(await buildRepeatedCheckoutResponse(existingGuestBooking, repeatedGuestOptions));
+        }
+        booking = await createBookingWithoutAttemptKey(bookingCreateData);
+      }
     }
 
     if (booking && isCapturedPaypalPayment) {
@@ -2502,92 +2942,28 @@ router.post('/guest-complete', async (req, res) => {
       }
     }
 
-    // Create success message
+    // Deutsche Erfolgsmeldung (DHL-11).
     const totalOrders = createdOrders.length;
-    let successMessage = `Successfully created ${totalOrders} order(s) for guest checkout`;
+    const guestRepairCount = createdOrders.filter((order) => order.deviceType !== 'Shop Products').length;
+    const successMessage = describeCheckoutSuccess({
+      repairCount: guestRepairCount,
+      hasShopOrder: createdOrders.some((order) => order.deviceType === 'Shop Products'),
+    });
 
-    console.log('CheckoutRoutes: Guest checkout completed successfully');
+    console.log('CheckoutRoutes: Guest checkout completed successfully, orders:', totalOrders);
 
-    // Send guest booking confirmation email with booking tracking link
-    try {
-      const totalAmount = createdOrders.reduce((sum, order) => sum + order.totalCost, 0);
-
-      const bookingToken = booking?.guestTrackingToken || null;
-      const bookingTrackingPath = bookingToken
-        ? `/track-order/booking?token=${encodeURIComponent(bookingToken)}&email=${encodeURIComponent(guestInfo.email)}`
-        : '/track-order/booking';
-
-      const itemSummaryParts = await Promise.all(createdOrders.map(async (order, index) => {
-        if (order.deviceType === 'Shop Products') {
-          return `<strong>Position ${index + 1}: Produktbestellung</strong><br />Auftrag: ${order.orderNumber} (${order.status || 'pending'})`;
-        }
-
-        const deviceBrand = String(order.deviceBrand || '').trim();
-        const deviceModel = String(order.deviceModel || '').trim();
-        const modelImageUrl = await EmailService.resolveDeviceModelImageUrl({ deviceBrand, deviceModel });
-        const deviceVisual = EmailService.buildDeviceModelVisualHtml({ deviceBrand, deviceModel, imageUrl: modelImageUrl });
-
-        return `
-          <div style="border:1px solid #d8dce6;border-radius:14px;padding:12px 14px;background:#ffffff;">
-            <div style="font-size:14px;font-weight:700;color:#1a2a5e;margin-bottom:10px;">Position ${index + 1}: Reparatur</div>
-            <div style="margin-bottom:10px;">${deviceVisual}</div>
-            <div style="font-size:13px;line-height:1.6;color:#2d3748;word-break:break-word;overflow-wrap:anywhere;">
-              <div><strong>Auftrag:</strong> ${order.orderNumber} (${order.status || 'pending'})</div>
-            </div>
-          </div>
-        `.trim();
-      }));
-
-      const itemSummary = `${createdOrders.length} Position(en)<br /><br />${itemSummaryParts.join('<br /><br />')}`;
-
-      console.log('CheckoutRoutes: Sending guest booking tracking email');
-      const firstRepairOrder = createdOrders.find((order) => order.deviceType !== 'Shop Products');
-
-      // Build PDF attachment from base64 data URL if available
-      const emailOptions = {};
-      if (booking?.shippingLabelUrl) {
-        const base64Match = booking.shippingLabelUrl.match(/^data:application\/pdf;base64,(.+)$/);
-        if (base64Match) {
-          emailOptions.attachments = [{
-            filename: `versandlabel-${booking.bookingNumber || booking._id}.pdf`,
-            content: Buffer.from(base64Match[1], 'base64'),
-            contentType: 'application/pdf'
-          }];
-        }
-      }
-
-      let emailResult = await EmailService.sendTriggerEmail('guest_booking_created', guestInfo.email, {
-        companyName: process.env.COMPANY_NAME || 'McRepair.de',
-        customerName: `${guestInfo.firstName} ${guestInfo.lastName}`,
-        bookingNumber: booking?.bookingNumber || 'N/A',
-        bookingDate: new Date(booking?.createdAt || Date.now()).toLocaleDateString('de-DE'),
-        itemSummary,
-        totalAmount: `€${Number(totalAmount || 0).toFixed(2)}`,
-        bookingStatus: booking?.status || 'pending',
-        deviceBrand: firstRepairOrder?.deviceBrand || '',
-        deviceModel: firstRepairOrder?.deviceModel || '',
-        trackingUrl: bookingTrackingPath,
-        bookingUrl: bookingTrackingPath,
-        shippingLabelUrl: booking?.shippingLabelUrl ? bookingTrackingPath : '',
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
-        supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789'
-      }, emailOptions);
-
-      if (emailResult.success) {
-        console.log('CheckoutRoutes: Guest booking tracking email sent successfully');
-      } else {
-        console.warn('CheckoutRoutes: Failed to send guest booking tracking email:', emailResult.error);
-      }
-    } catch (emailError) {
-      console.error('CheckoutRoutes: Error sending guest booking tracking email:', emailError);
-      // Don't fail the checkout if email fails
-    }
+    // Bestaetigungs-Mail (FIN-14 / DHL-13): Frueher wurde 'guest_booking_created' hier UND in
+    // BookingService.create verschickt - der Gast bekam zwei Mails, eine davon mit relativem
+    // Link und abweichendem Betragsformat. Es gibt jetzt genau EINEN Absender:
+    // BookingService.create (absolute Links ueber buildSystemUrl, Einsendelabel als Anhang,
+    // Positionsuebersicht, Gesamtbetrag der Buchung).
 
     res.json({
       success: true,
       message: successMessage,
-      booking: booking || { orderIds: orderIds },
+      booking: toCheckoutBookingPayload(booking, orderIds),
       bookingId: booking?._id?.toString() || null,
+      bookingNumber: booking?.bookingNumber || '',
       bookingTrackingToken: booking?.guestTrackingToken || null,
       orders: createdOrders,
       orderIds: orderIds,
@@ -2600,6 +2976,8 @@ router.post('/guest-complete', async (req, res) => {
       success: false,
       error: error.message
     });
+  } finally {
+    if (attemptClaim && !attemptClaim.keep) await attemptClaim.release();
   }
 });
 

@@ -1,0 +1,16 @@
+-- Startseite, englische Oberflaeche (Gast)
+   Sprache=en; Preise=["49,90 €","1.234,50 €"]
+  PASS englische Oberflaeche aktiv :: en
+  PASS Startseite zeigt Shop-Preise :: 2
+  PASS Preis 49,9 => "49,90 €", 1234,5 => "1.234,50 €" :: 49,90 € | 1.234,50 €
+  PASS alle Preise de-DE "49,90 €" (kein "€49.90") :: 49,90 € | 1.234,50 €
+   [shot] 01_home_en_prices.png
+-- Finanzverwaltung: CSV-Export (Admin)
+  PASS Rechnungen CSV: Dateiname .csv :: invoices-2026-10-02.csv
+  PASS Rechnungen CSV: Datei beginnt mit CSV-Kopfzeile :: "invoiceNumber,customerName,customerEmail,customerVatId,sellerVatId,isReverseCharge,reverse"
+  PASS Zahlungen CSV: Dateiname .csv :: payments-2026-10-02.csv
+  PASS Zahlungen CSV: Datei beginnt mit CSV-Kopfzeile :: "transactionId,customerName,amount,currency,paymentMethod,status,createdAt,invoiceId"
+  PASS ZM CSV: Dateiname .csv :: zusammenfassende-meldung-zm-2026-10-02.csv
+  PASS ZM CSV: Datei beginnt mit CSV-Kopfzeile :: "invoiceNumber,customerName,customerEmail,customerVatId,sellerVatId,isReverseCharge,reverse"
+   [shot] 02_financial_export.png
+==== fixwave_cMoney: 10 bestanden, 0 fehlgeschlagen ====

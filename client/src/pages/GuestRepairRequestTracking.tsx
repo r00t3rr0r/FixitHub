@@ -6,8 +6,12 @@ import {
   trackGuestRepairRequest,
   getGuestRepairRequestCommunication,
   sendGuestRepairRequestMessage,
+  respondToGuestFeedback,
+  respondToGuestQuote,
   GuestTrackAccess,
 } from "@/api/guestRepairRequest"
+import { QuoteResponseCard } from "@/components/repair-request/QuoteResponseCard"
+import { formatDeviceLabel, newClientMessageId, statusLabel as rrStatusLabel } from "@/components/repair-request/repairRequestFormat"
 import { searchDevices } from "@/api/devices"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -52,9 +56,7 @@ function statusStyle(status: string) {
 }
 
 function statusLabel(status: string) {
-  return (
-    { pending: "Ausstehend", reviewing: "In Prüfung", approved: "Genehmigt", rejected: "Abgelehnt", converted: "In Auftrag umgewandelt" }[status] ?? status
-  )
+  return rrStatusLabel(status)
 }
 
 function statusIcon(status: string) {
@@ -118,9 +120,16 @@ function StatusStepper({ status }: { status: string }) {
   )
 }
 
-function MessageBubble({ msg }: { msg: any }) {
+interface MessageBubbleProps {
+  msg: any
+  onAnswer?: (messageId: string, option: { label: string; value: string }) => Promise<void>
+}
+
+function MessageBubble({ msg, onAnswer }: MessageBubbleProps) {
   const isStaff  = ["staff", "admin"].includes(msg.senderRole) || msg.senderType === "staff"
   const isSystem = msg.senderType === "system"
+  const [pendingOption, setPendingOption] = useState<{ label: string; value: string } | null>(null)
+  const [busy, setBusy] = useState(false)
 
   if (isSystem) {
     return (
@@ -131,28 +140,96 @@ function MessageBubble({ msg }: { msg: any }) {
   }
 
   const time = new Date(msg.createdAt).toLocaleString("de-DE", {
-    day: "2-digit", month: "2-digit", year: "2-digit",
+    day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   })
+
+  const feedback = msg.messageType === "feedback_request" ? msg.feedbackRequest : null
+  const isQuoteQuestion = feedback?.metadata?.kind === "quote"
+  const confirm = async () => {
+    if (!pendingOption || !onAnswer || busy) return
+    setBusy(true)
+    try {
+      await onAnswer(msg._id, pendingOption)
+      setPendingOption(null)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className={`flex gap-2.5 ${isStaff ? "" : "flex-row-reverse"}`}>
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold
           ${isStaff ? "bg-[#1a2a5e] text-white" : "bg-[#f5b800] text-[#1a2a5e]"}`}
+        aria-hidden="true"
       >
         {isStaff ? "MC" : <User className="h-3.5 w-3.5" />}
       </div>
-      <div className={`flex max-w-[78%] flex-col gap-1 ${isStaff ? "items-start" : "items-end"}`}>
-        <span className="text-[10px] font-medium text-slate-400">
-          {isStaff ? "McRepair Team" : "Sie"} · {time}
+      <div className={`flex max-w-[85%] flex-col gap-1 ${isStaff ? "items-start" : "items-end"}`}>
+        <span className="text-[11px] font-medium text-slate-500">
+          {isStaff ? "McRepair-Team" : "Sie"} · {time}
         </span>
-        <div
-          className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm
-            ${isStaff ? "rounded-tl-sm bg-slate-100 text-slate-800" : "rounded-tr-sm bg-[#1a2a5e] text-white"}`}
-        >
-          {msg.content}
-        </div>
+        {feedback ? (
+          <div className="rounded-2xl rounded-tl-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-slate-800 shadow-sm">
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-amber-800">
+              {isQuoteQuestion ? "Kostenvoranschlag" : "Rückfrage an Sie"}
+            </p>
+            <p className="leading-relaxed">{feedback.question}</p>
+            {feedback.status === "pending" && isQuoteQuestion && (
+              <p className="mt-2 text-xs text-slate-600">Bitte antworten Sie oben in der Karte „Kostenvoranschlag“.</p>
+            )}
+            {feedback.status === "pending" && !isQuoteQuestion && onAnswer && (
+              !pendingOption ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(feedback.options || []).map((opt: any) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setPendingOption({ label: opt.label, value: opt.value })}
+                      className="rounded-full border border-[#1a2a5e] bg-white px-4 py-1.5 text-sm font-semibold text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white"
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <p className="text-sm">Antwort bestätigen: <strong>{pendingOption.label}</strong></p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button type="button" onClick={confirm} disabled={busy} className="inline-flex items-center gap-1.5 rounded-full bg-[#1a2a5e] px-4 py-1.5 text-sm font-bold text-white disabled:opacity-60">
+                      {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Ja, Antwort senden
+                    </button>
+                    <button type="button" onClick={() => setPendingOption(null)} disabled={busy} className="rounded-full border border-slate-300 px-4 py-1.5 text-sm font-semibold text-slate-700">
+                      Abbrechen
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
+            {feedback.status === "responded" && feedback.response && (
+              <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-emerald-800">
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Ihre Antwort: {feedback.response.label}
+              </p>
+            )}
+            {feedback.status === "expired" && (
+              <p className="mt-2 text-xs text-slate-500">Diese Rückfrage ist nicht mehr gültig.</p>
+            )}
+          </div>
+        ) : msg.messageType === "quick_action" && msg.quickAction ? (
+          <div className="rounded-2xl rounded-tl-sm border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-800 shadow-sm">
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-sky-800">Hinweis vom Team</p>
+            <p className="font-semibold">{msg.quickAction.actionLabel}</p>
+            {msg.quickAction.description && <p className="mt-1">{msg.quickAction.description}</p>}
+          </div>
+        ) : (
+          <div
+            className={`whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm
+              ${isStaff ? "rounded-tl-sm bg-slate-100 text-slate-800" : "rounded-tr-sm bg-[#1a2a5e] text-white"}`}
+          >
+            {msg.content}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -172,10 +249,14 @@ export function GuestRepairRequestTracking() {
   const [loading, setLoading]             = useState(false)
   const [repairRequest, setRepairRequest] = useState<any | null>(null)
   const [notFound, setNotFound]           = useState(false)
+  const [loadError, setLoadError]         = useState(false)
   const [deviceImage, setDeviceImage]     = useState<string | null>(null)
 
   const [communication, setCommunication] = useState<any | null>(null)
   const [commLoading, setCommLoading]     = useState(false)
+  const [commError, setCommError]         = useState(false)
+  const sendingRef = useRef(false)
+  const draftIdRef = useRef<string>(newClientMessageId())
   const [message, setMessage]             = useState("")
   const [sending, setSending]             = useState(false)
   const [refreshing, setRefreshing]       = useState(false)
@@ -254,15 +335,22 @@ export function GuestRepairRequestTracking() {
     try {
       setLoading(true)
       setNotFound(false)
+      setLoadError(false)
       const req = await trackGuestRepairRequest(t, e)
       setRepairRequest(req)
       setToken(t)
       setEmail(e)
       await loadCommunication(req._id, { token: t, email: e }, true)
     } catch (err: any) {
-      setNotFound(true)
       setRepairRequest(null)
-      toast({ title: "Nicht gefunden", description: err.message || "Keine Anfrage mit diesen Daten gefunden.", variant: "destructive" })
+      // Nur 400/403/404 bedeuten "nicht gefunden"; Netzwerk-/Serverfehler sind ein eigener Zustand.
+      if ([400, 403, 404].includes(Number(err?.status))) {
+        setNotFound(true)
+        toast({ title: "Nicht gefunden", description: err.message || "Keine Anfrage mit diesen Daten gefunden.", variant: "destructive" })
+      } else {
+        setLoadError(true)
+        toast({ title: "Fehler", description: "Die Anfrage konnte nicht geladen werden. Bitte erneut versuchen.", variant: "destructive" })
+      }
     } finally {
       setLoading(false)
     }
@@ -273,8 +361,45 @@ export function GuestRepairRequestTracking() {
     try {
       const comm = await getGuestRepairRequestCommunication(id, acc)
       setCommunication(comm)
-    } catch { /* silent */ } finally {
+      setCommError(false)
+    } catch {
+      if (showLoader) setCommError(true)
+    } finally {
       if (showLoader) setCommLoading(false)
+    }
+  }
+
+  const handleQuoteRespond = async (decision: "accept" | "decline", seen: { quoteVersion: number; amount: number }) => {
+    if (!repairRequest?._id) return
+    let updated: any
+    try {
+      updated = await respondToGuestQuote(repairRequest._id, access, decision, seen)
+    } catch (error: any) {
+      // Stand veraltet oder schon beantwortet: aktuellen Kostenvoranschlag laden und anzeigen.
+      if (error?.code === "QUOTE_CHANGED" || error?.code === "QUOTE_NOT_OPEN") {
+        const fresh = await trackGuestRepairRequest(access.token, access.email).catch(() => null)
+        if (fresh) setRepairRequest(fresh)
+        await loadCommunication(repairRequest._id, access, false)
+      }
+      throw error
+    }
+    if (updated) setRepairRequest(updated)
+    await loadCommunication(repairRequest._id, access, false)
+    toast({
+      title: decision === "accept" ? "Kostenvoranschlag angenommen" : "Kostenvoranschlag abgelehnt",
+      description: decision === "accept" ? "Danke! Wir melden uns mit den nächsten Schritten." : "Unser Team meldet sich bei Ihnen.",
+    })
+  }
+
+  const handleFeedbackAnswer = async (messageId: string, option: { label: string; value: string }) => {
+    if (!repairRequest?._id) return
+    try {
+      const result = await respondToGuestFeedback(repairRequest._id, access, messageId, option)
+      if (result.communication) setCommunication(result.communication)
+      if (result.request) setRepairRequest(result.request)
+      toast({ title: "Antwort gesendet", description: `Ihre Antwort: ${option.label}` })
+    } catch (err: any) {
+      toast({ title: "Fehler", description: err.message || "Die Antwort konnte nicht gespeichert werden.", variant: "destructive" })
     }
   }
 
@@ -295,19 +420,27 @@ export function GuestRepairRequestTracking() {
     }
   }
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!message.trim() || !repairRequest?._id) return
+  // Ein Sende-Weg (Klick und Enter) mit Sperre und Idempotenzschlüssel gegen Doppelsenden
+  const sendNow = async () => {
+    if (!message.trim() || !repairRequest?._id || sendingRef.current) return
+    sendingRef.current = true
+    setSending(true)
     try {
-      setSending(true)
-      const updated = await sendGuestRepairRequestMessage(repairRequest._id, access, message.trim())
+      const updated = await sendGuestRepairRequestMessage(repairRequest._id, access, message.trim(), draftIdRef.current)
       setCommunication(updated)
       setMessage("")
+      draftIdRef.current = newClientMessageId()
     } catch (err: any) {
       toast({ title: "Fehler", description: err.message || "Nachricht konnte nicht gesendet werden.", variant: "destructive" })
     } finally {
+      sendingRef.current = false
       setSending(false)
     }
+  }
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await sendNow()
   }
 
   // ─── render ─────────────────────────────────────────────────────────────────
@@ -407,6 +540,12 @@ export function GuestRepairRequestTracking() {
                     Keine Anfrage mit diesen Daten gefunden. Bitte prüfen Sie Token und E-Mail.
                   </div>
                 )}
+                {loadError && (
+                  <div role="alert" className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    Die Anfrage konnte nicht geladen werden. Bitte erneut versuchen.
+                  </div>
+                )}
 
                 <Button
                   type="submit"
@@ -445,15 +584,19 @@ export function GuestRepairRequestTracking() {
                     </CardTitle>
                   </div>
                   <div className="flex items-center gap-2">
+                    {repairRequest.responseRequired && (
+                      <span className="inline-flex items-center rounded-full bg-[#f5b800] px-3 py-1 text-xs font-bold text-[#1a2a5e]">Antwort erforderlich</span>
+                    )}
                     <Badge className={`border ${statusStyle(repairRequest.status)} inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold`}>
                       {statusIcon(repairRequest.status)}
-                      {statusLabel(repairRequest.status)}
+                      {repairRequest.statusLabel || statusLabel(repairRequest.status)}
                     </Badge>
                     <button
                       type="button"
                       onClick={handleRefresh}
                       disabled={refreshing}
                       title="Aktualisieren"
+                      aria-label="Aktualisieren"
                       className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600 disabled:opacity-50"
                     >
                       <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
@@ -475,12 +618,30 @@ export function GuestRepairRequestTracking() {
                     </p>
                   )}
                   {repairRequest.status === "converted" && (
-                    <p className="mt-3 flex items-center gap-2 text-sm text-purple-700">
-                      <Wrench className="h-4 w-4 shrink-0" />
-                      Ihre Anfrage wurde erfolgreich in einen Reparaturauftrag umgewandelt.
-                    </p>
+                    <div className="mt-3 space-y-3">
+                      <p className="flex items-center gap-2 text-sm font-semibold text-purple-800">
+                        <Wrench className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        Ihre Anfrage wurde in den Auftrag {repairRequest.convertedOrder?.orderNumber || repairRequest.convertedToOrderId?.orderNumber || ""} umgewandelt.
+                      </p>
+                      {repairRequest.convertedOrder?.path && (
+                        <Link
+                          to={repairRequest.convertedOrder.path}
+                          className="inline-flex h-10 items-center gap-2 rounded-full bg-[#1a2a5e] px-4 text-sm font-bold text-white hover:bg-[#0f1d45]"
+                        >
+                          <TrendingUp className="h-4 w-4" aria-hidden="true" /> Auftrag verfolgen
+                        </Link>
+                      )}
+                    </div>
                   )}
                 </div>
+
+                {repairRequest.quote && (
+                  <QuoteResponseCard
+                    quote={repairRequest.quote}
+                    canRespond={!["converted", "rejected"].includes(repairRequest.status)}
+                    onRespond={handleQuoteRespond}
+                  />
+                )}
 
                 {/* Stats grid */}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -498,14 +659,6 @@ export function GuestRepairRequestTracking() {
                       </p>
                     </div>
                   )}
-                  {repairRequest.estimatedCost > 0 && (
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Kostenschätzung</p>
-                      <p className="mt-1 font-bold text-emerald-800">
-                        {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(repairRequest.estimatedCost)}
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 {/* Device */}
@@ -514,7 +667,7 @@ export function GuestRepairRequestTracking() {
                     {deviceImage ? (
                       <img
                         src={deviceImage}
-                        alt={`${repairRequest.deviceBrand} ${repairRequest.deviceModel}`}
+                        alt={formatDeviceLabel(repairRequest.deviceBrand, repairRequest.deviceModel)}
                         className="h-full w-full object-contain p-1"
                         onError={(e) => { e.currentTarget.style.display = "none"; setDeviceImage(null) }}
                       />
@@ -525,7 +678,7 @@ export function GuestRepairRequestTracking() {
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Gerät</p>
                     <p className="truncate font-bold text-[#1a2a5e]">
-                      {repairRequest.deviceBrand} {repairRequest.deviceModel}
+                      {formatDeviceLabel(repairRequest.deviceBrand, repairRequest.deviceModel)}
                     </p>
                     <p className="text-sm text-slate-500">{repairRequest.deviceType}</p>
                   </div>
@@ -614,8 +767,15 @@ export function GuestRepairRequestTracking() {
               </CardHeader>
               <CardContent className="pt-5">
                 {commLoading ? (
-                  <div className="flex justify-center py-10">
-                    <Loader2 className="h-6 w-6 animate-spin text-[#1a2a5e]" />
+                  <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-600">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#1a2a5e]" aria-hidden="true" /> Wird geladen …
+                  </div>
+                ) : commError ? (
+                  <div className="py-8 text-center text-sm text-slate-700">
+                    <p className="font-semibold">Nachrichten konnten nicht geladen werden.</p>
+                    <button type="button" onClick={() => loadCommunication(repairRequest._id, access, true)} className="mt-2 inline-flex items-center gap-1.5 font-semibold text-[#1a2a5e] underline">
+                      <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Erneut versuchen
+                    </button>
                   </div>
                 ) : (
                   <>
@@ -632,7 +792,11 @@ export function GuestRepairRequestTracking() {
                       ) : (
                         <div className="space-y-4">
                           {communication.messages.map((msg: any) => (
-                            <MessageBubble key={msg._id ?? msg.createdAt} msg={msg} />
+                            <MessageBubble
+                              key={msg._id ?? msg.createdAt}
+                              msg={msg}
+                              onAnswer={["converted", "rejected"].includes(repairRequest.status) ? undefined : handleFeedbackAnswer}
+                            />
                           ))}
                           <div ref={messagesEndRef} />
                         </div>
@@ -641,12 +805,20 @@ export function GuestRepairRequestTracking() {
 
                     <Separator className="mb-5" />
 
-                    {repairRequest.status !== "rejected" ? (
+                    {!["rejected", "converted"].includes(repairRequest.status) ? (
                       <form onSubmit={handleSendMessage} className="space-y-3">
+                        <label htmlFor="guest-rr-composer" className="block text-sm font-semibold text-slate-700">Nachricht an das Reparaturteam</label>
                         <Textarea
+                          id="guest-rr-composer"
                           value={message}
                           onChange={(e) => setMessage(e.target.value)}
-                          placeholder="Nachricht an das McRepair-Team …"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault()
+                              sendNow()
+                            }
+                          }}
+                          placeholder="Ihre Nachricht …"
                           rows={3}
                           disabled={sending}
                           className="resize-none border-slate-200 text-sm focus-visible:border-[#1a2a5e] focus-visible:ring-[#1a2a5e]/20"
@@ -662,8 +834,10 @@ export function GuestRepairRequestTracking() {
                         </Button>
                       </form>
                     ) : (
-                      <p className="text-center text-sm text-slate-400">
-                        Dieser Kommunikationskanal ist geschlossen. Bei Fragen kontaktieren Sie uns per E-Mail.
+                      <p className="text-center text-sm text-slate-500">
+                        {repairRequest.status === "converted"
+                          ? "Diese Anfrage ist jetzt ein Auftrag. Nachrichten zu Ihrer Reparatur finden Sie unter „Auftrag verfolgen“."
+                          : "Dieser Kommunikationskanal ist geschlossen. Bei Fragen kontaktieren Sie uns per E-Mail."}
                       </p>
                     )}
                   </>

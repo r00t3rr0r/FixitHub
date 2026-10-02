@@ -966,7 +966,8 @@ class DHLService {
     'in-progress': 'In Bearbeitung',
     'paused': 'Pausiert',
     'quality-check': 'Qualitätsprüfung',
-    'ready-for-pickup': 'Abholbereit',
+    // Neutral: Reparatur fertig sagt nichts ueber Abholung/Versand (utils/returnMethod, HIST-17).
+    'ready-for-pickup': 'Reparatur abgeschlossen',
     'completed': 'Abgeschlossen',
     'cancelled': 'Storniert'
   };
@@ -1095,6 +1096,154 @@ class DHLService {
     return { address, missing, source: address.source, name, email, phone };
   }
 
+  /** Lesbare Herkunft einer Anschrift (Versandkarten der Auftragsdetailseite, nur Team). */
+  static PARTY_SOURCE_LABELS = {
+    'integration.settings': 'DHL-Integration (Shop-Anschrift)',
+    'order.shippingAddress': 'Lieferadresse des Auftrags',
+    'order.guestInfo.shippingAddress': 'Lieferadresse (Gastangaben)',
+    'booking.guestInfo.shippingAddress': 'Lieferadresse der Buchung (Gastangaben)',
+    'customer.paymentAddress': 'abweichende Lieferadresse im Kundenprofil',
+    'customer.invoiceAddress': 'Rechnungsadresse im Kundenprofil',
+    'order.guestInfo.billingAddress': 'Rechnungsadresse (Gastangaben)',
+    'booking.guestInfo.billingAddress': 'Rechnungsadresse der Buchung (Gastangaben)'
+  };
+
+  /**
+   * K11 (NUR Team): Absender und Empfaenger je Richtung fuer die Versandkarten - aus DENSELBEN
+   * Quellen wie die Label-Erstellung, ohne etwas zu ergaenzen:
+   *  - McRepair: resolveConfiguredShopAddress (aktive DHL-Integration), beide Richtungen
+   *  - Einsendung mit Buchung: BookingService.buildBookingShipmentData(..., 'inbound') - der Kunde
+   *    ist Absender (Rechnungsadresse bzw. Gastangaben, wie das Buchungs-Einsendelabel)
+   *  - Einsendung ohne Buchung und Auslieferung: resolveDeliveryAddress (wie createOutboundShipment)
+   * Fehlende Angaben stehen in `missing`. Keine E-Mail/Telefonnummer. Bewusst NICHT Teil von
+   * getOrderShipmentState, damit Kunden-/Gastprojektionen (toCustomerShipments) es nie enthalten.
+   * Es sind die AKTUELLEN Stammdaten - ein bereits erstelltes Label speichert seine Anschriften nicht.
+   */
+  static async getShipmentPartiesForStaff(orderId) {
+    const Booking = require('../models/Booking');
+    const BookingService = require('./bookingService');
+    const text = (value) => String(value ?? '').trim();
+
+    const order = await Order.findById(orderId)
+      .setOptions({ skipAutoPopulate: true })
+      .select('orderNumber customerId guestInfo shippingAddress bookingId')
+      .populate('customerId', 'name firstName lastName email phone invoiceAddress paymentAddress')
+      .lean();
+    if (!order) return null;
+    const bookingQuery = order.bookingId
+      ? Booking.findById(order.bookingId)
+      : Booking.findOne({ $or: [{ orderIds: order._id }, { repairOrderIds: order._id }] });
+    const booking = await bookingQuery.setOptions({ skipAutoPopulate: true }).select('bookingNumber guestInfo').lean();
+
+    let dhlConfig = null;
+    try {
+      dhlConfig = await this.getDHLConfig();
+    } catch (error) {
+      dhlConfig = null;
+    }
+
+    const labelFor = (source) => this.PARTY_SOURCE_LABELS[source] || '';
+    const shop = this.resolveConfiguredShopAddress(dhlConfig);
+    const shopParty = {
+      role: 'shop',
+      name: shop.name,
+      deliveryType: 'address',
+      street: shop.street,
+      house: shop.house,
+      postalCode: shop.postalCode,
+      city: shop.city,
+      country: shop.country,
+      source: 'integration.settings',
+      sourceLabel: labelFor('integration.settings'),
+      missing: dhlConfig
+        ? [...(shop.name ? [] : ['Firmenname']), ...BookingService.missingShopAddressFields(shop)]
+        : ['aktive DHL-Integration']
+    };
+
+    // Populiert = Objekt; eine nicht aufloesbare Referenz bleibt eine ObjectId (_bsontype).
+    const customer = order.customerId && typeof order.customerId === 'object' && !order.customerId._bsontype
+      ? order.customerId
+      : null;
+    // Wie createOutboundShipment: die Buchung zaehlt fuer die Lieferadresse nur ueber order.bookingId
+    // (eine nur per orderIds gefundene Buchung wuerde eine Adresse zeigen, die das Label nicht nutzt).
+    const delivery = this.resolveDeliveryAddress({ order, customer, booking: order.bookingId ? booking : null });
+    const deliveryParty = {
+      role: 'customer',
+      name: delivery.name,
+      deliveryType: delivery.address?.deliveryType || 'address',
+      street: delivery.address?.street || '',
+      house: delivery.address?.house || '',
+      packstationNumber: delivery.address?.packstationNumber || '',
+      postNumber: delivery.address?.postNumber || '',
+      postalCode: delivery.address?.postalCode || '',
+      city: delivery.address?.city || '',
+      country: delivery.address?.country || '',
+      source: delivery.source,
+      sourceLabel: labelFor(delivery.source),
+      missing: delivery.missing
+    };
+
+    // Auftrag ohne Buchung: Einsendelabel = DHLReturnsService.createReturnLabelForOrder. Gleiche Regel:
+    // Lieferadresse des Auftrags (nie eine Packstation), sonst Rechnungsadresse des Kunden; Name vom Kunden.
+    const returnShipping = order.shippingAddress && order.shippingAddress.deliveryType !== 'packstation' ? order.shippingAddress : {};
+    const invoice = (customer && customer.invoiceAddress) || {};
+    const returnStreetRaw = text(returnShipping.street) || text(invoice.street);
+    const returnSplit = this.splitStreetAndHouse(returnStreetRaw);
+    const returnHouse = returnSplit.house || text(text(returnShipping.street) ? returnShipping.number : invoice.number);
+    const returnName = customer ? text([customer.firstName, customer.lastName].filter(Boolean).join(' ')) || text(customer.name) : '';
+    let inboundSender = {
+      role: 'customer',
+      name: returnName,
+      deliveryType: 'address',
+      street: returnSplit.house ? text(returnSplit.street) : returnStreetRaw,
+      house: returnHouse,
+      // feldweise wie im Retourenlabel: Auftragsadresse, sonst Rechnungsadresse
+      postalCode: text(returnShipping.zipCode) || text(invoice.zipCode),
+      city: text(returnShipping.city) || text(invoice.city),
+      country: text(returnShipping.country) || text(invoice.country),
+      source: text(returnShipping.street) ? 'order.shippingAddress' : (text(invoice.street) ? 'customer.invoiceAddress' : ''),
+      sourceLabel: labelFor(text(returnShipping.street) ? 'order.shippingAddress' : (text(invoice.street) ? 'customer.invoiceAddress' : '')),
+      missing: customer
+        ? [['Name', returnName], ['Straße', returnStreetRaw], ['Hausnummer', returnHouse],
+          ['PLZ', returnShipping.zipCode || invoice.zipCode], ['Ort', returnShipping.city || invoice.city]]
+          .filter(([, value]) => !text(value)).map(([field]) => field)
+        : ['Kundenkonto (Einsendelabel ohne Buchung nur für registrierte Kunden)'],
+    };
+    if (booking) {
+      // Gleiche Funktion wie das Buchungs-Einsendelabel; Quelle in derselben Reihenfolge benannt.
+      const data = BookingService.buildBookingShipmentData(order, booking, dhlConfig, 'inbound');
+      const source = (customer && customer.invoiceAddress && 'customer.invoiceAddress')
+        || (order.guestInfo?.shippingAddress && 'order.guestInfo.shippingAddress')
+        || (booking.guestInfo?.shippingAddress && 'booking.guestInfo.shippingAddress')
+        || (booking.guestInfo?.billingAddress && 'booking.guestInfo.billingAddress')
+        || '';
+      // 'Customer' ist der technische Platzhalter von buildBookingShipmentData, kein Name.
+      const name = text(data.shipperName) === 'Customer' ? '' : text(data.shipperName);
+      inboundSender = {
+        role: 'customer',
+        name,
+        deliveryType: 'address',
+        street: text(data.shipperStreet),
+        house: text(data.shipperNumber),
+        postalCode: text(data.shipperPostalCode),
+        city: text(data.shipperCity),
+        country: text(data.shipperCountry),
+        source,
+        sourceLabel: labelFor(source),
+        missing: [
+          ['Name', name], ['Straße', data.shipperStreet], ['Hausnummer', data.shipperNumber],
+          ['PLZ', data.shipperPostalCode], ['Ort', data.shipperCity]
+        ].filter(([, value]) => !text(value)).map(([field]) => field)
+      };
+    }
+
+    return {
+      inbound: { direction: 'inbound', label: this.DIRECTION_LABELS.inbound, sender: inboundSender, recipient: shopParty },
+      outbound: { direction: 'outbound', label: this.DIRECTION_LABELS.outbound, sender: shopParty, recipient: deliveryParty },
+      fromCurrentData: true
+    };
+  }
+
   /** DHL-Referenz (refNo, 8-35 Zeichen) - erscheint auf dem Label und im Geschaeftskundenportal. */
   static buildShipmentReference(order = {}) {
     const base = String(order.orderNumber || order._id || '').replace(/[^\w\- ]/g, '').trim();
@@ -1132,6 +1281,86 @@ class DHLService {
       if (description.includes('hinweg') || description.includes('inbound')) return 'inbound';
     }
     return 'inbound';
+  }
+
+  /**
+   * Testlabel des Dummy-Modus (BookingService.createDummyShippingLabelForBooking): KEIN echtes
+   * DHL-Label. Erkennbar ausschliesslich am Praefix der Sendungsnummer (Lesepfad, keine
+   * Datenaenderung). Die Oberflaeche zeigt dafuer "Testlabel – nicht für den Versand verwenden".
+   */
+  static PLACEHOLDER_TRACKING_PREFIX = 'DHL-DUMMY-';
+
+  static isPlaceholderTrackingNumber(trackingNumber) {
+    return String(trackingNumber || '').startsWith(this.PLACEHOLDER_TRACKING_PREFIX);
+  }
+
+  /**
+   * Sperre des Einsendelabels AN DER BUCHUNG (Booking.shippingLabelCreationInProgress, Beginn in
+   * updatedAt). Eine Sperre ohne Abgleich-Vermerk gilt nach dieser Frist als verwaist.
+   * EINE Regel fuer Lesemodell (getOrderShipmentState, Buchungs-Einsendestatus) und Abgleich
+   * (BookingService.reconcileBookingInboundLabel).
+   */
+  static BOOKING_LABEL_LOCK_STALE_MS = 10 * 60 * 1000;
+
+  /** Liegt nach dem letzten Abschluss (erstellt/abgeglichen) ein Vermerk "Abgleich erforderlich" vor? */
+  static hasBookingReconciliationMarker(booking) {
+    const timeline = Array.isArray(booking?.timeline) ? booking.timeline : [];
+    const timeOf = (entry) => new Date(entry?.completedAt || entry?.createdAt || 0).getTime() || 0;
+    const lastMarker = Math.max(0, ...timeline
+      .filter((entry) => entry?.status === 'Shipping Label Reconciliation Required')
+      .map(timeOf));
+    const lastSettled = Math.max(0, ...timeline
+      .filter((entry) => ['Shipping Label Created', 'Shipping Label Reconciled'].includes(entry?.status))
+      .map(timeOf));
+    return lastMarker > 0 && lastMarker >= lastSettled;
+  }
+
+  /**
+   * Darf eine gesetzte Einsendelabel-Sperre der Buchung abgeglichen werden?
+   *  - ja, wenn ein Vermerk "Abgleich erforderlich" nach dem letzten Abschluss vorliegt,
+   *  - ja, wenn die Sperre aelter als BOOKING_LABEL_LOCK_STALE_MS ist (Prozessabbruch),
+   *  - sonst nein: die Erstellung laeuft noch.
+   */
+  static isBookingLabelReconciliationAllowed(booking, now = Date.now()) {
+    if (this.hasBookingReconciliationMarker(booking)) return true;
+    const lockedSince = new Date(booking?.updatedAt || 0).getTime() || 0;
+    return lockedSince > 0 && now - lockedSince > this.BOOKING_LABEL_LOCK_STALE_MS;
+  }
+
+  /** Zustand der Buchungssperre in derselben Form wie describeLabelLock (Auftragssperren). */
+  static describeBookingLabelLock(booking, now = Date.now()) {
+    if (!booking || booking.shippingLabelCreationInProgress !== true) {
+      return this.describeLabelLock({ locked: false });
+    }
+    const lockedSince = new Date(booking.updatedAt || 0);
+    const lockStartedAt = Number.isNaN(lockedSince.getTime()) || lockedSince.getTime() === 0 ? null : lockedSince;
+    if (this.hasBookingReconciliationMarker(booking)) {
+      return { inProgress: false, reconciliationRequired: true, lockStale: false, reconciliationReason: 'dhl-result-unknown', lockStartedAt };
+    }
+    if (this.isBookingLabelReconciliationAllowed(booking, now)) {
+      return { inProgress: false, reconciliationRequired: true, lockStale: true, reconciliationReason: 'stale-lock', lockStartedAt };
+    }
+    return { inProgress: true, reconciliationRequired: false, lockStale: false, reconciliationReason: '', lockStartedAt };
+  }
+
+  /**
+   * Verlaufsfelder der handelnden Person (HIST-16). Bisher stand bei jedem Label
+   * 'DHL Parcel Integration' bzw. 'System' - jetzt die Person, die das Label ausgeloest hat;
+   * 'source' haelt fest, dass der Eintrag aus der DHL-Anbindung stammt. Ohne Person (z. B.
+   * automatisches Label beim Checkout) bleibt der bisherige Systemname.
+   */
+  static timelineActor(actor, fallbackName = 'DHL Parcel Integration') {
+    // EINE Regel fuer Akteursfelder: OrderHistory.labelActorFields (Verlaufsvertrag). Ein
+    // Kunde, der sein Einsendelabel selbst anfordert, wird als Quelle 'Kunde' vermerkt, damit
+    // die Teamansicht ihn nicht als Mitarbeiter ausweist.
+    // eslint-disable-next-line global-require
+    const OrderHistory = require('../utils/orderHistory');
+    const hasActor = Boolean(actor && (actor._id || actor.id));
+    const isCustomer = hasActor && String(actor.role || '').toLowerCase() === 'customer';
+    return OrderHistory.labelActorFields(hasActor ? actor : null, {
+      fallbackName,
+      source: isCustomer ? 'Kunde' : 'DHL',
+    });
   }
 
   /**
@@ -1400,7 +1629,10 @@ class DHLService {
     }
 
     const nonEmpty = { $exists: true, $nin: [null, ''] };
-    const bookingSelect = 'bookingNumber trackingNumber shippingStatus shippingStatusDescription returnTrackingNumber returnShipmentStatus returnShipmentStatusDescription timeline';
+    // shippingLabelCreationInProgress + updatedAt: Sperre des Einsendelabels an der Buchung
+    // (laufende Erstellung bzw. unklare DHL-Antwort) - sonst meldet die Auftragsansicht
+    // "erstellen moeglich", waehrend der Server mit 409 ablehnt.
+    const bookingSelect = 'bookingNumber trackingNumber shippingStatus shippingStatusDescription shippingLabelCreationInProgress updatedAt returnTrackingNumber returnShipmentStatus returnShipmentStatusDescription timeline';
     // bookingId wird beim Anlegen der Buchung gesetzt; aeltere Datensaetze sind nur ueber
     // die Auftragsliste der Buchung verknuepft.
     const bookingQuery = order.bookingId
@@ -1487,7 +1719,9 @@ class DHLService {
         trackingNumber: booking.trackingNumber || '',
         status: booking.shippingStatus || '',
         statusDescription: booking.shippingStatusDescription || '',
-        downloadUrl: bookingParcelPdf ? `/api/bookings/${booking._id}/shipping-label` : ''
+        downloadUrl: bookingParcelPdf ? `/api/bookings/${booking._id}/shipping-label` : '',
+        // Dummy-Modus: Testlabel, kein echtes DHL-Label (Lesepfad, keine Datenaenderung).
+        placeholder: this.isPlaceholderTrackingNumber(booking.trackingNumber)
       });
     }
     if (booking && (bookingRetourePdf || booking.returnTrackingNumber)) {
@@ -1504,11 +1738,20 @@ class DHLService {
     }
     const primaryInbound = inboundLabels.find((entry) => entry.hasLabel) || inboundLabels[0] || null;
     // Sperre der Einsendung AM AUFTRAG (DHL-Retoure bzw. Parcel-DE-Einsendelabel, return*).
-    const inboundLock = this.describeLabelLock({
+    const orderInboundLock = this.describeLabelLock({
       locked: String(order.returnShipmentStatus || '') === 'pending',
       startedAt: order.returnLabelCreationStartedAt,
       markerPresent: this.hasPendingInboundReconciliation(order)
     });
+    // Sperre AN DER BUCHUNG (Checkout-Label, Einsendelabel per Mitarbeiter/Kunde, Buchungs-
+    // Retoure): dieselbe Einsendung, also dieselbe Anzeige "wird erstellt"/"Abgleich".
+    const bookingInboundLock = booking ? this.describeBookingLabelLock(booking) : this.describeLabelLock({ locked: false });
+    const orderLockActive = orderInboundLock.inProgress || orderInboundLock.reconciliationRequired;
+    const bookingLockActive = !orderLockActive && (bookingInboundLock.inProgress || bookingInboundLock.reconciliationRequired);
+    const inboundLock = bookingLockActive ? bookingInboundLock : orderInboundLock;
+    const inboundReconcileUrl = !inboundLock.reconciliationRequired
+      ? ''
+      : (bookingLockActive ? `/api/bookings/${booking._id}/shipping/reconcile` : `/api/orders/${order._id}/return-label/reconcile`);
     const inbound = {
       direction: 'inbound',
       label: this.DIRECTION_LABELS.inbound,
@@ -1523,7 +1766,10 @@ class DHLService {
       reconciliationReason: inboundLock.reconciliationReason,
       lockStale: inboundLock.lockStale,
       lockStartedAt: inboundLock.lockStartedAt,
-      reconcileUrl: inboundLock.reconciliationRequired ? `/api/orders/${order._id}/return-label/reconcile` : '',
+      reconcileUrl: inboundReconcileUrl,
+      // 'booking' = Sperre/Abgleich an der Buchung, 'order' = am Auftrag, '' = keine Sperre
+      lockScope: (inboundLock.inProgress || inboundLock.reconciliationRequired) ? (bookingLockActive ? 'booking' : 'order') : '',
+      placeholder: Boolean(primaryInbound?.placeholder),
       reference: this.buildShipmentReference(order)
     };
 
@@ -2211,8 +2457,9 @@ class DHLService {
     const direction = this.resolveShipmentDirection(data, options, dhlConfig);
     console.log('DHLService: Shipment direction:', direction);
 
+    // options.actor (HIST-16): die Person, die das Label ausloest - fuer den Verlaufseintrag.
     return direction === 'outbound'
-      ? this.createOutboundShipment(orderId, data, dhlConfig)
+      ? this.createOutboundShipment(orderId, data, dhlConfig, options)
       : this.createInboundShipment(orderId, data, dhlConfig, options);
   }
 
@@ -2240,7 +2487,7 @@ class DHLService {
   }
 
   /** Auslieferung: McRepair (Absender) -> Lieferadresse des Kunden (Empfaenger). */
-  static async createOutboundShipment(orderId, shipmentData, dhlConfig) {
+  static async createOutboundShipment(orderId, shipmentData, dhlConfig, options = {}) {
     let lockClaimed = false;
     let keepLock = false;
     // Startzeit DIESER Reservierung - bindet alle spaeteren Schreibzugriffe an sie (Fencing).
@@ -2490,8 +2737,7 @@ class DHLService {
             status: 'Shipping Label Created',
             description: `DHL-Versandlabel für die Auslieferung (McRepair → Kunde) erstellt. Sendungsnummer: ${result.trackingNumber}`,
             completedAt: now,
-            staffId: 'system',
-            staffName: 'DHL Parcel Integration'
+            ...this.timelineActor(options.actor)
           },
           trackingEvents: trackingEvent
         }
@@ -2779,8 +3025,7 @@ class DHLService {
                   status: 'Inbound Label Created',
                   description: `DHL-Einsendelabel (Kunde → McRepair) erstellt. Sendungsnummer: ${result.trackingNumber}`,
                   completedAt: new Date(),
-                  staffId: 'system',
-                  staffName: 'DHL Parcel Integration'
+                  ...this.timelineActor(options.actor)
                 }
               }
             },

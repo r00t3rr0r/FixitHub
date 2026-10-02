@@ -15,6 +15,7 @@ const NotificationService = require('./notificationService');
 const { Types } = require('mongoose');
 const crypto = require('crypto');
 const PaymentService = require('./paymentService');
+const { describeGross, formatMoneyDe } = require('../utils/money');
 
 // Fachlicher Fehler mit HTTP-Status und deutscher, UI-tauglicher Meldung.
 function buildFinancialError(message, statusCode = 400, code = 'FINANCIAL_ERROR') {
@@ -141,6 +142,76 @@ const DUNNING_STAGE_LABELS = {
 };
 // Belegstatus mit mahnbarer Forderung (ausgestellt, nicht bezahlt/storniert/gutgeschrieben).
 const DUNNING_RECEIVABLE_STATUSES = ['sent', 'viewed', 'partially_paid', 'overdue'];
+// Sperrfrist zwischen zwei Zahlungsaufforderungen derselben Buchung/Rechnung (FIN-11).
+const PAYMENT_REQUEST_COOLDOWN_HOURS = 24;
+// Eine noch nicht abgeschlossene Aufforderung ('pending') sperrt so lange einen zweiten Versand.
+const PAYMENT_REQUEST_PENDING_GUARD_MS = 5 * 60 * 1000;
+
+// K15: Die Sperrfrist war ein Lesen-dann-Anlegen. Parallele Klicks/Tabs kamen gleichzeitig
+// an der Pruefung vorbei und versendeten mehrere Mails. Jetzt entscheidet ein atomarer
+// Anspruch je Ziel (booking:<id> | invoice:<id>), gleiches Muster wie 'checkoutattemptclaims':
+// Einfuegen mit eindeutiger _id; erst der Gewinner prueft die Sperrfrist und sendet, danach
+// wird der Anspruch IMMER freigegeben (auch nach einem Mailfehler -> Wiederholung moeglich).
+// Ein Anspruch aelter als PAYMENT_REQUEST_CLAIM_LEASE_MS gilt als verwaist (Prozessabbruch)
+// und darf uebernommen werden; der TTL-Index raeumt Reste auf.
+//
+// Anspruchsdauer (eigene Konstante, die 5-Minuten-Regel fuer 'pending' bleibt unveraendert):
+// Sie muss laenger sein als der laengste Versand, sonst uebernimmt eine zweite Anfrage den
+// Anspruch eines noch laufenden Versands (deren 'pending'-Eintrag ist dann auch aelter als
+// 5 Minuten) und es gehen zwei Mails raus. EmailService setzt keine eigenen nodemailer-Timeouts;
+// nodemailer 7 nutzt dann DNS 30 s + Verbindungsaufbau 120 s + Leerlauf je Befehl 600 s, also
+// ~12,5 Min. je Versuch mit einem haengenden Schritt. Ein Leerlauf-Timeout meldet nodemailer als
+// command 'CONN' - EmailService.sendWithRetry wiederholt ihn (maxRetries 3, Pause 1 s/2 s):
+// 3 x 12,5 Min. + Pausen ~ 37,6 Min. 45 Min. liegen mit Reserve darueber. Mehrere haengende
+// Schritte in EINEM Versuch sind ohne explizite Timeouts in EmailService nicht begrenzbar.
+// Kehrseite: nach einem Prozessabbruch mitten im Versand bleibt das Ziel bis zu 45 Min. gesperrt
+// (409 "Wird gerade gesendet") - der sichere Fall, da offen ist, ob die Mail schon raus ist.
+const PAYMENT_REQUEST_CLAIM_LEASE_MS = 45 * 60 * 1000;
+let paymentRequestClaimIndexReady = null;
+const paymentRequestClaims = () => {
+  const collection = require('mongoose').connection.collection('paymentrequestclaims');
+  if (!paymentRequestClaimIndexReady) {
+    paymentRequestClaimIndexReady = collection
+      .createIndex({ claimedAt: 1 }, { expireAfterSeconds: 24 * 60 * 60, name: 'claimedAt_ttl' })
+      .catch((indexError) => {
+        paymentRequestClaimIndexReady = null;
+        console.error('FinancialService: Could not ensure payment request claim TTL index:', indexError.message);
+      });
+  }
+  return collection;
+};
+
+/** Ergebnis: { release } (dieser Aufruf darf senden) | { busySince } (anderer Versand laeuft). */
+async function claimPaymentRequestScope(scopeKey) {
+  const collection = paymentRequestClaims();
+  let claimedAt = new Date();
+  // Begrenzte Wiederholung: Gibt der Halter seinen Anspruch zwischen dem fehlgeschlagenen
+  // Einfuegen und der Uebernahme frei, laeuft nichts mehr -> erneut einfuegen statt "belegt".
+  for (let attempt = 1; ; attempt += 1) {
+    claimedAt = new Date();
+    try {
+      await collection.insertOne({ _id: scopeKey, claimedAt });
+      break;
+    } catch (claimError) {
+      if (claimError?.code !== 11000) throw claimError;
+    }
+    const takeover = await collection.updateOne(
+      { _id: scopeKey, claimedAt: { $lt: new Date(claimedAt.getTime() - PAYMENT_REQUEST_CLAIM_LEASE_MS) } },
+      { $set: { claimedAt } }
+    );
+    if (takeover?.modifiedCount) break;
+    const current = await collection.findOne({ _id: scopeKey });
+    if (current || attempt >= 3) {
+      return { busySince: current?.claimedAt || claimedAt };
+    }
+  }
+  return {
+    // Nur den EIGENEN Anspruch loeschen (claimedAt als Zaun), nie einen uebernommenen.
+    release: () => collection.deleteOne({ _id: scopeKey, claimedAt }).catch((releaseError) => {
+      console.error('FinancialService: Could not release payment request claim:', releaseError.message);
+    }),
+  };
+}
 // Karenz bis zur ersten Zahlungserinnerung und Abstand zwischen zwei Stufen (Tage).
 const DUNNING_INTERVAL_DAYS = 7;
 // Eine Sperre, die laenger besteht, gilt als verwaist (Prozessabbruch waehrend eines
@@ -361,6 +432,59 @@ async function assertBookingNotYetInvoiced(bookingId) {
 }
 
 /**
+ * Deckt die Auswahl ALLE Auftraege der Buchung ab? Nur dann ist eine Rechnung aus
+ * Auftraegen eine Gesamtrechnung der Buchung (beansprucht booking:<id>). Eine
+ * Teilauswahl verhaelt sich wie die Teilrechnung im Buchungsweg (Modus 'order').
+ */
+async function selectionCoversBooking(bookingId, orders = []) {
+  const id = toIdString(bookingId);
+  if (!id || !Types.ObjectId.isValid(id)) return false;
+  const bookingOrders = await Order.find({ bookingId: new Types.ObjectId(id) })
+    .setOptions({ skipAutoPopulate: true })
+    .select('_id')
+    .lean();
+  const selected = new Set(orders.map((order) => toIdString(order?._id || order)));
+  return bookingOrders.every((order) => selected.has(toIdString(order._id)));
+}
+
+/**
+ * Teilauswahl einer Buchung: blockiert nur eine aktive Rechnung, die die GANZE Buchung
+ * beansprucht (activeBillingKeys 'booking:<id>') oder eine Altrechnung der Buchung ohne
+ * Auftragsbezug. Teilrechnungen anderer Auftraege derselben Buchung blockieren nicht
+ * (dieselbe Regel wie BookingService.createInvoice im Modus 'order'); doppelt berechnete
+ * Auftraege faengt assertOrdersNotYetInvoiced.
+ */
+async function assertBookingNotWhollyInvoiced(bookingId) {
+  const id = toIdString(bookingId);
+  if (!id || !Types.ObjectId.isValid(id)) return;
+  const existing = await Invoice.findOne({
+    bookingId: new Types.ObjectId(id),
+    isCreditNote: { $ne: true },
+    status: { $nin: ['cancelled', 'credited'] },
+    $or: [
+      { activeBillingKeys: `booking:${id}` },
+      {
+        activeBillingKeys: { $exists: false },
+        orderId: null,
+        $or: [{ repairOrderIds: { $exists: false } }, { repairOrderIds: { $size: 0 } }],
+      },
+    ],
+  })
+    .setOptions({ skipAutoPopulate: true })
+    .select('_id invoiceNumber')
+    .lean();
+  if (!existing) return;
+  const error = buildFinancialError(
+    `Für diese Buchung besteht bereits die Gesamtrechnung ${existing.invoiceNumber || existing._id}. `
+    + 'Für eine Korrektur bitte diese Rechnung zuerst stornieren.',
+    409,
+    'INVOICE_ALREADY_EXISTS'
+  );
+  error.existingInvoice = { _id: String(existing._id), invoiceNumber: existing.invoiceNumber || null };
+  throw error;
+}
+
+/**
  * Speichert eine NEUE aktive Rechnung zusammen mit ihrem atomaren Anspruch auf Auftrag(e)
  * und Buchung (Invoice.activeBillingKeys, partieller Unique-Index). Die Pruefungen
  * assertOrdersNotYetInvoiced/assertBookingNotYetInvoiced sind nur Lesezugriffe - zwei
@@ -370,19 +494,26 @@ async function assertBookingNotYetInvoiced(bookingId) {
  * Die im pre('save') bereits vergebene Belegnummer des Verlierers bleibt als Luecke
  * verbraucht; DocumentSequence vergibt sie nie ein zweites Mal.
  */
-async function saveClaimedInvoice(invoice, { orders = [] } = {}) {
+// claimBooking=false: Teilrechnung einer Buchung (Buchungsweg, Modus 'order') - sie
+// beansprucht nur ihre Auftraege, damit weitere Teilrechnungen derselben Buchung
+// moeglich bleiben. Eine Gesamtrechnung der Buchung scheitert trotzdem an
+// assertBookingNotYetInvoiced bzw. am Auftragsanspruch.
+async function saveClaimedInvoice(invoice, { orders = [], claimBooking = true } = {}) {
   const releasing = invoice.isCreditNote || ['cancelled', 'credited'].includes(String(invoice.status || ''));
   invoice.activeBillingKeys = releasing ? undefined : Invoice.buildActiveBillingKeys({
     orderId: invoice.orderId,
     repairOrderIds: invoice.repairOrderIds,
-    bookingId: invoice.bookingId,
+    bookingId: claimBooking ? invoice.bookingId : undefined,
   });
   try {
     await invoice.save();
     return invoice;
   } catch (error) {
     if (!Invoice.isActiveBillingKeyConflict(error)) throw error;
-    if (invoice.bookingId) await assertBookingNotYetInvoiced(invoice.bookingId);
+    if (invoice.bookingId) {
+      if (claimBooking) await assertBookingNotYetInvoiced(invoice.bookingId);
+      else await assertBookingNotWhollyInvoiced(invoice.bookingId);
+    }
     const orderRefs = orders.length > 0
       ? orders
       : [invoice.orderId, ...(invoice.repairOrderIds || [])].filter(Boolean);
@@ -796,9 +927,26 @@ class FinancialService {
         }
       }
 
+      // FIN-9: Suche nach Buchungs-, Auftrags- oder Rechnungsnummer bzw. Kunde. Die
+      // Nummern werden ueber die verknuepften Belege aufgeloest (PaymentAllocation fuer
+      // aufgeteilte Zahlungen), nicht ueber Freitext in der Zahlung.
+      const searchTerm = String(filters.search || '').trim().slice(0, 80);
+      if (searchTerm) {
+        const searchClauses = await FinancialService.buildPaymentSearchClauses(searchTerm);
+        if (searchClauses.length === 0) {
+          return { payments: [], totalPages: 0, currentPage: 1, totalAmount: 0, totalCount: 0 };
+        }
+        query.$or = searchClauses;
+      }
+
+      // "Zahlungen in Pruefung" (Dashboard-Link): dieselbe Regel wie der Zaehler.
+      if (String(filters.review || '') === 'pruefung') {
+        query.$and = [...(Array.isArray(query.$and) ? query.$and : []), FinancialService.paymentsInReviewQuery()];
+      }
+
       // Pagination
       const page = parseInt(filters.page) || 1;
-      const limit = filters.limit ? parseInt(filters.limit) : 500;
+      const limit = filters.limit ? Math.min(500, Math.max(1, parseInt(filters.limit) || 500)) : 500;
       const skip = (page - 1) * limit;
 
       const [paymentSummary] = await Payment.aggregate([
@@ -823,7 +971,7 @@ class FinancialService {
       const rawPayments = paymentSummary?.items || [];
       const pageAllocations = rawPayments.length > 0
         ? await PaymentAllocation.find({ paymentId: { $in: rawPayments.map((payment) => payment._id) } })
-          .select('paymentId allocatedAmount')
+          .select('paymentId invoiceId allocatedAmount')
           .lean()
         : [];
       const allocatedByPayment = new Map();
@@ -831,23 +979,26 @@ class FinancialService {
         const key = toIdString(allocation.paymentId);
         allocatedByPayment.set(key, CalculationHelper.round(Number(allocatedByPayment.get(key) || 0) + Number(allocation.allocatedAmount || 0)));
       });
+      const references = await FinancialService.loadPaymentReferences(rawPayments, pageAllocations);
       const payments = rawPayments.map((payment) => {
         const effectiveAmount = PaymentService.effectivePaymentAmount(payment);
         const allocatedAmount = CalculationHelper.round(Number(allocatedByPayment.get(toIdString(payment._id)) || 0));
         const refundsInProgress = CalculationHelper.round((payment.refunds || [])
           .filter((entry) => entry.status === 'pending')
           .reduce((sum, entry) => sum + Number(entry.amount || 0), 0));
+        const unallocatedAmount = PaymentService.isCountablePayment(payment)
+          ? CalculationHelper.round(Math.max(0, effectiveAmount - allocatedAmount - refundsInProgress))
+          : 0;
         return {
           ...payment,
+          ...FinancialService.describePaymentReferences(payment, references, unallocatedAmount),
           // Je Erstattungseintrag die SERVER-Regel "ungeklaert" (isUnresolvedGatewayRefund):
           // auch ein ausstehender Anbieter-Eintrag OHNE Referenz (Altbestand, Abbruch
           // zwischen Reservierung und PayPal-Aufruf) blockiert weitere Erstattungen.
           refunds: (payment.refunds || []).map((entry) => ({ ...entry, unresolved: isUnresolvedGatewayRefund(entry) })),
           effectiveAmount,
           allocatedAmount,
-          unallocatedAmount: PaymentService.isCountablePayment(payment)
-            ? CalculationHelper.round(Math.max(0, effectiveAmount - allocatedAmount - refundsInProgress))
-            : 0,
+          unallocatedAmount,
           refundsInProgress,
           unresolvedRefundAmount: CalculationHelper.round((payment.refunds || [])
             .filter(isUnresolvedGatewayRefund)
@@ -863,12 +1014,133 @@ class FinancialService {
         payments,
         totalPages,
         currentPage: page,
-        totalAmount
+        totalAmount,
+        totalCount: totalPayments,
       };
     } catch (error) {
       console.error('FinancialService: Error getting payments:', error);
       throw error;
     }
+  }
+
+  /**
+   * Suchbedingungen fuer die Zahlungsliste (Buchung BKG-, Auftrag ORD-, Rechnung INV-
+   * oder Kundenname/E-Mail). Liefert eine leere Liste, wenn nichts passt.
+   */
+  static async buildPaymentSearchClauses(term) {
+    const escaped = String(term).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'i');
+    const [bookings, orders, invoices, users] = await Promise.all([
+      Booking.find({ bookingNumber: regex }).setOptions({ skipAutoPopulate: true }).select('_id').limit(200).lean(),
+      Order.find({ orderNumber: regex }).setOptions({ skipAutoPopulate: true }).select('_id bookingId').limit(200).lean(),
+      Invoice.find({ invoiceNumber: regex }).setOptions({ skipAutoPopulate: true }).select('_id').limit(200).lean(),
+      User.find({ $or: [{ name: regex }, { firstName: regex }, { lastName: regex }, { email: regex }] }).select('_id').limit(200).lean(),
+    ]);
+    const invoiceIds = invoices.map((invoice) => invoice._id);
+    const allocationPaymentIds = invoiceIds.length > 0
+      ? (await PaymentAllocation.find({ invoiceId: { $in: invoiceIds } }).select('paymentId').lean()).map((entry) => entry.paymentId)
+      : [];
+    const bookingIds = [
+      ...bookings.map((booking) => booking._id),
+      ...orders.map((order) => order.bookingId).filter(Boolean),
+    ];
+    const clauses = [
+      { customerName: regex },
+      { guestName: regex },
+      { guestEmail: regex },
+      { orderNumber: regex },
+      { transactionId: regex },
+    ];
+    if (bookingIds.length > 0) clauses.push({ bookingId: { $in: bookingIds } });
+    if (orders.length > 0) clauses.push({ orderId: { $in: orders.map((order) => order._id) } });
+    if (invoiceIds.length > 0) clauses.push({ invoiceId: { $in: invoiceIds } });
+    if (allocationPaymentIds.length > 0) clauses.push({ _id: { $in: allocationPaymentIds } });
+    if (users.length > 0) clauses.push({ customerId: { $in: users.map((user) => user._id) } });
+    return clauses;
+  }
+
+  /**
+   * Batch-Laden der Bezuege einer Zahlungsseite (3 Abfragen + Saldo der Buchungen),
+   * damit die Liste Buchungs-, Auftrags- und Rechnungsnummern mit Link zeigen kann.
+   */
+  static async loadPaymentReferences(payments = [], allocations = []) {
+    const bookingIds = [...new Set(payments.map((payment) => toIdString(payment.bookingId)).filter(Boolean))];
+    const orderIds = [...new Set(payments.map((payment) => toIdString(payment.orderId)).filter(Boolean))];
+    const invoiceIds = [...new Set([
+      ...payments.map((payment) => toIdString(payment.invoiceId)),
+      ...allocations.map((allocation) => toIdString(allocation.invoiceId)),
+    ].filter(Boolean))];
+    const validIds = (ids) => ids.filter((id) => Types.ObjectId.isValid(id));
+
+    const [bookings, orders, invoices, bookingBalances] = await Promise.all([
+      bookingIds.length > 0
+        ? Booking.find({ _id: { $in: validIds(bookingIds) } }).setOptions({ skipAutoPopulate: true }).select('_id bookingNumber').lean()
+        : [],
+      orderIds.length > 0
+        ? Order.find({ _id: { $in: validIds(orderIds) } }).setOptions({ skipAutoPopulate: true }).select('_id orderNumber bookingId').lean()
+        : [],
+      invoiceIds.length > 0
+        ? Invoice.find({ _id: { $in: validIds(invoiceIds) } }).setOptions({ skipAutoPopulate: true }).select('_id invoiceNumber isCreditNote status').lean()
+        : [],
+      bookingIds.length > 0 ? PaymentService.computeBookingBalancesCore(bookingIds) : new Map(),
+    ]);
+
+    const allocationsByPayment = new Map();
+    allocations.forEach((allocation) => {
+      const key = toIdString(allocation.paymentId);
+      if (!allocationsByPayment.has(key)) allocationsByPayment.set(key, []);
+      allocationsByPayment.get(key).push(allocation);
+    });
+
+    return {
+      bookingById: new Map(bookings.map((booking) => [toIdString(booking._id), booking])),
+      orderById: new Map(orders.map((order) => [toIdString(order._id), order])),
+      invoiceById: new Map(invoices.map((invoice) => [toIdString(invoice._id), invoice])),
+      bookingBalances,
+      allocationsByPayment,
+    };
+  }
+
+  /**
+   * Bezuege und Zuordnungsart einer Zahlung:
+   *  - unallocatedKind 'prepayment': Geld fuer eine Buchung ohne (vollstaendige)
+   *    Rechnung - "Vorauszahlung – Rechnung folgt", kein Fehler.
+   *  - 'overpayment': mehr eingegangen als berechnet/Auftragswert - pruefen/erstatten.
+   *  - 'unassigned': weder Buchung noch Rechnung bekannt.
+   */
+  static describePaymentReferences(payment, references, unallocatedAmount = 0) {
+    const bookingKey = toIdString(payment.bookingId);
+    const booking = references.bookingById.get(bookingKey) || null;
+    const order = references.orderById.get(toIdString(payment.orderId)) || null;
+    const allocations = (references.allocationsByPayment.get(toIdString(payment._id)) || [])
+      .map((allocation) => {
+        const invoice = references.invoiceById.get(toIdString(allocation.invoiceId));
+        return {
+          invoiceId: toIdString(allocation.invoiceId),
+          invoiceNumber: invoice?.invoiceNumber || '',
+          allocatedAmount: CalculationHelper.round(Number(allocation.allocatedAmount || 0)),
+        };
+      });
+    const directInvoice = references.invoiceById.get(toIdString(payment.invoiceId)) || null;
+
+    let unallocatedKind = null;
+    if (unallocatedAmount > 0.009) {
+      const balance = bookingKey ? references.bookingBalances.get(bookingKey) : null;
+      if (balance) {
+        const awaitsInvoice = (balance.byInvoice || []).length === 0 || Number(balance.uninvoicedValue || 0) > 0.009;
+        unallocatedKind = awaitsInvoice && Number(balance.overpaid || 0) <= 0.009 ? 'prepayment' : 'overpayment';
+      } else {
+        unallocatedKind = directInvoice || allocations.length > 0 ? 'overpayment' : 'unassigned';
+      }
+    }
+
+    return {
+      bookingNumber: booking?.bookingNumber || '',
+      orderNumber: order?.orderNumber || payment.orderNumber || '',
+      invoiceNumber: directInvoice?.invoiceNumber || allocations[0]?.invoiceNumber || '',
+      allocations,
+      unallocatedKind,
+    };
   }
 
   /**
@@ -1684,6 +1956,17 @@ class FinancialService {
         }
       }
 
+      // Offene / ueberfaellige Forderungen (Dashboard-Link): dieselbe Regel wie der Zaehler
+      // (getOpenReceivables), daher Dashboard-Zahl = Gesamtzahl dieser Liste.
+      const receivableFilter = String(filters.receivable || '');
+      if (receivableFilter === 'offen' || receivableFilter === 'ueberfaellig') {
+        const receivables = await FinancialService.getOpenReceivables();
+        const ids = receivables
+          .filter((entry) => receivableFilter === 'offen' || entry.overdue)
+          .map((entry) => (entry._id instanceof Types.ObjectId ? entry._id : new Types.ObjectId(String(entry._id))));
+        andClauses.push({ _id: { $in: ids } });
+      }
+
       if (andClauses.length > 0) {
         query.$and = andClauses;
       }
@@ -2025,7 +2308,17 @@ class FinancialService {
         customerName,
         invoiceNumber: invoice.invoiceNumber,
         orderNumber: referenceNumber,
-        invoiceAmount: `EUR ${invoiceAmount.toFixed(2)}`,
+        // FIN-4: Betrag MIT ausgewiesener MwSt. ("47,40 € (inkl. 7,57 € MwSt. 19 %)"),
+        // bei Reverse Charge ausdruecklich ohne MwSt. Der zusammengesetzte Text bleibt
+        // von EmailService.localizeTemplateDisplayVariables unberuehrt (keine reine Zahl).
+        invoiceAmount: describeGross({
+          gross: invoiceAmount,
+          tax: invoice.tax,
+          taxRate: invoice.taxRate,
+          isReverseCharge: Boolean(invoice.isReverseCharge),
+        }),
+        invoiceNetAmount: formatMoneyDe(invoice.subtotal),
+        invoiceTaxAmount: invoice.isReverseCharge ? 'Reverse Charge – ohne MwSt.' : formatMoneyDe(invoice.tax),
         dueDate: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('de-DE') : '-',
         paymentMethod: methodLabel,
         invoiceUrl,
@@ -2096,122 +2389,197 @@ class FinancialService {
   }
 
   // Financial Reports
+  /**
+   * Offene Forderungen (ORD-4): Rechnungen (keine Gutschriften) mit Forderungsstatus
+   * (DUNNING_RECEIVABLE_STATUSES) und offenem Betrag > 0 aus den gueltigen Zuordnungen.
+   * overdue = Status 'overdue' oder Faelligkeit vor heute. EINE Regel fuer die Zaehler im
+   * Finanzbericht/Dashboard und den Belegfilter receivable=offen|ueberfaellig.
+   * @returns {Promise<Array<{ _id, open: number, overdue: boolean }>>}
+   */
+  static async getOpenReceivables() {
+    const receivableInvoices = await Invoice.find({
+      isCreditNote: { $ne: true },
+      status: { $in: DUNNING_RECEIVABLE_STATUSES },
+    })
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id total paidAmount status dueDate isCreditNote bookingId createdAt orderId repairOrderIds')
+      .lean();
+    const balances = await PaymentService.getInvoiceBalances(receivableInvoices);
+    const today = startOfLocalDay(new Date());
+    return receivableInvoices.flatMap((invoice) => {
+      const balance = balances.get(toIdString(invoice._id));
+      const open = Number(balance?.open ?? Math.max(0, Number(invoice.total || 0) - Number(invoice.paidAmount || 0)));
+      if (open <= 0.009) return [];
+      const overdue = invoice.status === 'overdue' || Boolean(invoice.dueDate && new Date(invoice.dueDate) < today);
+      return [{ _id: invoice._id, open, overdue }];
+    });
+  }
+
+  /**
+   * Zahlungen in Pruefung (ORD-4): offen/strittig sowie laufende Zahlungen der letzten 24 h.
+   * Aeltere 'processing'-Eintraege sind abgebrochene PayPal-Checkouts. EINE Regel fuer den
+   * Zaehler und den Zahlungsfilter review=pruefung.
+   */
+  static paymentsInReviewQuery(now = new Date()) {
+    return {
+      $or: [
+        { status: { $in: ['pending', 'disputed'] } },
+        { status: 'processing', updatedAt: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } },
+      ],
+    };
+  }
+
+  /**
+   * Finanzbericht (FIN-6). Frueher: Zeitraum ignoriert ("period"), Brutto-Zahlungen
+   * als "Umsatz", Teilerstattungen nicht abgezogen und ein erfundener "Nettogewinn"
+   * (60 % der Zahlungen). Jetzt:
+   *  - Zeitraum: dateFrom/dateTo ODER period ('week' = ab Montag, 'month' = ab dem
+   *    1. des Monats, 'year' = ab 1.1.); ohne Angabe: laufendes Jahr.
+   *  - collectedGross ("Zahlungseingang brutto") = Summe (Betrag - erstatteter Betrag)
+   *    der abgeschlossenen Zahlungen mit Zahlungsdatum im Zeitraum.
+   *  - refundAmount = tatsaechlich abgeschlossene Erstattungen (refunds[].status
+   *    'completed') im Zeitraum, bei Altbestand ohne refunds[] der refundAmount.
+   *  - openInvoiceCount/overdueInvoiceCount/openReceivablesGross serverseitig gezaehlt
+   *    (frueher im Client aus den ersten 50 Datensaetzen).
+   *  Keine Schaetz- oder Mock-Felder mehr.
+   */
+  static resolveReportPeriod(filters = {}) {
+    const now = new Date();
+    let dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : null;
+    let dateTo = filters.dateTo ? new Date(filters.dateTo) : null;
+    const period = String(filters.period || '').toLowerCase();
+    if (!dateFrom) {
+      if (period === 'week') {
+        dateFrom = startOfLocalDay(now);
+        const weekday = (dateFrom.getDay() + 6) % 7; // Montag = 0
+        dateFrom.setDate(dateFrom.getDate() - weekday);
+      } else if (period === 'month') {
+        dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else {
+        dateFrom = new Date(now.getFullYear(), 0, 1);
+      }
+    }
+    if (!dateTo) dateTo = now;
+    if (Number.isNaN(dateFrom.getTime()) || Number.isNaN(dateTo.getTime())) {
+      throw buildFinancialError('Ungültiger Zeitraum für den Finanzbericht.', 400, 'INVALID_REPORT_PERIOD');
+    }
+    return { dateFrom, dateTo, period: period || (filters.dateFrom || filters.dateTo ? 'custom' : 'year') };
+  }
+
   static async getFinancialReports(filters = {}) {
     console.log('FinancialService: Generating financial reports');
 
     try {
-      const dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : new Date(new Date().getFullYear(), 0, 1);
-      const dateTo = filters.dateTo ? new Date(filters.dateTo) : new Date();
+      const { dateFrom, dateTo, period } = FinancialService.resolveReportPeriod(filters);
+      const inRange = { $gte: dateFrom, $lte: dateTo };
+      // Zahlungsdatum ist massgeblich; Altbestand ohne Zahlungsdatum ueber das Anlagedatum.
+      const paymentDateMatch = { $or: [{ paymentDate: inRange }, { paymentDate: { $in: [null] }, createdAt: inRange }] };
 
-      // Get revenue data
-      const revenueData = await Payment.aggregate([
-        {
-          $match: {
-            status: 'completed',
-            createdAt: { $gte: dateFrom, $lte: dateTo }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalRevenue: { $sum: '$amount' },
-            count: { $sum: 1 }
-          }
+      const collectedPayments = await Payment.find({ status: 'completed', ...paymentDateMatch })
+        .setOptions({ skipAutoPopulate: true })
+        .select('amount refundAmount paymentMethod paymentDate createdAt status')
+        .lean();
+      const collectedGross = CalculationHelper.round(
+        collectedPayments.reduce((sum, payment) => sum + PaymentService.effectivePaymentAmount(payment), 0)
+      );
+
+      // Abgeschlossene Erstattungen im Zeitraum (Datum der Erstattung).
+      const refundCandidates = await Payment.find({
+        $or: [
+          { 'refunds.status': 'completed' },
+          { refundAmount: { $gt: 0 } },
+        ],
+      })
+        .setOptions({ skipAutoPopulate: true })
+        .select('refunds refundAmount refundedAt updatedAt status')
+        .lean();
+      let refundAmount = 0;
+      refundCandidates.forEach((payment) => {
+        const entries = Array.isArray(payment.refunds) ? payment.refunds : [];
+        if (entries.length > 0) {
+          entries.forEach((entry) => {
+            if (entry.status !== 'completed') return;
+            const at = new Date(entry.completedAt || entry.processedAt || entry.createdAt || payment.refundedAt || payment.updatedAt);
+            if (at >= dateFrom && at <= dateTo) refundAmount += Number(entry.amount || 0);
+          });
+        } else {
+          const at = new Date(payment.refundedAt || payment.updatedAt);
+          if (at >= dateFrom && at <= dateTo) refundAmount += Number(payment.refundAmount || 0);
         }
-      ]);
+      });
+      refundAmount = CalculationHelper.round(refundAmount);
 
-      // Get refund and dispute data
-      const refundData = await Payment.aggregate([
-        {
-          $match: {
-            status: { $in: ['refunded', 'disputed'] },
-            createdAt: { $gte: dateFrom, $lte: dateTo }
-          }
-        },
-        {
-          $group: {
-            _id: '$status',
-            amount: { $sum: '$amount' }
-          }
-        }
-      ]);
+      const disputed = await Payment.find({ status: 'disputed', ...paymentDateMatch })
+        .setOptions({ skipAutoPopulate: true })
+        .select('amount')
+        .lean();
+      const disputeAmount = CalculationHelper.round(disputed.reduce((sum, payment) => sum + Number(payment.amount || 0), 0));
 
-      // Get payment method breakdown
-      const paymentMethodData = await Payment.aggregate([
-        {
-          $match: {
-            status: 'completed',
-            createdAt: { $gte: dateFrom, $lte: dateTo }
-          }
-        },
-        {
-          $group: {
-            _id: '$paymentMethod',
-            amount: { $sum: '$amount' },
-            count: { $sum: 1 }
-          }
-        }
-      ]);
-
-      // Get monthly trends
-      const monthlyTrends = await Payment.aggregate([
-        {
-          $match: {
-            status: 'completed',
-            createdAt: { $gte: new Date(dateTo.getFullYear() - 1, dateTo.getMonth(), 1), $lte: dateTo }
-          }
-        },
-        {
-          $group: {
-            _id: {
-              year: { $year: '$createdAt' },
-              month: { $month: '$createdAt' }
-            },
-            revenue: { $sum: '$amount' },
-            orders: { $sum: 1 }
-          }
-        },
-        {
-          $sort: { '_id.year': 1, '_id.month': 1 }
-        },
-        {
-          $limit: 12
-        }
-      ]);
-
-      const totalRevenue = revenueData.length > 0 ? revenueData[0].totalRevenue : 0;
-      const refundAmount = refundData.find(r => r._id === 'refunded')?.amount || 0;
-      const disputeAmount = refundData.find(r => r._id === 'disputed')?.amount || 0;
-
-      // Calculate payment method breakdown with percentages
-      const paymentMethodBreakdown = paymentMethodData.map(method => ({
-        method: method._id.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        amount: method.amount,
-        percentage: totalRevenue > 0 ? (method.amount / totalRevenue) * 100 : 0
+      const methodTotals = new Map();
+      collectedPayments.forEach((payment) => {
+        const key = String(payment.paymentMethod || 'unbekannt');
+        methodTotals.set(key, CalculationHelper.round(Number(methodTotals.get(key) || 0) + PaymentService.effectivePaymentAmount(payment)));
+      });
+      const paymentMethodBreakdown = Array.from(methodTotals.entries()).map(([method, amount]) => ({
+        method,
+        amount,
+        percentage: collectedGross > 0 ? (amount / collectedGross) * 100 : 0,
       }));
 
-      // Format monthly trends
-      const formattedTrends = monthlyTrends.map(trend => ({
-        month: new Date(trend._id.year, trend._id.month - 1).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short'
-        }),
-        revenue: trend.revenue,
-        orders: trend.orders,
-        avgOrderValue: trend.orders > 0 ? trend.revenue / trend.orders : 0
-      }));
+      // Monatsverlauf (letzte 12 Monate) - ebenfalls Zahlungseingang netto der Erstattungen.
+      const trendFrom = new Date(dateTo.getFullYear() - 1, dateTo.getMonth() + 1, 1);
+      const trendPayments = await Payment.find({
+        status: 'completed',
+        $or: [{ paymentDate: { $gte: trendFrom, $lte: dateTo } }, { paymentDate: { $in: [null] }, createdAt: { $gte: trendFrom, $lte: dateTo } }],
+      })
+        .setOptions({ skipAutoPopulate: true })
+        .select('amount refundAmount paymentDate createdAt')
+        .lean();
+      const trendMap = new Map();
+      trendPayments.forEach((payment) => {
+        const date = new Date(payment.paymentDate || payment.createdAt);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const entry = trendMap.get(key) || { revenue: 0, orders: 0, date: new Date(date.getFullYear(), date.getMonth(), 1) };
+        entry.revenue = CalculationHelper.round(entry.revenue + PaymentService.effectivePaymentAmount(payment));
+        entry.orders += 1;
+        trendMap.set(key, entry);
+      });
+      const formattedTrends = Array.from(trendMap.entries())
+        .sort(([a], [b]) => (a < b ? -1 : 1))
+        .map(([, trend]) => ({
+          month: trend.date.toLocaleDateString('de-DE', { year: 'numeric', month: 'short' }),
+          revenue: trend.revenue,
+          orders: trend.orders,
+          avgOrderValue: trend.orders > 0 ? CalculationHelper.round(trend.revenue / trend.orders) : 0,
+        }));
 
+      // Offene Forderungen und Zaehler serverseitig (nicht aus einer 50er-Liste). Dieselbe Regel
+      // filtert die Belegliste (getInvoices receivable=offen|ueberfaellig) - ORD-4.
+      const openReceivables = await FinancialService.getOpenReceivables();
+      const openInvoiceCount = openReceivables.length;
+      const overdueInvoiceCount = openReceivables.filter((entry) => entry.overdue).length;
+      const openReceivablesGross = openReceivables.reduce((sum, entry) => sum + entry.open, 0);
+
+      // Zahlungen in Pruefung (Dashboard): dieselbe Regel wie der Zahlungsfilter review=pruefung.
+      const paymentsInReviewCount = await Payment.countDocuments(FinancialService.paymentsInReviewQuery());
+
+      const formatDe = (date) => date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
       const report = {
-        period: `${dateFrom.toLocaleDateString()} - ${dateTo.toLocaleDateString()}`,
-        totalRevenue,
-        totalExpenses: totalRevenue * 0.4, // Mock calculation
-        netProfit: totalRevenue * 0.6, // Mock calculation
-        grossMargin: 60.0, // Mock percentage
-        orderRevenue: totalRevenue * 0.85, // Mock calculation
-        addonRevenue: totalRevenue * 0.10, // Mock calculation
-        productRevenue: totalRevenue * 0.05, // Mock calculation
+        period: `${formatDe(dateFrom)} – ${formatDe(dateTo)}`,
+        periodKey: period,
+        dateFrom: dateFrom.toISOString(),
+        dateTo: dateTo.toISOString(),
+        basis: 'Abgeschlossene Zahlungen (Zahlungsdatum im Zeitraum) abzüglich erstatteter Beträge.',
+        collectedGross,
+        // Kompatibilitaet: totalRevenue ist derselbe Wert (Zahlungseingang brutto).
+        totalRevenue: collectedGross,
+        paymentCount: collectedPayments.length,
         refundAmount,
         disputeAmount,
+        openInvoiceCount,
+        overdueInvoiceCount,
+        openReceivablesGross: CalculationHelper.round(openReceivablesGross),
+        paymentsInReviewCount,
         paymentMethodBreakdown,
         monthlyTrends: formattedTrends
       };
@@ -2695,27 +3063,61 @@ class FinancialService {
       throw error;
     }
   }
-  // Create invoice from one or more repair order / booking IDs
-  static async generateFromRepairOrders(repairOrderIds, options = {}) {
-    console.log('FinancialService: Generating invoice from repair orders:', repairOrderIds);
-
-    if (!repairOrderIds || repairOrderIds.length === 0) {
+  /**
+   * Loest Auftragsverweise auf: interne ID ODER Auftragsnummer ("ORD-2026-009", auch mit
+   * "#"). Frueher musste der Bearbeiter Mongo-IDs eintippen; eine Auftragsnummer endete
+   * in einem englischen CastError. Unbekannte Verweise -> deutsche 400.
+   */
+  static async resolveRepairOrderRefs(repairOrderRefs = []) {
+    const refs = [...new Set((repairOrderRefs || []).map((ref) => String(ref?._id || ref || '').trim()).filter(Boolean))];
+    if (refs.length === 0) {
       throw buildFinancialError('Bitte mindestens einen Auftrag auswählen.', 400, 'ORDER_IDS_REQUIRED');
     }
-
-    const orders = await Order.find({ _id: { $in: repairOrderIds } }).populate('customerId');
-
-    if (orders.length === 0) {
-      throw buildFinancialError('Zu den gewählten Angaben wurden keine Aufträge gefunden.', 404, 'ORDERS_NOT_FOUND');
+    if (refs.length > 50) {
+      throw buildFinancialError('Eine Sammelrechnung kann höchstens 50 Aufträge umfassen.', 400, 'TOO_MANY_ORDERS');
     }
+    const orders = [];
+    const seen = new Set();
+    for (const ref of refs) {
+      let order = null;
+      if (Types.ObjectId.isValid(ref) && /^[a-f0-9]{24}$/i.test(ref)) {
+        order = await Order.findById(ref).populate('customerId');
+      }
+      if (!order) {
+        const clean = ref.replace(/^#/, '').trim();
+        const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        order = await Order.findOne({ orderNumber: { $regex: new RegExp(`^#?${escaped}$`, 'i') } }).populate('customerId');
+      }
+      if (!order) {
+        throw buildFinancialError(`Auftrag "${ref.slice(0, 40)}" wurde nicht gefunden.`, 400, 'ORDER_NOT_FOUND');
+      }
+      const key = toIdString(order._id);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      orders.push(order);
+    }
+    return orders;
+  }
 
-    // All orders must belong to the same customer
-    const customerIds = [...new Set(orders.map(o => String(o.customerId._id)))];
+  /**
+   * Baut die (noch nicht gespeicherte) Sammelrechnung aus Auftraegen. Gemeinsamer Kern
+   * fuer Vorschau (dryRun) und Anlage - beide zeigen/speichern exakt dieselben Werte.
+   *
+   * Steuer: es gilt die GESPEICHERTE Regel des Kundenprofils (Steuermodus der
+   * Kundengruppe, Reverse Charge). options.isReverseCharge/options.taxRate wirken nur
+   * mit options.overrideTax === true - frueher schickte die Oberflaeche immer
+   * "isReverseCharge: false, taxRate: 19" mit und ueberschrieb so ein Reverse-Charge-Profil.
+   */
+  static async buildRepairOrdersInvoice(repairOrderRefs, options = {}) {
+    const orders = await FinancialService.resolveRepairOrderRefs(repairOrderRefs);
+
+    const customerIds = [...new Set(orders.map((o) => toIdString(o.customerId?._id || o.customerId)).filter(Boolean))];
+    if (customerIds.length === 0 || orders.some((order) => !order.customerId)) {
+      throw buildFinancialError('Für mindestens einen Auftrag ist kein Kundenkonto hinterlegt – eine Sammelrechnung ist nur für Kundenkonten möglich.', 400, 'ORDER_WITHOUT_CUSTOMER');
+    }
     if (customerIds.length > 1) {
       throw buildFinancialError('Alle Aufträge einer Sammelrechnung müssen zum selben Kunden gehören.', 400, 'ORDERS_DIFFERENT_CUSTOMERS');
     }
-
-    await assertOrdersNotYetInvoiced(orders);
 
     const customer = orders[0].customerId;
     const financialProfile = await FinancialService.resolveFinancialProfile({ customer });
@@ -2742,15 +3144,19 @@ class FinancialService {
       }
     });
 
-    const isReverseCharge = Boolean(
-      options.isReverseCharge !== undefined
-        ? options.isReverseCharge
-        : (financialProfile.taxMode === 'reverse_charge' || (customer?.vatId && customer?.country && customer.country !== 'DE'))
+    const overrideTax = options.overrideTax === true;
+    const profileReverseCharge = Boolean(
+      financialProfile.taxMode === 'reverse_charge' || (customer?.vatId && customer?.country && customer.country !== 'DE')
     );
+    const isReverseCharge = overrideTax && options.isReverseCharge !== undefined
+      ? Boolean(options.isReverseCharge)
+      : profileReverseCharge;
     // Positionspreise sind BRUTTO; Netto/MwSt rechnet das Invoice-Modell heraus.
     // options.taxRate ist ein PROZENTWERT (z.B. 19), kein Faktor.
     const itemsGrossTotal = CalculationHelper.round(items.reduce((s, i) => s + Number(i.total || 0), 0));
-    const taxRate  = isReverseCharge ? 0 : normalizeTaxRatePercent(options.taxRate, financialProfile.taxRate);
+    const taxRate = isReverseCharge
+      ? 0
+      : (overrideTax ? normalizeTaxRatePercent(options.taxRate, financialProfile.taxRate) : normalizeTaxRatePercent(financialProfile.taxRate));
     // Zwei Rabattquellen, die sich ADDIEREN und einander nie ersetzen:
     //  1. ordersDiscount: der bereits ausgerechnete Rabatt der Auftraege (order.discount).
     //     Er steckt nicht in den Positionspreisen (die sind Listen-Brutto) und muss
@@ -2771,12 +3177,8 @@ class FinancialService {
     const bookingIds = [...new Set(orders.map((order) => toIdString(order.bookingId)).filter(Boolean))];
     const bookingId = bookingIds.length === 1 ? bookingIds[0] : undefined;
 
-    if (bookingId) {
-      await assertBookingNotYetInvoiced(bookingId);
-    }
-
     const invoiceData = {
-      repairOrderIds,
+      repairOrderIds: orders.map((order) => order._id),
       orderId: orders.length === 1 ? orders[0]._id : undefined,
       bookingId,
       customerId:    customer._id,
@@ -2803,8 +3205,132 @@ class FinancialService {
       sentAt:        new Date()
     };
 
-    const invoice = new Invoice(invoiceData);
-    await saveClaimedInvoice(invoice, { orders });
+    return {
+      orders,
+      customer,
+      financialProfile,
+      bookingId,
+      invoice: new Invoice(invoiceData),
+      profileTax: { isReverseCharge: profileReverseCharge, taxRate: profileReverseCharge ? 0 : normalizeTaxRatePercent(financialProfile.taxRate), taxMode: financialProfile.taxMode || 'default' },
+      incompleteOrders: orders
+        .filter((order) => String(order.status || '') !== 'completed')
+        .map((order) => ({ _id: toIdString(order._id), orderNumber: order.orderNumber || '', status: order.status || '' })),
+    };
+  }
+
+  // Bereits bestehende aktive Rechnung je Auftrag (fuer die Vorschau, ohne zu werfen).
+  static async findActiveInvoicesForOrders(orders = []) {
+    const objectIds = orders.map((order) => order._id);
+    if (objectIds.length === 0) return new Map();
+    const existing = await Invoice.find({
+      isCreditNote: { $ne: true },
+      status: { $nin: ['cancelled', 'credited'] },
+      $or: [{ orderId: { $in: objectIds } }, { repairOrderIds: { $in: objectIds } }],
+    })
+      .setOptions({ skipAutoPopulate: true })
+      .select('_id invoiceNumber orderId repairOrderIds')
+      .lean();
+    const byOrder = new Map();
+    existing.forEach((invoice) => {
+      [invoice.orderId, ...(invoice.repairOrderIds || [])].map(toIdString).filter(Boolean).forEach((orderKey) => {
+        if (!byOrder.has(orderKey)) byOrder.set(orderKey, { _id: toIdString(invoice._id), invoiceNumber: invoice.invoiceNumber || '' });
+      });
+    });
+    return byOrder;
+  }
+
+  /**
+   * Vorschau "Rechnung aus Auftraegen" (dryRun): Umfang, Betraege und Hinweise, ohne
+   * etwas zu speichern oder eine Belegnummer zu verbrauchen.
+   */
+  static async previewInvoiceFromRepairOrders(repairOrderRefs, options = {}) {
+    const draft = await FinancialService.buildRepairOrdersInvoice(repairOrderRefs, options);
+    await draft.invoice.validate();
+    const activeByOrder = await FinancialService.findActiveInvoicesForOrders(draft.orders);
+    let bookingInvoice = null;
+    if (draft.bookingId) {
+      try {
+        if (await selectionCoversBooking(draft.bookingId, draft.orders)) await assertBookingNotYetInvoiced(draft.bookingId);
+        else await assertBookingNotWhollyInvoiced(draft.bookingId);
+      } catch (error) {
+        if (error.statusCode !== 409) throw error;
+        bookingInvoice = error.existingInvoice || null;
+      }
+    }
+    const orderPreview = draft.orders.map((order) => {
+      const pricing = require('./orderService').buildOrderPricingSummary(order);
+      return {
+        _id: toIdString(order._id),
+        orderNumber: order.orderNumber || '',
+        status: order.status || '',
+        grossTotal: pricing.grossTotal,
+        discount: pricing.discount,
+        alreadyInvoicedBy: activeByOrder.get(toIdString(order._id)) || null,
+      };
+    });
+    const blockers = [];
+    orderPreview.filter((entry) => entry.alreadyInvoicedBy).forEach((entry) => {
+      blockers.push(`Auftrag ${entry.orderNumber} ist bereits berechnet (Rechnung ${entry.alreadyInvoicedBy.invoiceNumber}).`);
+    });
+    if (bookingInvoice && orderPreview.every((entry) => !entry.alreadyInvoicedBy)) {
+      blockers.push(`Für die Buchung dieser Aufträge besteht bereits die Rechnung ${bookingInvoice.invoiceNumber || bookingInvoice._id}.`);
+    }
+    const invoice = draft.invoice;
+    return {
+      customer: {
+        _id: toIdString(draft.customer._id),
+        name: draft.customer.name || [draft.customer.firstName, draft.customer.lastName].filter(Boolean).join(' '),
+        email: draft.customer.email || '',
+      },
+      orders: orderPreview,
+      incompleteOrders: draft.incompleteOrders,
+      items: invoice.items.map((item) => ({ description: item.description, quantity: item.quantity, total: item.total })),
+      discount: invoice.discount,
+      subtotal: invoice.subtotal,
+      tax: invoice.tax,
+      total: invoice.total,
+      taxRate: invoice.taxRate,
+      isReverseCharge: Boolean(invoice.isReverseCharge),
+      profileTax: draft.profileTax,
+      dueDate: invoice.dueDate,
+      bookingInvoice,
+      blockers,
+      canCreate: blockers.length === 0,
+    };
+  }
+
+  // Create invoice from one or more repair order / booking IDs
+  // options.enforceCompletion (nur vom Route-Layer gesetzt): nicht abgeschlossene
+  // Auftraege nur mit options.confirmIncompleteOrders === true.
+  static async generateFromRepairOrders(repairOrderIds, options = {}) {
+    console.log('FinancialService: Generating invoice from repair orders:', repairOrderIds);
+
+    const draft = await FinancialService.buildRepairOrdersInvoice(repairOrderIds, options);
+    const { orders, bookingId, invoice } = draft;
+
+    if (options.enforceCompletion === true && draft.incompleteOrders.length > 0 && options.confirmIncompleteOrders !== true) {
+      const labels = draft.incompleteOrders.map((order) => `${order.orderNumber || order._id} (${order.status || 'unbekannt'})`).join(', ');
+      const error = buildFinancialError(
+        `Noch nicht abgeschlossene Aufträge: ${labels}. Bitte ausdrücklich bestätigen, dass trotzdem berechnet werden soll.`,
+        409,
+        'ORDERS_NOT_COMPLETED'
+      );
+      error.incompleteOrders = draft.incompleteOrders;
+      throw error;
+    }
+
+    await assertOrdersNotYetInvoiced(orders);
+
+    // Gesamtrechnung der Buchung nur, wenn ALLE ihre Auftraege ausgewaehlt sind; eine
+    // Teilauswahl beansprucht nur ihre Auftraege (wie die Teilrechnung im Buchungsweg).
+    let claimBooking = true;
+    if (bookingId) {
+      claimBooking = await selectionCoversBooking(bookingId, orders);
+      if (claimBooking) await assertBookingNotYetInvoiced(bookingId);
+      else await assertBookingNotWhollyInvoiced(bookingId);
+    }
+
+    await saveClaimedInvoice(invoice, { orders, claimBooking });
     const finalized = await FinancialService.finalizeInvoiceCreation(invoice);
 
     console.log('FinancialService: Invoice generated from repair orders:', invoice.invoiceNumber);
@@ -5451,8 +5977,23 @@ class FinancialService {
         if (booking) {
           const orders = await Order.find({ bookingId: booking._id }).lean();
           if (orders.length > 0) {
-            const sumOrders = orders.reduce((sum, o) => sum + Number(o.totalCost || 0), 0);
-            booking.totalCost = CalculationHelper.round(sumOrders);
+            // FIN-2: ALLE Geldfelder der Buchung aus den Auftraegen (eine Ableitung,
+            // BookingService.computeBookingTotalsFromOrders). Frueher wurde nur totalCost
+            // nachgezogen - Zwischensumme, Rabatt und MwSt. blieben auf dem alten Stand.
+            // Lazy require: BookingService -> FinancialService (Ladezyklus vermeiden).
+            const BookingService = require('./bookingService');
+            // Reverse-Charge-/steuerfreie Kunden: MwSt. der Buchung bleibt 0 (Auftraege
+            // speichern dort weiterhin 19 %). Profil nicht lesbar (null): gespeicherte
+            // MwSt. unveraendert lassen statt zu raten.
+            const taxExempt = await BookingService.resolveCustomerTaxExempt(booking.customerId);
+            // FIN-13: gespeicherter Auftragssatz (auch 0) zaehlt; Standardsatz aus den
+            // Einstellungen nur fuer Auftraege ohne gespeicherten Satz.
+            const defaultTaxRate = await require('./orderService').resolveDefaultTaxRate(orders); // eslint-disable-line global-require
+            const totals = BookingService.computeBookingTotalsFromOrders(orders, { taxExempt: taxExempt === true, defaultTaxRate });
+            booking.subtotal = totals.subtotal;
+            booking.discount = totals.discount;
+            if (taxExempt !== null) booking.tax = totals.tax;
+            booking.totalCost = totals.totalCost;
             await booking.save();
           }
         }
@@ -5715,8 +6256,23 @@ class FinancialService {
    * tatsaechlich angenommen hat - und Annahme ist keine Zustellbestaetigung. Eine
    * versendete Aufforderung ist auch kein Zahlungseingang. Jeder Versuch (auch der
    * fehlgeschlagene und der ohne Empfaenger) wird als PaymentRequest protokolliert.
+   *
+   * K15: Pruefung der Sperrfrist und Versand laufen unter einem atomaren Anspruch je
+   * Buchung/Rechnung (claimPaymentRequestScope); er wird hier IMMER freigegeben.
+   * `internal` ist nur fuer serverseitige Aufrufer (nicht aus dem Request-Body):
+   *   internal.cooldownCheck - ersetzt die Standard-Sperrfristpruefung (Wiederversand).
    */
-  static async requestAdditionalPayment(identifier, options = {}, actor = null) {
+  static async requestAdditionalPayment(identifier, options = {}, actor = null, internal = {}) {
+    const claimRef = {};
+    try {
+      return await FinancialService.sendPaymentRequestUnderClaim(identifier, options, actor, internal, claimRef);
+    } finally {
+      if (claimRef.release) await claimRef.release();
+    }
+  }
+
+  /** Nur ueber requestAdditionalPayment aufrufen (dort wird der Anspruch freigegeben). */
+  static async sendPaymentRequestUnderClaim(identifier, options = {}, actor = null, internal = {}, claimRef = {}) {
     const PaymentRequest = require('../models/PaymentRequest');
     const BookingPaymentService = require('./bookingPaymentService');
 
@@ -5776,6 +6332,110 @@ class FinancialService {
       amount = requested;
     }
 
+    // FIN-11: Sperrfrist 24 h. Wurde fuer dieselbe Buchung (bzw. Rechnung) in den
+    // letzten 24 Stunden bereits eine Aufforderung an den Mailserver uebergeben, wird
+    // nur mit ausdruecklicher Bestaetigung (options.force === true) erneut gesendet.
+    // K15: Pruefung und Versand erst NACH dem atomaren Anspruch - parallele Anfragen
+    // fuer dasselbe Ziel senden nie gleichzeitig (auch nicht ein doppelter force-Klick).
+    const scope = targetType === 'invoice' || !booking?._id
+      ? { invoiceId: mainInvoice?._id }
+      : { bookingId: booking._id };
+    // 24-h-Pruefung fuer eine Rechnung mit Buchung: auch Buchungs-Aufforderungen derselben Buchung
+    // zaehlen, die VOR der Rechnung gesendet wurden (sie tragen keine invoiceId; nur per invoiceId
+    // gesucht, bekam der Kunde ueber die Rechnung sofort eine zweite Mail). Aufforderungen zu
+    // anderen Rechnungen derselben Buchung sperren weiterhin nicht.
+    const cooldownScope = targetType === 'invoice' && booking?._id && mainInvoice?._id
+      ? {
+        $or: [
+          { invoiceId: mainInvoice._id },
+          // Buchungs-Aufforderungen, auch Altdatensaetze ohne targetType (vor 26.09.)
+          { bookingId: booking._id, targetType: { $ne: 'invoice' } },
+        ],
+      }
+      : scope;
+    // Der Anspruch deckt das WEITESTE Ziel der 24-h-Pruefung ab: jede Aufforderung speichert
+    // bookingId UND invoiceId, die Pruefung per Rechnung trifft also auch Buchungs-Aufforderungen
+    // (und umgekehrt). Daher 'booking:<id>', sobald es eine Buchung gibt; 'invoice:<id>' nur fuer
+    // Rechnungen ohne Buchung (die nie Hauptrechnung einer Buchungs-Aufforderung sein koennen,
+    // BookingPaymentService.loadContext laedt Rechnungen per bookingId).
+    const claimScope = booking?._id ? { bookingId: booking._id } : scope;
+    const scopeKey = claimScope.bookingId
+      ? `booking:${toIdString(claimScope.bookingId)}`
+      : (claimScope.invoiceId ? `invoice:${toIdString(claimScope.invoiceId)}` : '');
+    if (scopeKey) {
+      const claim = await claimPaymentRequestScope(scopeKey);
+      if (claim.busySince) {
+        const inflight = await PaymentRequest.findOne({ ...claimScope, status: 'pending' }).sort({ requestedAt: -1 }).lean();
+        const startedAt = inflight?.requestedAt || claim.busySince;
+        const startedLabel = new Date(startedAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Berlin' });
+        if (options.force === true || typeof internal.cooldownCheck === 'function') {
+          // Bereits bestaetigt (force/Wiederversand): nicht erneut fragen, nichts senden.
+          throw buildFinancialError(
+            `Für ${targetType === 'invoice' ? 'diese Rechnung' : 'diese Buchung'} wird gerade bereits eine Zahlungsaufforderung gesendet `
+            + `(gestartet am ${startedLabel}). Es wurde nichts zusätzlich gesendet – bitte den Verlauf prüfen.`,
+            409,
+            'PAYMENT_REQUEST_IN_PROGRESS'
+          );
+        }
+        const error = buildFinancialError(
+          `Wird gerade gesendet – gestartet am ${startedLabel} an ${inflight?.recipientEmail || recipientEmail || 'den Kunden'} `
+          + `(${formatEuroDe(inflight ? inflight.amount : amount)}). Bitte ausdrücklich bestätigen, wenn trotzdem erneut gesendet werden soll.`,
+          409,
+          'PAYMENT_REQUEST_RECENT'
+        );
+        error.recentRequest = {
+          _id: inflight ? String(inflight._id) : '',
+          requestedAt: startedAt,
+          recipientEmail: inflight?.recipientEmail || recipientEmail || '',
+          amount: CalculationHelper.round(Number(inflight ? inflight.amount : amount) || 0),
+          invoiceNumber: inflight?.invoiceNumber || mainInvoice?.invoiceNumber || '',
+        };
+        throw error;
+      }
+      claimRef.release = claim.release;
+    }
+
+    if (typeof internal.cooldownCheck === 'function') {
+      await internal.cooldownCheck();
+    } else if (options.force !== true) {
+      const since = new Date(Date.now() - PAYMENT_REQUEST_COOLDOWN_HOURS * 60 * 60 * 1000);
+      const recent = scopeKey
+        // Auch eine gerade laufende Aufforderung ('pending', juenger als 5 Minuten) zaehlt:
+        // ein zweiter Klick aus einem anderen Tab sendet sonst eine zweite Mail.
+        ? await PaymentRequest.findOne({
+          $and: [
+            cooldownScope,
+            {
+              $or: [
+                { status: 'accepted_by_provider', requestedAt: { $gte: since } },
+                { status: 'pending', requestedAt: { $gte: new Date(Date.now() - PAYMENT_REQUEST_PENDING_GUARD_MS) } },
+              ],
+            },
+          ],
+        })
+          .sort({ requestedAt: -1 })
+          .lean()
+        : null;
+      if (recent) {
+        const error = buildFinancialError(
+          `${recent.status === 'pending' ? 'Wird gerade gesendet – gestartet am' : 'Zuletzt am'} `
+          + `${new Date(recent.requestedAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Berlin' })} `
+          + `an ${recent.recipientEmail || 'den Kunden'}${recent.status === 'pending' ? '' : ' gesendet'} (${formatEuroDe(recent.amount)}). `
+          + 'Bitte ausdrücklich bestätigen, wenn trotzdem erneut gesendet werden soll.',
+          409,
+          'PAYMENT_REQUEST_RECENT'
+        );
+        error.recentRequest = {
+          _id: String(recent._id),
+          requestedAt: recent.requestedAt,
+          recipientEmail: recent.recipientEmail || '',
+          amount: CalculationHelper.round(Number(recent.amount || 0)),
+          invoiceNumber: recent.invoiceNumber || '',
+        };
+        throw error;
+      }
+    }
+
     const paymentLink = mainInvoice
       ? await EmailService.buildSystemUrl(`/invoices?invoiceId=${mainInvoice._id}`)
       : await EmailService.buildSystemUrl('/invoices');
@@ -5821,7 +6481,8 @@ class FinancialService {
 
     const documentLabel = mainInvoice?.invoiceNumber || booking?.bookingNumber || '-';
     const dueDateLabel = mainInvoice?.dueDate ? new Date(mainInvoice.dueDate).toLocaleDateString('de-DE') : 'sofort';
-    const amountLabel = `EUR ${amount.toFixed(2)}`;
+    // Deutsches Format ("37,40 €") - frueher "EUR 37.40" im Mailtext.
+    const amountLabel = formatEuroDe(amount);
     const escapedNote = note
       ? note.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\n/g, '<br />')
       : '';
@@ -5985,10 +6646,18 @@ class FinancialService {
 
     const byInvoice = original.targetType === 'invoice' || !original.bookingId;
     const cooldownHours = Number.isFinite(Number(options.cooldownHours)) ? Number(options.cooldownHours) : 24;
-    if (!options.force && cooldownHours > 0) {
+    const enforceCooldown = !options.force && cooldownHours > 0;
+    const assertCooldownOver = async () => {
       const since = new Date(Date.now() - cooldownHours * 60 * 60 * 1000);
+      // Wie in requestAdditionalPayment: fuer eine Rechnung mit Buchung zaehlen auch fruehere
+      // Buchungs-Aufforderungen (ohne invoiceId), nicht aber Aufforderungen zu anderen Rechnungen.
+      const targetFilter = !byInvoice
+        ? { bookingId: original.bookingId }
+        : (original.bookingId
+          ? { $or: [{ invoiceId: original.invoiceId }, { bookingId: original.bookingId, targetType: { $ne: 'invoice' } }] }
+          : { invoiceId: original.invoiceId });
       const recent = await PaymentRequest.findOne({
-        ...(byInvoice ? { invoiceId: original.invoiceId } : { bookingId: original.bookingId }),
+        ...targetFilter,
         status: 'accepted_by_provider',
         requestedAt: { $gte: since },
       }).sort({ requestedAt: -1 });
@@ -6001,7 +6670,9 @@ class FinancialService {
           'PAYMENT_REQUEST_COOLDOWN'
         );
       }
-    }
+    };
+    // Schnelle Ablehnung ohne Anspruch; verbindlich ist die Pruefung UNTER dem Anspruch (K15).
+    if (enforceCooldown) await assertCooldownOver();
 
     return FinancialService.requestAdditionalPayment(
       byInvoice ? String(original.invoiceId) : String(original.bookingId),
@@ -6009,12 +6680,22 @@ class FinancialService {
         note: options.note != null ? options.note : original.note,
         amount: options.amount != null ? options.amount : undefined,
         resendOfId: original._id,
+        // Die Standardpruefung (409 PAYMENT_REQUEST_RECENT) gilt hier nicht: es zaehlt die
+        // Sperrfrist des Wiederversands (429) bzw. die ausdrueckliche Bestaetigung.
+        force: true,
       },
-      actor
+      actor,
+      { cooldownCheck: enforceCooldown ? assertCooldownOver : null }
     );
   }
 
   // ──────────────────────────────────────────────
 }
+
+// Gemeinsame Rechnungs-Anspruchsregeln auch fuer den Buchungsweg (BookingService.
+// createInvoice), damit es EINE Duplikatregel und EINEN atomaren Anspruch gibt (FIN-3).
+FinancialService.saveClaimedInvoice = saveClaimedInvoice;
+FinancialService.assertOrdersNotYetInvoiced = assertOrdersNotYetInvoiced;
+FinancialService.assertBookingNotYetInvoiced = assertBookingNotYetInvoiced;
 
 module.exports = FinancialService;

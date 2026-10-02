@@ -1,0 +1,924 @@
+(node:1104083) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1104083) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1104083) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[A] Reparatur-Workflow synchronisiert Auftragsstatus und Verlauf (HIST-11)
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a64b749be15b6d8ec7') to in-progress
+OrderService: Order status updated successfully
+  PASS Freigabe: Auftrag Diagnosebewertung -> in Bearbeitung :: 200 in-progress
+  PASS Verlauf: "Reparatur gestartet" mit Bezug und echtem Akteur :: 1 Sophie Technik
+  PASS Statuseintrag: Quelle Reparatur-Workflow, ehrliches von/nach :: Reparatur-Workflow diagnostic-assessment->in-progress
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a64b749be15b6d8ec7') to paused
+OrderService: Order status updated successfully
+  PASS Pause: Auftrag pausiert :: 200 paused
+RequireRole middleware: User wf-staff2@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a64b749be15b6d8ec7') to in-progress
+OrderService: Order status updated successfully
+  PASS Fortsetzen: Auftrag wieder in Bearbeitung :: 200 in-progress
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a64b749be15b6d8ec7') to paused
+OrderService: Order status updated successfully
+  PASS Zwischenfall: Auftrag pausiert mit Grund :: 200 paused
+  PASS Zwischenfall-Eintrag: Grund nur intern :: INTERN-ZWISCHENFALL staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a64b749be15b6d8ec7') to in-progress
+OrderService: Order status updated successfully
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+  PASS Zwischenfall ohne Beschreibung -> 400 deutsch :: 400 Bitte eine Kurzbeschreibung des Zwischenfalls angeben.
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a64b749be15b6d8ec7') to ready-for-pickup
+OrderService: Order status updated successfully
+  PASS Abschluss: Auftrag "Reparatur abgeschlossen" (ready-for-pickup), nicht completed :: 200 ready-for-pickup
+  PASS Fertigstellungszeit gesetzt, Zahlungsstatus unveraendert :: Fri Oct 02 2026 13:21:10 GMT+0200 (Central European Summer Time) pending
+  PASS keine Rechnung/Zahlung angelegt oder geaendert :: 0/0
+  PASS je Zustandswechsel genau ein Verlaufseintrag :: {"Order Received":1,"Repair Workflow Started":1,"Staff Assigned":2,"Order Status Updated":6,"Repair Workflow Paused":1,"Repair Workflow Resumed":2,"Repair Workflow Incident":1,"Repair Workflow Completed":1}
+DHLService: Retrieving DHL configuration
+DHLService: No system configuration found
+DHLService: Error retrieving DHL configuration: ShippingLabelError: Die Systemkonfiguration wurde nicht gefunden. Bitte die DHL-Integration unter Systemkonfiguration → Integrationen einrichten.
+    at DHLService.getDHLConfig (/home/adar/Projects/FixitHub/server/services/dhlService.js:892:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async DHLService.getShipmentPartiesForStaff (/home/adar/Projects/FixitHub/server/services/dhlService.js:1140:19)
+    at async /home/adar/Projects/FixitHub/server/routes/orderRoutes.js:606:29 {
+  code: 'DHL_NOT_CONFIGURED',
+  status: 503,
+  retryable: false,
+  details: []
+}
+  PASS Auslieferung jetzt moeglich (keine manuelle Statusaenderung noetig) :: 200 OK
+  PASS GET /history (Personal): keine Doppeleintraege aus der Leseprojektion :: 200 completed=1 pause=1
+  PASS Kundensicht: "Reparatur abgeschlossen", keine Gruende/Namen :: 200 {"success":true,"orderId":"6abf93a64b749be15b6d8ec7","orderNumber":"ORD-WF-001","entries":[{"id":"6abf93a64b749be15b6d8f
+  PASS fremder Kunde: 403 :: 403
+RequireRole middleware: User wf-kunde@test.invalid has role customer, but requires one of: admin, staff
+RequireRole middleware: User wf-kunde@test.invalid has role customer, but requires one of: admin, staff
+RequireRole middleware: User wf-kunde@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde: reopen/sync/notify 403 :: 403 403 403
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+Error reopening repair: RepairWorkflowError: Bitte einen Grund für die Wiederaufnahme angeben.
+    at RepairWorkflowService.reopenRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:924:13)
+    at /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:281:50
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at validateOrderId (/home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:31:10)
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at /home/adar/Projects/FixitHub/server/routes/middleware/auth.js:108:5
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13) {
+  statusCode: 400,
+  code: 'REPAIR_REOPEN_REASON_REQUIRED'
+}
+  PASS Wiederaufnahme ohne Grund -> 400 deutsch :: 400 Bitte einen Grund für die Wiederaufnahme angeben.
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a64b749be15b6d8ec7') to in-progress
+OrderService: Order status updated successfully
+  PASS Wiederaufnahme: Workflow und Auftrag wieder in Bearbeitung (ohne Schein-Pause) :: 200 in-progress in-progress
+  PASS Zeit zwischen Abschluss und Wiederaufnahme zaehlt als Pause, nicht als Arbeit :: 93 -> 303
+  PASS Verlauf: Wiederaufnahme mit Grund :: Akku erneut prüfen
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+  PASS erneuter Abgleich ist idempotent :: 200 17 -> 17
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a64b749be15b6d8ec7') to ready-for-pickup
+OrderService: Order status updated successfully
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+Error reopening repair: RepairWorkflowError: Das Gerät ist bereits für den Versand vorbereitet (Versandlabel an den Kunden vorhanden) – Wiederaufnahme nicht möglich.
+    at RepairWorkflowService.reopenRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:943:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:281:22 {
+  statusCode: 409,
+  code: 'REPAIR_REOPEN_OUTBOUND_EXISTS'
+}
+  PASS Wiederaufnahme mit Versandlabel -> 409, Auftrag bleibt fertig :: 409 Das Gerät ist bereits für den Versand vorbereitet (Versandlabel an den Kunden vorhanden) – Wiederaufnahme nicht möglich.
+
+[A2] Paralleler Doppel-Abschluss und fremde Pause
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a64b749be15b6d9050') to in-progress
+OrderService: Order status updated successfully
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff2@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a64b749be15b6d9050') to ready-for-pickup
+Error completing repair: RepairWorkflowError: Der Reparatur-Workflow kann nicht abgeschlossen werden, er ist abgeschlossen.
+    at invalidTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:175:47)
+    at /home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:722:78
+    at saveTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:209:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.completeRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:722:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:217:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_INVALID_TRANSITION'
+}
+Error completing repair: RepairWorkflowError: Der Reparatur-Workflow kann nicht abgeschlossen werden, er ist abgeschlossen.
+    at invalidTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:175:47)
+    at /home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:722:78
+    at saveTransition (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:209:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.completeRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:722:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:217:22 {
+  statusCode: 409,
+  code: 'REPAIR_WORKFLOW_INVALID_TRANSITION'
+}
+OrderService: Order status updated successfully
+  PASS parallel abschliessen: genau ein Abschluss- und ein Statuseintrag :: 200,409 1 1
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+Request unlock update received for order: 6abf93a64b749be15b6d9086 by user: wf-staff@test.invalid
+OrderService: Confirming unlock for order: 6abf93a64b749be15b6d9086 by user: Sophie Technik
+OrderService: Unlock confirmation recorded for order: 6abf93a64b749be15b6d9086
+OrderService: Updating order status: 6abf93a64b749be15b6d9086 to paused
+OrderService: Order status updated successfully
+InspectionCommunicationService: Creating quick action update_unlock_info for order 6abf93a64b749be15b6d9086
+NotificationService: Creating notification for user: new ObjectId('6abf93a54b749be15b6d8e49')
+SystemConfigService: Getting system configuration
+SystemConfigService: No configuration found, creating default
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:11] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:11] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"18ms","messageId":"<muqvh730.1yxmgngztz@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:11] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Nachrichten","messageId":"<muqvh730.1yxmgngztz@mcrepair.de>","duration":"18ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+InspectionCommunicationService: Quick action created successfully
+Request unlock update successful for order: 6abf93a64b749be15b6d9086
+  PASS Entsperrdaten angefordert: Auftrag pausiert :: 200 paused
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+  PASS Workflow fortgesetzt, fremde Pause bleibt bestehen :: paused
+InspectionCommunicationService: Customer submitting unlock info update for order 6abf93a64b749be15b6d9086
+NotificationService: Creating notification for user: 6abf93a64b749be15b6d8eac
+NotificationService: Notification created successfully
+InspectionCommunicationService: Unlock info updated and staff notified for order 6abf93a64b749be15b6d9086
+  PASS [F] Entsperrdaten nachgereicht: Auftrag fortgesetzt, Eintrag "Order Resumed" vom Kunden :: 200 in-progress 1
+  PASS [F] fremder Kunde: 403 :: 403
+
+[B] "Kunde benachrichtigen": wirklich gesendet, nie Internes (NOTIF-5/COMMS-16)
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a74b749be15b6d9ec6') to in-progress
+OrderService: Order status updated successfully
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:11] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:11] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"8ms","messageId":"<muqvh7ah.0o24d0rlag@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:11] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvh7ah.0o24d0rlag@mcrepair.de>","duration":"8ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+  PASS AN: Ergebnis "sent" getrennt vom Speichererfolg gemeldet :: 200 sent
+  PASS AN: genau eine In-App-Benachrichtigung fuer den Kunden des Auftrags :: 1 Reparatur begonnen
+  PASS AN: E-Mail an den Kunden versendet (Stream-Transport) :: 1
+  PASS interne Notizen erreichen weder Benachrichtigung noch E-Mail :: kein INTERN-XYZ
+  PASS Ergebnis am Workflow gespeichert :: sent
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a74b749be15b6da673') to in-progress
+OrderService: Order status updated successfully
+  PASS AUS: keine Benachrichtigung, keine E-Mail :: 0 0
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a74b749be15b6d9ec6') to paused
+OrderService: Order status updated successfully
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:11] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:11] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"4ms","messageId":"<muqvh7hl.79gsyholoa@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:11] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvh7hl.79gsyholoa@mcrepair.de>","duration":"4ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+  PASS Zwischenfall AN: Kundentext gesendet, deutscher Titel :: 200 1 Rückfrage zu Ihrer Reparatur
+  PASS Zwischenfall: Grund/Notizen bleiben intern :: kein INTERN-
+  PASS emailSentAt gesetzt, Kundentext nicht in den internen Zusatzdaten :: Fri Oct 02 2026 13:21:11 GMT+0200 (Central European Summer Time) sent
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+  PASS "Warten auf Kundenrückmeldung" erscheint :: 1
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a74b749be15b6d9ec6') to in-progress
+OrderService: Order status updated successfully
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a74b749be15b6d9ec6') to paused
+OrderService: Order status updated successfully
+  PASS Pause: keine Nachricht an den Kunden :: unveraendert
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a74b749be15b6d9ec6') to in-progress
+OrderService: Order status updated successfully
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a74b749be15b6d9ec6') to ready-for-pickup
+OrderService: Order status updated successfully
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:11] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:12] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"8ms","messageId":"<muqvh7pv.djrv3lxx8b@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:12] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvh7pv.djrv3lxx8b@mcrepair.de>","duration":"8ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+  PASS Abschluss AN: "Reparatur abgeschlossen", kein "abgeholt" :: Die Reparatur Ihres Geräts (Apple iPhone 15) zu Auftrag ORD-WF-004 ist abgeschlossen. Ihr Gerät liegt zur Abholung bei uns bereit.
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+  PASS bereits gesendet: Wiederholen sendet nichts :: duplicate
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a84b749be15b6db667') to in-progress
+OrderService: Order status updated successfully
+[32m[11:21:12] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Allgemeine Systemnachricht","to":"wf-gast@test.invalid","variableKeys":["companyName","customerName","notificationTitle","notificationPreview","notificationTopic","notificationBody","notificationDate","effectiveDate","ctaLabel","ctaUrl","supportEmail","supportPhone","baseUrl","deviceBrand","deviceModel","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Allgemeine Systemnachricht" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:12] [EmailRetry] INFO: sendTemplateEmail(Allgemeine Systemnachricht) succeeded[0m {"attempt":1,"duration":"3ms","messageId":"<muqvh7ty.v0o0spdxo6@mcrepair.de>","to":"wf-gast@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:12] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-gast@test.invalid","subject":"Reparatur begonnen – McRepair.de","messageId":"<muqvh7ty.v0o0spdxo6@mcrepair.de>","duration":"3ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS Gastauftrag AN: E-Mail an den Gast gesendet (inApp false, email sent) :: 200 {"message":"Ihre Reparatur hat begonnen (Gast).","at":"2026-10-02T11:21:12.132Z","status":"sent","inApp":false,"email":"sent","guest":true}
+  PASS Gast-E-Mail: Kundentext + Gast-Tracking-Link, keine interne Notiz :: 1
+  PASS Gastauftrag: keine In-App-Zeile (kein Konto) :: unveraendert
+  PASS Gast-Ergebnis am Workflow gespeichert :: sent
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+  PASS Gast: Wiederholen nach Erfolg sendet keine zweite E-Mail :: duplicate
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a84b749be15b6dbb8b') to in-progress
+OrderService: Order status updated successfully
+  PASS Gastauftrag ohne E-Mail-Adresse: ehrlich "nicht benachrichtigt" mit Hinweis :: skipped Gespeichert. Für diesen Gastauftrag ist keine E-Mail-Adresse hinterlegt – bitte den Kunden auf anderem Weg informieren.
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a84b749be15b6dbba7') to in-progress
+OrderService: Order status updated successfully
+RepairWorkflowService: customer notification failed: Error: Benachrichtigungsdienst nicht erreichbar
+    at NotificationService.createNotification (/home/adar/Projects/FixitHub/test-workflow-order-sync.js:453:68)
+    at RepairWorkflowService._notifyOrderCustomer (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:384:53)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.approveRepairStart (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:540:38)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:148:22
+  PASS Fehler: Workflow gestartet (200), Benachrichtigung als fehlgeschlagen gemeldet :: 200 failed
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:12] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:12] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"6ms","messageId":"<muqvh7zn.z6912n6o95@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:12] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvh7zn.z6912n6o95@mcrepair.de>","duration":"6ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+  PASS Wiederholen: genau einmal gesendet :: sent duplicate 1
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a84b749be15b6dc35c') to in-progress
+OrderService: Order status updated successfully
+RepairWorkflowService: customer notification failed: Error: Benachrichtigungsdienst nicht erreichbar
+    at NotificationService.createNotification (/home/adar/Projects/FixitHub/test-workflow-order-sync.js:472:68)
+    at RepairWorkflowService._notifyOrderCustomer (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:384:53)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.approveRepairStart (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:540:38)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:148:22
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+NotificationService: Duplicate notification suppressed: repairwf:6abf93a84b749be15b6dc362:approval:main:retry:1790940072439
+NotificationService: Duplicate notification suppressed: repairwf:6abf93a84b749be15b6dc362:approval:main:retry:1790940072439
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:12] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:12] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"5ms","messageId":"<muqvh84c.zb1fitr9b0@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:12] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvh84c.zb1fitr9b0@mcrepair.de>","duration":"5ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+  PASS paralleles Wiederholen: genau eine Benachrichtigung und eine E-Mail :: duplicate,duplicate,sent notes=1 mails=1
+  PASS gespeichertes Ergebnis bleibt "sent" (nicht von "duplicate" ueberschrieben) :: sent
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a84b749be15b6dcb19') to in-progress
+OrderService: Order status updated successfully
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93a84b749be15b6dcb19') to ready-for-pickup
+OrderService: Order status updated successfully
+  PASS Techniker-Abschluss ohne Benachrichtigung: nichts gesendet :: 200 0
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:12] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:12] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"2ms","messageId":"<muqvh89j.pk4awdavjg@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:12] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvh89j.pk4awdavjg@mcrepair.de>","duration":"2ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+  PASS nachtraeglich "Kunde über Abschluss informieren": genau eine Nachricht mit dem eingegebenen Text :: 200 sent 1
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+Error retrying customer notification: RepairWorkflowError: Unbekanntes Ziel der Benachrichtigung.
+    at RepairWorkflowService.retryCustomerNotification (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:1022:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:311:48 {
+  statusCode: 400,
+  code: 'REPAIR_NOTIFY_INVALID_TARGET'
+}
+  PASS unbekanntes Ziel -> 400 deutsch :: 400 Unbekanntes Ziel der Benachrichtigung.
+  PASS NOTIF-6: kein rohes fetch mit POST/PUT/PATCH/DELETE im Techniker-Client :: keine
+
+[C] Template-Workflow: Uebergaenge, "Reparatur abgeschlossen", Schritt erneut oeffnen (HIST-12/17/2)
+Complete workflow step request received: 6abf93a84b749be15b6dd2e5 6abf93a84b749be15b6dd2e9 6abf93a84b749be15b6dd2ea {}
+OrderService: Completing workflow step: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  stepId: '6abf93a84b749be15b6dd2ea',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac')
+}
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:12] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:12] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"3ms","messageId":"<muqvh8cw.8ar7mvoof2@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:12] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvh8cw.8ar7mvoof2@mcrepair.de>","duration":"3ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+OrderService: Workflow step completed successfully
+  PASS letzter Schritt: Auftrag ready-for-pickup :: 200 ready-for-pickup
+  PASS Verlauf: "Reparatur abgeschlossen" statt "bereit zur Abholung" :: Reparatur abgeschlossen – alle Workflow-Schritte erledigt (Reparatur in Bearbeitung → Reparatur abgeschlossen – bereit zur Rückgabe)
+  PASS Schritt-Eintrag deutsch mit Typ :: Schritt „Display einbauen“ im Workflow „Displaytausch“ abgeschlossen (tatsächlich 0 Min.)
+  PASS genau eine Kundennachricht, neutral (Versandauftrag wird nicht "abgeholt") :: 1 Die Reparatur Ihres Auftrags ORD-WF-011 ist abgeschlossen. Wir bereiten den Rückversand an Sie vor und informieren Sie, sobald das Paket an DHL übergeben ist.
+Update workflow status request received: 6abf93a84b749be15b6dd2e5 6abf93a84b749be15b6dd2e9 { status: 'on-hold', pauseReason: 'versehentlich' }
+Update workflow status: Calling OrderService with: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  status: 'on-hold',
+  pauseReason: 'versehentlich',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac')
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  status: 'on-hold',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac'),
+  pauseReason: 'versehentlich'
+}
+OrderService: Error updating workflow status: Error: Dieser Workflow ist abgeschlossen und kann nicht mehr pausiert oder zurückgesetzt werden – ein abgeschlossener Workflow ändert den Auftragsstatus nicht mehr.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3081:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_TRANSITION_NOT_ALLOWED'
+}
+OrderService: Error details: {
+  message: 'Dieser Workflow ist abgeschlossen und kann nicht mehr pausiert oder zurückgesetzt werden – ein abgeschlossener Workflow ändert den Auftragsstatus nicht mehr.',
+  stack: 'Error: Dieser Workflow ist abgeschlossen und kann nicht mehr pausiert oder zurückgesetzt werden – ein abgeschlossener Workflow ändert den Auftragsstatus nicht mehr.\n' +
+    '    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)\n' +
+    '    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3081:15)\n' +
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+    '    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)\n' +
+    '    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19',
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  status: 'on-hold',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac'),
+  pauseReason: 'versehentlich'
+}
+Error updating workflow status: Error: Dieser Workflow ist abgeschlossen und kann nicht mehr pausiert oder zurückgesetzt werden – ein abgeschlossener Workflow ändert den Auftragsstatus nicht mehr.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3081:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_TRANSITION_NOT_ALLOWED'
+}
+  PASS abgeschlossener Workflow -> pausieren 409, Auftrag bleibt fertig :: 409 Dieser Workflow ist abgeschlossen und kann nicht mehr pausiert oder zurückgesetzt werden – ein abgeschlossener Workflow ändert den Auftragsstatus nicht mehr.
+Update workflow status request received: 6abf93a84b749be15b6dd2e5 6abf93a84b749be15b6dd2e9 { status: 'in-progress' }
+Update workflow status: Calling OrderService with: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  status: 'in-progress',
+  pauseReason: 'N/A',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac')
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  status: 'in-progress',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac'),
+  pauseReason: null
+}
+OrderService: Error updating workflow status: Error: Dieser Workflow ist abgeschlossen und kann nicht mehr pausiert oder zurückgesetzt werden – ein abgeschlossener Workflow ändert den Auftragsstatus nicht mehr.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3081:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_TRANSITION_NOT_ALLOWED'
+}
+OrderService: Error details: {
+  message: 'Dieser Workflow ist abgeschlossen und kann nicht mehr pausiert oder zurückgesetzt werden – ein abgeschlossener Workflow ändert den Auftragsstatus nicht mehr.',
+  stack: 'Error: Dieser Workflow ist abgeschlossen und kann nicht mehr pausiert oder zurückgesetzt werden – ein abgeschlossener Workflow ändert den Auftragsstatus nicht mehr.\n' +
+    '    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)\n' +
+    '    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3081:15)\n' +
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+    '    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)\n' +
+    '    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19',
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  status: 'in-progress',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac'),
+  pauseReason: null
+}
+Error updating workflow status: Error: Dieser Workflow ist abgeschlossen und kann nicht mehr pausiert oder zurückgesetzt werden – ein abgeschlossener Workflow ändert den Auftragsstatus nicht mehr.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3081:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_TRANSITION_NOT_ALLOWED'
+}
+  PASS abgeschlossen -> in Bearbeitung ueber Status: 409 :: 409
+Update workflow status request received: 6abf93a84b749be15b6dd2e5 6abf93a84b749be15b6dd2e9 { status: 'bogus' }
+Update workflow status: Calling OrderService with: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  status: 'bogus',
+  pauseReason: 'N/A',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac')
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  status: 'bogus',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac'),
+  pauseReason: null
+}
+OrderService: Invalid workflow status: bogus
+OrderService: Error updating workflow status: Error: Unbekannter Workflow-Status.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3065:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19 {
+  statusCode: 400,
+  code: 'INVALID_WORKFLOW_STATUS'
+}
+OrderService: Error details: {
+  message: 'Unbekannter Workflow-Status.',
+  stack: 'Error: Unbekannter Workflow-Status.\n' +
+    '    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)\n' +
+    '    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3065:15)\n' +
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+    '    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)\n' +
+    '    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19',
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  status: 'bogus',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac'),
+  pauseReason: null
+}
+Error updating workflow status: Error: Unbekannter Workflow-Status.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3065:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19 {
+  statusCode: 400,
+  code: 'INVALID_WORKFLOW_STATUS'
+}
+  PASS unbekannter Workflow-Status -> 400 deutsch :: 400 Unbekannter Workflow-Status.
+Go back to workflow step request received: 6abf93a84b749be15b6dd2e5 6abf93a84b749be15b6dd2e9 6abf93a84b749be15b6dd2ea
+OrderService: Going back to workflow step: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  stepId: '6abf93a84b749be15b6dd2ea',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac')
+}
+OrderService: Error navigating back to step: Error: Bitte einen Grund angeben – die Reparatur ist abgeschlossen und wird durch das erneute Öffnen wieder aufgenommen.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.goBackToStep (/home/adar/Projects/FixitHub/server/services/orderService.js:3308:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:925:19 {
+  statusCode: 400,
+  code: 'WORKFLOW_REOPEN_REASON_REQUIRED'
+}
+Error navigating to step: Error: Bitte einen Grund angeben – die Reparatur ist abgeschlossen und wird durch das erneute Öffnen wieder aufgenommen.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.goBackToStep (/home/adar/Projects/FixitHub/server/services/orderService.js:3308:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:925:19 {
+  statusCode: 400,
+  code: 'WORKFLOW_REOPEN_REASON_REQUIRED'
+}
+  PASS fertige Reparatur: Schritt erneut oeffnen ohne Grund -> 400, nichts geaendert :: 400 Bitte einen Grund angeben – die Reparatur ist abgeschlossen und wird durch das erneute Öffnen wieder aufgenommen.
+  PASS 409-Meldung verweist auf keine nicht vorhandene Aktion :: Dieser Workflow ist abgeschlossen und kann nicht mehr pausiert oder zurückgesetzt werden – ein abgeschlossener Workflow ändert den Auftragsstatus nicht mehr.
+Go back to workflow step request received: 6abf93a84b749be15b6dd2e5 6abf93a84b749be15b6dd2e9 6abf93a84b749be15b6dd2ea
+OrderService: Going back to workflow step: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  stepId: '6abf93a84b749be15b6dd2ea',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac')
+}
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+NotificationService: Notification created successfully
+OrderService: Successfully navigated back to step
+  PASS Schritt erneut oeffnen: Workflow und Auftrag in Bearbeitung, Eintrag mit Grund :: 200 in-progress Displayfehler nach Test
+Go back to workflow step request received: 6abf93a84b749be15b6dd2e5 6abf93a84b749be15b6dd2e9 6abf93a84b749be15b6dd2ea
+OrderService: Going back to workflow step: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  stepId: '6abf93a84b749be15b6dd2ea',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac')
+}
+OrderService: Error navigating back to step: Error: Nur abgeschlossene oder übersprungene Schritte können erneut geöffnet werden.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.goBackToStep (/home/adar/Projects/FixitHub/server/services/orderService.js:3291:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:925:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_STEP_NOT_DONE'
+}
+Error navigating to step: Error: Nur abgeschlossene oder übersprungene Schritte können erneut geöffnet werden.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.goBackToStep (/home/adar/Projects/FixitHub/server/services/orderService.js:3291:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:925:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_STEP_NOT_DONE'
+}
+  PASS zweites Oeffnen des offenen Schritts -> 409, kein zweiter Eintrag :: 409
+Complete workflow step request received: 6abf93a84b749be15b6dd2e5 6abf93a84b749be15b6dd2e9 6abf93a84b749be15b6dd2ea {}
+OrderService: Completing workflow step: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  stepId: '6abf93a84b749be15b6dd2ea',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac')
+}
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:13] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"3ms","messageId":"<muqvh8j2.nnhlrjotir@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:13] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvh8j2.nnhlrjotir@mcrepair.de>","duration":"3ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+OrderService: Workflow step completed successfully
+Go back to workflow step request received: 6abf93a84b749be15b6dd2e5 6abf93a84b749be15b6dd2e9 6abf93a84b749be15b6dd2ea
+OrderService: Going back to workflow step: {
+  orderId: '6abf93a84b749be15b6dd2e5',
+  workflowId: '6abf93a84b749be15b6dd2e9',
+  stepId: '6abf93a84b749be15b6dd2ea',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac')
+}
+OrderService: Error navigating back to step: Error: Das Gerät ist bereits für den Versand vorbereitet (Versandlabel an den Kunden vorhanden) – der Schritt kann nicht erneut geöffnet werden.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.goBackToStep (/home/adar/Projects/FixitHub/server/services/orderService.js:3317:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:925:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_REOPEN_OUTBOUND_EXISTS'
+}
+Error navigating to step: Error: Das Gerät ist bereits für den Versand vorbereitet (Versandlabel an den Kunden vorhanden) – der Schritt kann nicht erneut geöffnet werden.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.goBackToStep (/home/adar/Projects/FixitHub/server/services/orderService.js:3317:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:925:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_REOPEN_OUTBOUND_EXISTS'
+}
+  PASS mit Versandlabel: erneut oeffnen 409, Auftrag bleibt fertig :: 409 Das Gerät ist bereits für den Versand vorbereitet (Versandlabel an den Kunden vorhanden) – der Schritt kann nicht erneut geöffnet werden.
+Update workflow status request received: 6abf93a94b749be15b6de29f 6abf93a94b749be15b6de2a3 { status: 'on-hold', pauseReason: 'INTERN-WF-GRUND' }
+Update workflow status: Calling OrderService with: {
+  orderId: '6abf93a94b749be15b6de29f',
+  workflowId: '6abf93a94b749be15b6de2a3',
+  status: 'on-hold',
+  pauseReason: 'INTERN-WF-GRUND',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac')
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf93a94b749be15b6de29f',
+  workflowId: '6abf93a94b749be15b6de2a3',
+  status: 'on-hold',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac'),
+  pauseReason: 'INTERN-WF-GRUND'
+}
+OrderService: Workflow status updating from in-progress to on-hold
+OrderService: Pausing workflow with reason: INTERN-WF-GRUND
+OrderService: Order status changed from in-progress to paused
+OrderService: Timeline entry added for workflow status change
+OrderService: Timeline entry added for order status change
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+NotificationService: Notification created successfully
+OrderService: Workflow status updated successfully: {
+  workflowStatus: 'on-hold',
+  orderStatus: 'paused',
+  pauseReason: 'INTERN-WF-GRUND'
+}
+Update workflow status: Success. Order status: paused
+  PASS Workflow-Pause: Kunde erhaelt Status ohne internen Grund :: Ihr Auftrag ORD-WF-012 hat den Status gewechselt: Reparatur in Bearbeitung → Pausiert. Aktueller Fortschritt: 0%.
+
+[D] Storno: Grund Pflicht, Arbeit angehalten, keine Rechnungs-/Zahlungsaenderung (HIST-14)
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+Update order status request received: 6abf93a94b749be15b6de2ba { status: 'cancelled' }
+OrderService: Updating order status: 6abf93a94b749be15b6de2ba to cancelled
+Error updating order status: Error: Bitte einen Grund für die Stornierung angeben.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.updateStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:1326:13)
+    at /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:166:38
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at requireAdminOrStaff (/home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:17:3)
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 400,
+  code: 'CANCEL_REASON_REQUIRED'
+}
+  PASS Storno ohne Grund -> 400 deutsch, Auftrag unveraendert :: 400 Bitte einen Grund für die Stornierung angeben.
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+Update order status request received for order: 6abf93a94b749be15b6de2ba
+OrderService: Updating order status: 6abf93a94b749be15b6de2ba to cancelled
+Error updating order status: Error: Bitte einen Grund für die Stornierung angeben.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService.updateStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:1326:13)
+    at /home/adar/Projects/FixitHub/server/routes/orderRoutes.js:980:38
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at /home/adar/Projects/FixitHub/server/routes/middleware/auth.js:108:5
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  statusCode: 400,
+  code: 'CANCEL_REASON_REQUIRED'
+}
+  PASS auch ueber PUT /api/orders/:id/status -> 400 :: 400
+Update order status request received: 6abf93a94b749be15b6de2ba { status: 'cancelled', reason: 'INTERN-STORNO Kunde zieht zurück' }
+OrderService: Updating order status: 6abf93a94b749be15b6de2ba to cancelled
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+  PASS Storno mit Grund: 200, Hinweis "Rechnungen und Zahlungen nicht verändert" :: 200 Der Auftrag wurde storniert. Rechnungen und Zahlungen wurden nicht verändert.
+  PASS laufende Reparatur pausiert (Zeiterfassung stoppt) :: paused Auftrag storniert
+  PASS laufender Template-Workflow angehalten (nicht abgeschlossen/geloescht) :: on-hold
+  PASS Zahlungsstatus/Rechnungen/Zahlungen unberuehrt (keine automatische Erstattung) :: paid
+  PASS Kundennachricht: storniert, kein Erstattungsversprechen, kein interner Grund :: Ihr Auftrag ORD-WF-013 wurde storniert. Bereits geleistete Zahlungen prüfen wir und melden uns bei Ihnen.
+  PASS Verlauf: Storno mit Grund :: INTERN-STORNO Kunde zieht zurück
+  PASS stornierter Auftrag nicht als liegengebliebene Arbeit gemeldet :: 6
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+Error resuming repair: RepairWorkflowError: Der Auftrag ist storniert – die Reparatur kann nicht fortgesetzt werden.
+    at assertOrderOpenForRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:165:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.resumeRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:658:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:201:22 {
+  statusCode: 409,
+  code: 'REPAIR_ORDER_CLOSED'
+}
+Error resuming repair: RepairWorkflowError: Der Auftrag ist storniert – die Reparatur kann nicht fortgesetzt werden.
+    at assertOrderOpenForRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:165:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.resumeRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:658:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:201:22 {
+  statusCode: 409,
+  code: 'REPAIR_ORDER_CLOSED'
+}
+  PASS Fortsetzen der Reparatur auf storniertem Auftrag -> 409, Zeiterfassung bleibt angehalten :: 409 Der Auftrag ist storniert – die Reparatur kann nicht fortgesetzt werden. paused
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+Error completing repair: RepairWorkflowError: Der Auftrag ist storniert – die Reparatur kann nicht abgeschlossen werden.
+    at assertOrderOpenForRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:165:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.completeRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:697:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:217:22 {
+  statusCode: 409,
+  code: 'REPAIR_ORDER_CLOSED'
+}
+Error completing repair: RepairWorkflowError: Der Auftrag ist storniert – die Reparatur kann nicht abgeschlossen werden.
+    at assertOrderOpenForRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:165:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.completeRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:697:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:217:22 {
+  statusCode: 409,
+  code: 'REPAIR_ORDER_CLOSED'
+}
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+Error reporting incident: RepairWorkflowError: Der Auftrag ist storniert – die Reparatur kann nicht mit einem Zwischenfall unterbrochen werden.
+    at assertOrderOpenForRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:165:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.reportIncident (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:774:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:239:22 {
+  statusCode: 409,
+  code: 'REPAIR_ORDER_CLOSED'
+}
+Error reporting incident: RepairWorkflowError: Der Auftrag ist storniert – die Reparatur kann nicht mit einem Zwischenfall unterbrochen werden.
+    at assertOrderOpenForRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:165:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async RepairWorkflowService.reportIncident (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:774:7)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:239:22 {
+  statusCode: 409,
+  code: 'REPAIR_ORDER_CLOSED'
+}
+  PASS Abschluss/Zwischenfall auf storniertem Auftrag -> 409, keine "Reparatur abgeschlossen"-Nachricht :: 409 409
+RequireRole middleware: User wf-staff@test.invalid has required role staff
+  PASS Benachrichtigung auf storniertem Auftrag wird nicht gesendet :: order_cancelled
+Update workflow status request received: 6abf93a94b749be15b6de2ba 6abf93a94b749be15b6de2cb { status: 'in-progress' }
+Update workflow status: Calling OrderService with: {
+  orderId: '6abf93a94b749be15b6de2ba',
+  workflowId: '6abf93a94b749be15b6de2cb',
+  status: 'in-progress',
+  pauseReason: 'N/A',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac')
+}
+OrderService: Updating workflow status: {
+  orderId: '6abf93a94b749be15b6de2ba',
+  workflowId: '6abf93a94b749be15b6de2cb',
+  status: 'in-progress',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac'),
+  pauseReason: null
+}
+OrderService: Error updating workflow status: Error: Der Auftrag ist storniert – der Workflow kann nicht fortgesetzt werden.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3090:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_ORDER_CLOSED'
+}
+OrderService: Error details: {
+  message: 'Der Auftrag ist storniert – der Workflow kann nicht fortgesetzt werden.',
+  stack: 'Error: Der Auftrag ist storniert – der Workflow kann nicht fortgesetzt werden.\n' +
+    '    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)\n' +
+    '    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3090:15)\n' +
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+    '    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)\n' +
+    '    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19',
+  orderId: '6abf93a94b749be15b6de2ba',
+  workflowId: '6abf93a94b749be15b6de2cb',
+  status: 'in-progress',
+  staffId: new ObjectId('6abf93a64b749be15b6d8eac'),
+  pauseReason: null
+}
+Error updating workflow status: Error: Der Auftrag ist storniert – der Workflow kann nicht fortgesetzt werden.
+    at buildOrderValueError (/home/adar/Projects/FixitHub/server/services/orderService.js:168:17)
+    at OrderService._updateWorkflowStatusAttempt (/home/adar/Projects/FixitHub/server/services/orderService.js:3090:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async OrderService.updateWorkflowStatus (/home/adar/Projects/FixitHub/server/services/orderService.js:3036:22)
+    at async /home/adar/Projects/FixitHub/server/routes/adminOrderRoutes.js:881:19 {
+  statusCode: 409,
+  code: 'WORKFLOW_ORDER_CLOSED'
+}
+  PASS Template-Workflow auf storniertem Auftrag fortsetzen -> 409 :: 409
+  PASS Buchungs-Storno-Mail verspricht keine automatische Erstattung :: Quelltext geprueft
+
+[E] Eingangspruefung im Verlauf, Startfehler nicht verschluckt, interne Notiz bleibt intern (HIST-10/5c, NOTIF-7)
+  PASS Kunde darf keine Pruefung starten :: 403
+[DeviceInspectionRoutes] POST /init - Initializing inspection
+[DeviceInspection] Initializing inspection for order: 6abf93a94b749be15b6de318
+[DeviceInspection] New inspection created: 6abf93a94b749be15b6de323
+OrderService: Updating order status: new ObjectId('6abf93a94b749be15b6de318') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+  PASS Start: Auftrag Diagnosebewertung, keine Warnung :: 200 diagnostic-assessment
+[DeviceInspectionRoutes] POST /init - Initializing inspection
+[DeviceInspection] Initializing inspection for order: 6abf93a94b749be15b6de318
+  PASS genau ein Eintrag "Eingangsprüfung gestartet" mit Bezug :: 1
+[DeviceInspectionRoutes] POST /init - Initializing inspection
+[DeviceInspection] Initializing inspection for order: 6abf93a94b749be15b6de33e
+[DeviceInspection] New inspection created: 6abf93a94b749be15b6de348
+[DeviceInspection] Order status/history for inspection start failed: Error: DB kurz weg
+    at OrderService.updateStatus (/home/adar/Projects/FixitHub/test-workflow-order-sync.js:666:55)
+    at DeviceInspectionService._recordInspectionStart (/home/adar/Projects/FixitHub/server/services/deviceInspectionService.js:350:28)
+    at DeviceInspectionService.initializeInspection (/home/adar/Projects/FixitHub/server/services/deviceInspectionService.js:324:48)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async /home/adar/Projects/FixitHub/server/routes/deviceInspectionRoutes.js:177:24
+  PASS Statusfehler beim Start wird gemeldet (nicht verschluckt) :: 200 Die Eingangsprüfung wurde gestartet, aber Auftragsstatus und Verlauf konnten nicht aktualisiert werden. Bitte „Erneut versuchen“ wählen.
+[DeviceInspectionRoutes] POST /init - Initializing inspection
+[DeviceInspection] Initializing inspection for order: 6abf93a94b749be15b6de33e
+OrderService: Updating order status: new ObjectId('6abf93a94b749be15b6de33e') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+  PASS erneuter Start holt Status und Eintrag genau einmal nach :: diagnostic-assessment
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf93a94b749be15b6de318
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf93a94b749be15b6de318
+[DeviceInspection] Inspection completed: 6abf93a94b749be15b6de323
+[DeviceInspection] Inspection 6abf93a94b749be15b6de323 was completed concurrently - applying this request as a re-completion
+[DeviceInspection] Completing inspection for order: 6abf93a94b749be15b6de318
+[DeviceInspection] Inspection completed: 6abf93a94b749be15b6de323
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS Abschluss parallel: genau ein Eintrag mit Kostenvoranschlag 69,90 € :: 1 Eingangsprüfung abgeschlossen · Kostenvoranschlag 69,90 €
+[32m[11:21:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Eingangspruefung abgeschlossen","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","orderNumber","deviceBrand","deviceModel","diagnosisResult","diagnosisCompletedAt","inspectionCompletedAt","deviceCondition","recommendedAction","orderUrl","supportEmail","supportPhone","baseUrl","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Eingangspruefung abgeschlossen" for channel "email"
+SystemConfigService: Getting system configuration
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf93a94b749be15b6de318
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[DeviceInspection] Inspection completed: 6abf93a94b749be15b6de323
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS gleicher Preis erneut: kein Eintrag :: 0
+[32m[11:21:13] [EmailRetry] INFO: sendTemplateEmail(Eingangspruefung abgeschlossen) succeeded[0m {"attempt":1,"duration":"11ms","messageId":"<muqvh8x5.mublhdox33@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:13] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Eingangsprüfung abgeschlossen: Auftrag ORD-WF-014 ","messageId":"<muqvh8x5.mublhdox33@mcrepair.de>","duration":"11ms","attempts":1} [Context: {"deliveryTracker":true}]
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf93a94b749be15b6de318
+[DeviceInspection] Inspection completed: 6abf93a94b749be15b6de323
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS geaenderter Kostenvoranschlag: ein Eintrag :: Kostenvoranschlag aktualisiert: 69,90 € → 79,90 €
+  PASS GET /history: ein Abschluss-Eintrag mit Link zum Prüfbericht :: 1
+[DeviceInspectionRoutes] POST /init - Initializing inspection
+[DeviceInspection] Initializing inspection for order: 6abf93a94b749be15b6de892
+[DeviceInspection] New inspection created: 6abf93a94b749be15b6de89c
+OrderService: Updating order status: new ObjectId('6abf93a94b749be15b6de892') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection
+[DeviceInspection] Completing inspection for order: 6abf93a94b749be15b6de892
+[DeviceInspection] Inspection completed: 6abf93a94b749be15b6de89c
+NotificationService: Creating notification for user: 6abf93a54b749be15b6d8e49
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:13] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"2ms","messageId":"<muqvh91j.zutn44rr74@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:13] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Nachrichten","messageId":"<muqvh91j.zutn44rr74@mcrepair.de>","duration":"2ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+[32m[11:21:13] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Eingangspruefung abgeschlossen","to":"wf-kunde@test.invalid","variableKeys":["companyName","customerName","orderNumber","deviceBrand","deviceModel","diagnosisResult","diagnosisCompletedAt","inspectionCompletedAt","deviceCondition","recommendedAction","orderUrl","supportEmail","supportPhone","baseUrl","deviceModelImageUrl","orderDeviceVisual"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Eingangspruefung abgeschlossen" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:13] [EmailRetry] INFO: sendTemplateEmail(Eingangspruefung abgeschlossen) succeeded[0m {"attempt":1,"duration":"3ms","messageId":"<muqvh936.bk3483k2lf@mcrepair.de>","to":"wf-kunde@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:13] [EmailDelivery] INFO: Email delivered[0m {"to":"wf-kunde@test.invalid","subject":"Eingangsprüfung abgeschlossen: Auftrag ORD-WF-016 ","messageId":"<muqvh936.bk3483k2lf@mcrepair.de>","duration":"3ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS Kundentext gesendet :: sent Bitte geben Sie uns Rückmeldung zum Akku.
+  PASS interne Notiz und interner Grund erreichen den Kunden nie (auch nicht in metadata) :: kein INTERN-
+  PASS interne Notiz bleibt fuers Team gespeichert :: INTERN-123 Powerchip prüfen
+
+[G] Postfach-Zaehler: Reklamationskommentar leert den Zaehler-Cache sofort (Comms-Restpunkt)
+  PASS abgelehnter Kommentar: kein Cache-Leeren :: 400 0
+ComplaintService: Adding comment to complaint: 6abf93a94b749be15b6df54c
+ComplaintService: Comment added successfully
+NotificationService: Creating notification for user: new ObjectId('6abf93a64b749be15b6d8ebe')
+NotificationService: Notification created successfully
+  PASS erfolgreicher Kommentar: Cache geleert :: 200 1
+  PASS fremder Kunde: 403 :: 403
+
+Ergebnis: 97 bestanden, 0 fehlgeschlagen

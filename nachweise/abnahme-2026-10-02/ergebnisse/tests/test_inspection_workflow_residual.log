@@ -1,0 +1,180 @@
+(node:1100000) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1100000) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1100000) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[1] Erneuter Abschluss setzt eine Kundenentscheidung nicht zurueck
+[DeviceInspection] Initializing inspection for order: 6abf9319e9e54d0fb26bc08a
+[DeviceInspection] New inspection created: 6abf9319e9e54d0fb26bc0b6
+OrderService: Updating order status: new ObjectId('6abf9319e9e54d0fb26bc08a') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+[DeviceInspection] Updating model verification for order: 6abf9319e9e54d0fb26bc08a
+[DeviceInspection] Model verification updated
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc08a
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc0b6
+  PASS approved: erster Kostenvoranschlag wartet auf Freigabe :: awaiting-customer
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc08a
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc0b6
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS approved: gleicher Preis -> Entscheidung bleibt erhalten :: approved
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc08a
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc0b6
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS approved: "89,90" als Text -> Entscheidung bleibt erhalten :: approved
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc08a
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc0b6
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS approved: geaenderter Preis -> wieder "wartet auf Freigabe" :: awaiting-customer 99.9
+[DeviceInspection] Initializing inspection for order: 6abf9319e9e54d0fb26bc116
+[DeviceInspection] New inspection created: 6abf9319e9e54d0fb26bc11d
+OrderService: Updating order status: new ObjectId('6abf9319e9e54d0fb26bc116') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+[DeviceInspection] Updating model verification for order: 6abf9319e9e54d0fb26bc116
+[DeviceInspection] Model verification updated
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc116
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc11d
+  PASS rejected: erster Kostenvoranschlag wartet auf Freigabe :: awaiting-customer
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc116
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc11d
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS rejected: gleicher Preis -> Entscheidung bleibt erhalten :: rejected
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc116
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc11d
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS rejected: "89,90" als Text -> Entscheidung bleibt erhalten :: rejected
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc116
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc11d
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS rejected: geaenderter Preis -> wieder "wartet auf Freigabe" :: awaiting-customer 99.9
+[DeviceInspection] Initializing inspection for order: 6abf9319e9e54d0fb26bc156
+[DeviceInspection] New inspection created: 6abf9319e9e54d0fb26bc15d
+OrderService: Updating order status: new ObjectId('6abf9319e9e54d0fb26bc156') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+[DeviceInspection] Updating model verification for order: 6abf9319e9e54d0fb26bc156
+[DeviceInspection] Model verification updated
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc156
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc15d
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc156
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc15d
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS Offene Freigabe bleibt offen :: awaiting-customer
+
+[2] Abschluss ohne Preisangabe loescht keinen bekannten Kostenvoranschlag
+[DeviceInspection] Initializing inspection for order: 6abf9319e9e54d0fb26bc185
+[DeviceInspection] New inspection created: 6abf9319e9e54d0fb26bc18c
+OrderService: Updating order status: new ObjectId('6abf9319e9e54d0fb26bc185') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+[DeviceInspection] Updating model verification for order: 6abf9319e9e54d0fb26bc185
+[DeviceInspection] Model verification updated
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc185
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc18c
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc185
+[DeviceInspection] Ignoring deprecated isRepairable/completionAction for order 6abf9319e9e54d0fb26bc185 (no longer part of the inspection)
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc18c
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS Ausdruecklich kostenloser Kostenvoranschlag bleibt erhalten :: {"cost":0,"costSpecified":true,"timeframe":"2 Tage","description":"Kulanz"}
+  PASS Neuer Zeitrahmen wird uebernommen :: 2 Tage
+  PASS Freigabe bleibt erhalten :: approved
+  PASS API: repairOfferKnownCost bleibt 0 (kostenlos) :: 0
+[DeviceInspection] Initializing inspection for order: 6abf9319e9e54d0fb26bc1b8
+[DeviceInspection] New inspection created: 6abf9319e9e54d0fb26bc1bf
+OrderService: Updating order status: new ObjectId('6abf9319e9e54d0fb26bc1b8') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+[DeviceInspection] Updating model verification for order: 6abf9319e9e54d0fb26bc1b8
+[DeviceInspection] Model verification updated
+[DeviceInspection] Completing inspection for order: 6abf9319e9e54d0fb26bc1b8
+[DeviceInspection] Ignoring deprecated isRepairable/completionAction for order 6abf9319e9e54d0fb26bc1b8 (no longer part of the inspection)
+[DeviceInspection] Inspection completed: 6abf9319e9e54d0fb26bc1bf
+  PASS Ohne bekannten Preis: weiterhin unbekannt, kein Freigabestatus :: undefined undefined
+
+[3] Herkunft "Gemeldetes Modell" auf dem Geraetewechsel-Pfad
+[DeviceInspection] Initializing inspection for order: 6abf9319e9e54d0fb26bc1df
+[DeviceInspection] New inspection created: 6abf9319e9e54d0fb26bc1e6
+OrderService: Updating order status: new ObjectId('6abf9319e9e54d0fb26bc1df') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+  PASS 3a: Gemeldet = urspruengliches Geraet :: Apple iPhone 12
+  PASS 3a: Schnappschuss 3 ms nach dem Verlaufseintrag gilt als Schnappschuss :: order-snapshot
+OrderService: Updating device information for order: 6abf9319e9e54d0fb26bc1f4 Device: { deviceBrand: 'Apple', deviceModel: 'iPhone 13' }
+OrderService: Device information updated for order: 6abf9319e9e54d0fb26bc1f4
+[DeviceInspection] Initializing inspection for order: 6abf9319e9e54d0fb26bc1f4
+[DeviceInspection] New inspection created: 6abf9319e9e54d0fb26bc1fe
+OrderService: Updating order status: new ObjectId('6abf9319e9e54d0fb26bc1f4') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+  PASS 3b: updateDevice-Pfad -> Gemeldet A aus dem Schnappschuss :: Apple iPhone 12 / order-snapshot (capturedAt - completedAt = 1 ms)
+[DeviceInspection] Initializing inspection for order: 6abf9319e9e54d0fb26bc20c
+[DeviceInspection] New inspection created: 6abf9319e9e54d0fb26bc212
+OrderService: Updating order status: new ObjectId('6abf9319e9e54d0fb26bc20c') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+  PASS 3c: spaeter erfasster Schnappschuss (B) -> aeltester Verlaufsstand A :: Apple iPhone 12 / order-timeline
+[DeviceInspection] Initializing inspection for order: 6abf9319e9e54d0fb26bc221
+[DeviceInspection] New inspection created: 6abf9319e9e54d0fb26bc226
+OrderService: Updating order status: new ObjectId('6abf9319e9e54d0fb26bc221') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+  PASS 3d: unlesbarer Eintrag, Schnappschuss im selben Vorgang -> Schnappschuss :: order-snapshot
+[DeviceInspection] Initializing inspection for order: 6abf9319e9e54d0fb26bc234
+[DeviceInspection] New inspection created: 6abf9319e9e54d0fb26bc239
+OrderService: Updating order status: new ObjectId('6abf9319e9e54d0fb26bc234') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+  PASS 3e: Schnappschuss deutlich nach dem Wechsel -> nicht gesichert :: order-snapshot-unverified
+
+[4] Doppelklick auf "Inspektion abschliessen": genau EINE Diagnose-E-Mail
+[DeviceInspection] Initializing inspection for order: 6abf931ae9e54d0fb26bc247
+[DeviceInspection] New inspection created: 6abf931ae9e54d0fb26bc24e
+OrderService: Updating order status: new ObjectId('6abf931ae9e54d0fb26bc247') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+[DeviceInspection] Updating model verification for order: 6abf931ae9e54d0fb26bc247
+[DeviceInspection] Model verification updated
+[DeviceInspection] Completing inspection for order: 6abf931ae9e54d0fb26bc247
+[DeviceInspection] Completing inspection for order: 6abf931ae9e54d0fb26bc247
+[DeviceInspection] Inspection completed: 6abf931ae9e54d0fb26bc24e
+[DeviceInspection] Inspection 6abf931ae9e54d0fb26bc24e was completed concurrently - applying this request as a re-completion
+[DeviceInspection] Completing inspection for order: 6abf931ae9e54d0fb26bc247
+[DeviceInspection] Inspection completed: 6abf931ae9e54d0fb26bc24e
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS 4: beide Klicks liefern ein Ergebnis (kein Fehler fuer den zweiten) :: ok | ok
+  PASS 4: genau eine Diagnose-E-Mail :: 1
+  PASS 4: Inspektion abgeschlossen, Kostenvoranschlag gespeichert :: completed 49.9 awaiting-customer
+[DeviceInspection] Initializing inspection for order: 6abf931ae9e54d0fb26bc27a
+[DeviceInspection] New inspection created: 6abf931ae9e54d0fb26bc281
+OrderService: Updating order status: new ObjectId('6abf931ae9e54d0fb26bc27a') to diagnostic-assessment
+NotificationService: Creating notification for user: 6abf9318e9e54d0fb26bbfec
+NotificationService: Notification created successfully
+OrderService: Order status updated successfully
+[DeviceInspection] Updating model verification for order: 6abf931ae9e54d0fb26bc27a
+[DeviceInspection] Model verification updated
+[DeviceInspection] Completing inspection for order: 6abf931ae9e54d0fb26bc27a
+[DeviceInspection] Completing inspection for order: 6abf931ae9e54d0fb26bc27a
+[DeviceInspection] Inspection 6abf931ae9e54d0fb26bc281 was completed concurrently - applying this request as a re-completion
+[DeviceInspection] Completing inspection for order: 6abf931ae9e54d0fb26bc27a
+[DeviceInspection] Inspection completed: 6abf931ae9e54d0fb26bc281
+[DeviceInspection] Inspection completed: 6abf931ae9e54d0fb26bc281
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS 4b: eine E-Mail, beide Abschluesse protokolliert, zuletzt gespeicherter Preis gilt :: mails=1 cost=30 logs=2
+[DeviceInspection] Completing inspection for order: 6abf931ae9e54d0fb26bc247
+[DeviceInspection] Inspection completed: 6abf931ae9e54d0fb26bc24e
+[DeviceInspection] Inspection was already completed, skipping duplicate diagnosis email
+  PASS 4c: erneuter Abschluss -> keine weitere E-Mail :: 0
+
+==== 25 bestanden, 0 fehlgeschlagen ====

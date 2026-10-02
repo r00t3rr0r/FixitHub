@@ -1,4 +1,5 @@
 import api from './api';
+import { invoicePdfRequestConfig } from './invoices';
 
 // ============ TYPES ============
 
@@ -367,9 +368,9 @@ export const uploadInvoice = async (orderId: string, file: File) => {
 // Response: File download
 export const downloadInvoice = async (orderId: string) => {
   try {
-    const response = await api.get(`/api/epart-orders/${orderId}/invoice`, {
-      responseType: 'blob',
-    });
+    // Gemeinsame Blob-Konfiguration (Identitaets-Transform): sonst ruft der JSON-Transform aus
+    // api.ts data.trim() auf dem Blob auf und der Download scheitert (gleiche Ursache wie DHL-2).
+    const response = await api.get(`/api/epart-orders/${orderId}/invoice`, invoicePdfRequestConfig());
     return response.data;
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message);

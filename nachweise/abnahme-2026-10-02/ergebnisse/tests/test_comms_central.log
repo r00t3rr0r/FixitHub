@@ -1,0 +1,252 @@
+(node:1097587) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1097587) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1097587) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[A] COMMS-1: Listen-Endpunkt und Postfach liefern den Thread (kein 500)
+  PASS Team-Nachricht an Kunde A gespeichert (201) :: 201
+  PASS GET /api/inspection-communication (Kunde) 200 mit 1 Thread :: 200 1
+  PASS GET /api/inspection-communication (Admin) 200 :: 200 
+  PASS Inbox Kunde A: Auftrag mit Vorschau :: 200 Auftrag ORD-T-001 Ihr Gerät ist angekommen.
+  PASS Inbox-Eintrag: threadUrl und Link zum Auftrag :: /messages?thread=order:6abf92bcce2afa67277ee4cd /orders/6abf92bcce2afa67277ee4cd
+  PASS Kunde sieht keinen Kundenblock (nur Personal) :: null
+
+[B] COMMS-5 / ADMUX-11: Besitz- und Rollenpruefung am Auftrags-Thread
+  PASS fremder Kunde GET -> 403 deutsch :: 403 Zugriff verweigert.
+  PASS fremder Kunde: kein fremder Inhalt in der Antwort :: {"error":"Zugriff verweigert."}
+  PASS fremder Kunde POST message -> 403 :: 403
+  PASS DB unveraendert nach fremdem POST :: 1
+  PASS unbekannte/ungueltige ID fuer Kunden ebenfalls 403 :: 403/403
+  PASS fremder Kunde mark-read -> 403 :: 403
+RequireRole middleware: User comms-a@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde (Eigentuemer) darf keine Rueckfrage anlegen -> 403 :: 403
+RequireRole middleware: User comms-a@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde darf keine Aktion anlegen -> 403 :: 403
+  PASS unread-counts: fremder Auftrag wird fuer Kunde A ignoriert :: {"6abf92bcce2afa67277ee4cd":{"unread":1,"senderType":"staff","awaitingReply":false}}
+  PASS unread-counts: eigener Auftrag zaehlt die Team-Nachricht :: {"unread":1,"senderType":"staff","awaitingReply":false}
+InspectionCommunicationService: Fetching communication thread for order 6abf92bcce2afa67277ee4cd
+InspectionCommunicationService: Sorted 1 messages by createdAt
+  PASS Eigentuemer GET -> 200 :: 200
+InspectionCommunicationService: Fetching communication thread for order 6abf92bcce2afa67277ee4ce
+InspectionCommunicationService: Sorted 1 messages by createdAt
+  PASS Personal GET fremder Auftrag -> 200 :: 200
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+InspectionCommunicationService: Sending feedback request to order 6abf92bcce2afa67277ee4cd
+InspectionCommunicationService: Feedback request sent successfully
+  PASS Personal legt Rueckfrage an (201) :: 201
+  PASS Personal darf nicht im Namen des Kunden antworten -> 403 :: 403 Rückfragen kann nur der Kunde selbst beantworten.
+  PASS fremder Kunde antwortet -> 403 :: 403
+InspectionCommunicationService: Recording feedback response from Kunde Anna
+InspectionCommunicationService: Feedback response recorded successfully
+  PASS Eigentuemer antwortet -> 200 :: 200
+InspectionCommunicationService: Recording feedback response from Kunde Anna
+InspectionCommunicationService: Error responding to feedback: Error: Diese Rückfrage wurde bereits beantwortet.
+  PASS zweite Antwort -> 409 deutsch :: 409 Diese Rückfrage wurde bereits beantwortet.
+  PASS erste Antwort bleibt, pendingFeedbackCount nicht doppelt gesenkt :: ja 0
+
+[C] COMMS-9: interne Notiz nur fuer das Team
+RequireRole middleware: User comms-a@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde darf keine interne Notiz speichern -> 403 :: 403
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+  PASS Personal speichert interne Notiz (201) :: 201 
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+  PASS Wiederholung derselben Notiz: 200, genau 1 Eintrag in Order.staffNotes :: 200 1
+  PASS keine automatische Mitarbeiterzuweisung :: []
+  PASS keine Benachrichtigung / keine E-Mail :: 0/0
+  PASS Notiz steht NICHT im Kunden-Thread :: ok
+InspectionCommunicationService: Fetching communication thread for order 6abf92bcce2afa67277ee4cd
+InspectionCommunicationService: Sorted 2 messages by createdAt
+  PASS Kunden-GET enthaelt keine interne Notiz :: communication
+  PASS Kunden-Inbox enthaelt keine interne Notiz :: ok
+InspectionCommunicationService: Fetching communication thread for order 6abf92bcce2afa67277ee4cd
+InspectionCommunicationService: Sorted 2 messages by createdAt
+  PASS Personal-GET enthaelt die interne Notiz :: [{"_id":"a51e687f0ad9122721286e81","staffId":"6abf92bcce2afa67277ee4b6","staffName":"Sophie Team","note":"INTERN: Kunde 
+  PASS Personal-Inbox zeigt Anzahl interner Notizen :: 1
+
+[D] COMMS-11: Doppelklick / Retry / parallele erste Nachricht
+  PASS 4 parallele POST mit gleicher clientMessageId -> genau 1 Nachricht :: 1 (201,200,200,200)
+  PASS genau eine 201, Wiederholungen 200 :: 201,200,200,200
+  PASS genau eine Benachrichtigungsrunde (2 aktive Admins, nicht 4x) :: 2
+  PASS 5 parallele erste Nachrichten -> 1 Thread-Dokument mit 5 Nachrichten :: 1 docs, 5 msgs
+
+[E] COMMS-10: Lese-Regel pro Benutzer, "Antwort ausstehend" teamweit
+  PASS Kundennachricht: Admin1=1, Admin2=1 ungelesen, Antwort ausstehend :: 1/1/true
+InspectionCommunicationService: Marking messages as read for user 6abf92bcce2afa67277ee4c1 in order 6abf92bdce2afa67277ee614
+InspectionCommunicationService: 1 messages marked as read
+  PASS Admin1 markiert gelesen (PUT /api/communications/order/:id/read) :: 200
+  PASS nach Lesen: Admin1=0, Admin2 weiter 1, Antwort weiter ausstehend :: 0/1/true
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+  PASS interne Notiz beendet "Antwort ausstehend" NICHT :: true
+  PASS Team-Antwort beendet "Antwort ausstehend" :: false
+  PASS Staff2: Nachricht von Sophie (Staff) zaehlt NICHT, nur die Kundennachricht :: 1
+  PASS unread-counts (Badges) nutzt dieselbe Regel :: {"unread":1,"senderType":"customer","awaitingReply":false}
+  PASS Kunde: Team-Antwort ungelesen (eigene Nachricht zaehlt nicht) :: 1
+InspectionCommunicationService: Marking messages as read for user 6abf92bcce2afa67277ee4ab in order 6abf92bdce2afa67277ee614
+InspectionCommunicationService: 2 messages marked as read
+  PASS Kunde liest -> 0 :: 0
+  PASS fremder Kunde PUT read -> 403 :: 403
+  PASS Filter "Ungelesen" liefert nur ungelesene Gespraeche :: 3
+
+[K] COMMS-15: Benachrichtigungen
+  PASS ohne Zuweisung: alle AKTIVEN Admins benachrichtigt :: 6abf92bcce2afa67277ee4c1,6abf92bcce2afa67277ee4c5
+  PASS deutscher Titel und Link auf das Gespraech :: Neue Kundennachricht /messages?thread=order:6abf92bdce2afa67277ee6a4
+  PASS mit Zuweisung: nur der zugewiesene Mitarbeiter :: 6abf92bcce2afa67277ee4b6
+  PASS Team-Nachricht erreicht den Kunden (echte userId, E-Mail erzwungen, Link Auftrag) :: 6abf92bcce2afa67277ee489 true
+  PASS Gastnachricht: gespeichert, Wiederholung idempotent :: 201/200 1
+  PASS Gastnachricht benachrichtigt das Team (alle aktiven Admins) :: 2
+  PASS Gast-Token gilt nicht fuer fremden Auftrag :: 404
+  PASS Gastnachricht im Postfach: ungelesen + Antwort ausstehend + Gast :: 1/true/true
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+InspectionCommunicationService: Sending feedback request to order 6abf92bdce2afa67277ee6d2
+InspectionCommunicationService: Feedback request sent successfully
+InspectionCommunicationService: Recording feedback response from Gastkunde
+InspectionCommunicationService: Feedback response recorded successfully
+  PASS Gast-Antwort auf Rueckfrage informiert das Team :: 200 2 Kunde hat eine Rückfrage beantwortet
+
+[J] COMMS-13: inspectionId wird serverseitig geprueft
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+InspectionCommunicationService: Sending feedback request to order 6abf92bece2afa67277ee73f
+InspectionCommunicationService: Feedback request sent successfully
+  PASS orderId als inspectionId wird verworfen (keine Inspektion -> null) :: undefined
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+InspectionCommunicationService: Creating quick action additional_costs for order 6abf92bece2afa67277ee755
+InspectionCommunicationService: Quick action created successfully
+  PASS falsche ID -> echte DeviceInspection des Auftrags gespeichert :: 6abf92bece2afa67277ee756
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+InspectionCommunicationService: Sending feedback request to order 6abf92bece2afa67277ee769
+InspectionCommunicationService: Feedback request sent successfully
+  PASS Inspektion eines ANDEREN Auftrags wird nicht uebernommen :: undefined
+
+[F] COMMS-3: serverseitige Paginierung, Suche, Dashboard-Zaehler
+  PASS Kunde mit 60 Threads: totalCount 60, 3 Seiten :: 60/3/25
+  PASS Seite 3 enthaelt den aeltesten Thread ORD-P-000 :: ORD-P-001,ORD-P-000
+  PASS limit wird auf 50 begrenzt, hasMore zeigt weitere Seiten :: 50/true
+  PASS Serversuche nach Auftragsnummer :: 1 ORD-P-005
+  PASS Serversuche nach Kundenname (Personal) :: 60
+  PASS Serversuche nach Buchungsnummer :: 1
+  PASS Zusammenfassung == Postfach-Zaehler :: 65/65 64/64
+  PASS alle 60+ ungelesenen Threads gezaehlt (keine 100er-Grenze pro Quelle noetig) :: 65
+RequireRole middleware: User comms-admin@test.invalid has required role admin
+  PASS Dashboard-Zaehler == Postfach-Zaehler :: 65/64
+  PASS Dashboard-Eintraege oeffnen das Gespraech im Postfach :: /messages?thread=order:6abf92bdce2afa67277ee6d2
+RequireRole middleware: User comms-staff@test.invalid has role staff, but requires one of: admin
+  PASS Dashboard-Endpunkt bleibt Admin-only :: 403
+  PASS Zusammenfassung auch fuer Personal (Seitenleiste) :: 66
+
+[G] COMMS-4 / COMMS-12: alle Quellen, Filter, Sichtbarkeit
+  PASS Kunde A: Auftraege, Reparaturanfrage, Reklamation - keine Kontaktanfragen :: repair_request,order,complaint
+  PASS Kunde: Quelle Kontaktanfragen nicht verfuegbar :: [{"source":"order","label":"Auftrag"},{"source":"repair_request","label":"Reparaturanfrage"},{"source":"complaint","label":"Reklamation"}]
+  PASS Kunde: kein interner Reklamations-/Anfragetext in der Inbox :: ok
+  PASS Kunde A sieht keine Threads von Kunde B :: ok
+  PASS Reklamation: Link und Vorschau (oeffentlicher Kommentar) :: /my-complaints/6abf92bece2afa67277ee899 Das Display flackert wieder
+  PASS Filter source=complaint :: complaint
+  PASS K03-CHIPS: availableSources bei source=complaint unveraendert (alle sichtbaren Quellen) :: order,repair_request,complaint
+  PASS Reparaturanfrage: Kundenlink mit requestId, Alt-Nachricht gezaehlt :: /my-repair-requests?requestId=6abf92bece2afa67277ee896 1
+  PASS Kunden-Thread Reklamation ohne internen Kommentar :: 1
+  PASS Personal-Thread Reklamation mit internem Kommentar (markiert) :: 2
+  PASS fremder Kunde Reklamations-Thread -> 403 :: 403
+  PASS Alt-Nachricht RepairRequest.messages mit Autor und Originalzeit lesbar :: Sophie Alt 2026-09-01T10:00:00.000Z
+  PASS Mitarbeiter (nicht Admin): keine Kontaktanfragen :: ok
+  PASS Personal: Vorschau "intern", Antwort ausstehend (interne Notiz zaehlt nicht), kein Admin-Link fuer Staff :: internal/true/null
+  PASS Admin: Kontaktanfrage nur lesend mit Link :: 1 /admin/contact-requests
+  PASS K03-SUBJECT: Titel/Vorschau mit deutschem Betreff :: Kontaktanfrage · Reparatur | [Reparatur] Reparieren Sie auch Tablets?
+  PASS K03-CHIPS: Admin bei source=contact sieht alle Quellen-Chips :: order,repair_request,complaint,contact
+  PASS K03-SUBJECT: unbekannter Betreff bleibt unveraendert :: Kontaktanfrage · altwert | [altwert] Alter Betreff
+  PASS Admin: Reparaturanfrage mit Deep-Link requestId und ungelesen :: /admin/repair-requests?requestId=6abf92bece2afa67277ee896 1
+
+[H] COMMS-2: fehlerhafte Quelle wird gemeldet, nicht als leer
+CommunicationInboxService: source complaint failed: Error: Simulierter DB-Fehler
+    at Complaint.find (/home/adar/Projects/FixitHub/test-comms-central.js:560:38)
+    at Object.loadComplaintItems [as complaint] (/home/adar/Projects/FixitHub/server/services/communicationInboxService.js:324:38)
+    at /home/adar/Projects/FixitHub/server/services/communicationInboxService.js:509:60
+    at Array.map (<anonymous>)
+    at CommunicationInboxService.collect (/home/adar/Projects/FixitHub/server/services/communicationInboxService.js:507:47)
+    at CommunicationInboxService.listInbox (/home/adar/Projects/FixitHub/server/services/communicationInboxService.js:552:65)
+    at /home/adar/Projects/FixitHub/server/routes/communicationInboxRoutes.js:24:52
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+    at auth (/home/adar/Projects/FixitHub/server/routes/middleware/auth.js:42:5)
+  PASS Inbox: 200 + sourceErrors[complaint] deutsch :: [{"source":"complaint","label":"Reklamation","message":"Nachrichten zu Reklamationen konnten nicht geladen werden."}]
+  PASS andere Quellen werden weiter angezeigt :: 9
+CommunicationInboxService: source complaint failed: Error: Simulierter DB-Fehler
+    at Complaint.find (/home/adar/Projects/FixitHub/test-comms-central.js:560:38)
+    at Object.loadComplaintItems [as complaint] (/home/adar/Projects/FixitHub/server/services/communicationInboxService.js:324:38)
+    at /home/adar/Projects/FixitHub/server/services/communicationInboxService.js:509:60
+    at Array.map (<anonymous>)
+    at CommunicationInboxService.collect (/home/adar/Projects/FixitHub/server/services/communicationInboxService.js:507:47)
+    at CommunicationInboxService.collectForSummary (/home/adar/Projects/FixitHub/server/services/communicationInboxService.js:601:26)
+    at CommunicationInboxService.getSummary (/home/adar/Projects/FixitHub/server/services/communicationInboxService.js:625:65)
+    at /home/adar/Projects/FixitHub/server/routes/communicationInboxRoutes.js:36:52
+    at Layer.handle [as handle_request] (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/adar/Projects/FixitHub/server/node_modules/express/lib/router/route.js:149:13)
+  PASS Zusammenfassung meldet den Quellenfehler ebenfalls :: [{"source":"complaint","label":"Reklamation","message":"Nachrichten zu Reklamationen konnten nicht geladen werden."}]
+
+[I] COMMS-14: Regex-Sonderzeichen in der Suche
+  PASS Inbox q=( -> 200 ohne Quellenfehler :: 200 []
+  PASS Inbox q=[ -> 200 ohne Quellenfehler :: 200 []
+  PASS Inbox q=* -> 200 ohne Quellenfehler :: 200 []
+  PASS Inbox q=ORD-(P -> 200 ohne Quellenfehler :: 200 []
+  PASS GET /api/inspection-communication?search=( -> 200 :: 200
+
+[L] Client-API messages.ts: Fehler werden nicht verschluckt
+  PASS messages.ts exportiert getInbox/getCommunicationSummary/markConversationRead :: getConversations,getConversationMessages,startConversation,getInbox,getCommunicationSummary,getConversationThread,markConversationRead
+  PASS getInbox sendet Filter als Query-Parameter :: {"url":"/api/communications/inbox","config":{"params":{"source":"complaint","filter":"unread","q":"ORD","page":2,"limit":25}}}
+  PASS getInbox wirft bei Fehler (kein stilles leeres Ergebnis) :: Nachrichten konnten nicht geladen werden.
+  PASS markConversationRead ruft PUT /api/communications/:type/:id/read :: ok
+
+[M] Review-Nachbesserungen: Lesestatus-lose Quellen, abgeschlossene Datensaetze, Dedupe, Gast-Antwort, Zaehler-Cache
+  PASS Reklamationskommentare zaehlen fuer Kunde und Personal nie als ungelesen :: 0/0
+  PASS Alt-Nachricht (RepairRequest.messages): 0 ungelesen, aber Antwort ausstehend :: 0/true
+  PASS nach Lesen weiterhin 0 :: 200 0
+  PASS Zaehler: Reklamationen tragen 0 zu "ungelesen" bei (Dashboard kann 0 erreichen) :: {"all":1,"unread":0,"awaitingReply":0}
+  PASS geschlossene Reklamation mit letztem "Danke!": keine Antwort ausstehend :: false
+  PASS Kundenkommentar NACH resolvedAt bleibt "Antwort ausstehend" :: true
+  PASS abgeschlossener/stornierter Auftrag: keine Antwort ausstehend :: false/false
+  PASS ungelesen bleibt davon unberuehrt (pro Benutzer) :: 1
+  PASS Kundennachricht NACH Abschluss (actualCompletion) bleibt "Antwort ausstehend" :: true
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+InspectionCommunicationService: Creating quick action additional_costs for order 6abf92bece2afa67277ee971
+InspectionCommunicationService: Quick action created successfully
+InspectionCommunicationService: Completing quick action in order 6abf92bece2afa67277ee971
+InspectionCommunicationService: Quick action completed successfully
+  PASS Mitarbeiter erledigt Aktion: completedByRole=staff, keine Antwort ausstehend :: 200 staff false
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+InspectionCommunicationService: Creating quick action customer_defect_info for order 6abf92bece2afa67277ee971
+InspectionCommunicationService: Quick action created successfully
+InspectionCommunicationService: Completing quick action in order 6abf92bece2afa67277ee971
+InspectionCommunicationService: Quick action completed successfully
+  PASS Kunde erledigt Aktion: Antwort ausstehend :: true
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+InspectionCommunicationService: Sending feedback request to order 6abf92bfce2afa67277ee9b0
+InspectionCommunicationService: Feedback request sent successfully
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+InspectionCommunicationService: Sending feedback request to order 6abf92bfce2afa67277ee9b0
+  PASS gleiche Entwurfs-ID: Rueckfrage nach Nachricht wird gespeichert (nicht still verworfen) :: 201/201 1
+  PASS Wiederholung der Rueckfrage: 200 created=false, weiter genau 1 :: 200 false
+  PASS pendingFeedbackCount nur einmal erhoeht :: 1
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+InspectionCommunicationService: Sending feedback request to order 6abf92bfce2afa67277ee9e7
+InspectionCommunicationService: Feedback request sent successfully
+InspectionCommunicationService: Recording feedback response from Gastkunde
+InspectionCommunicationService: Error responding to feedback: Error: Bitte wählen Sie eine der angebotenen Antworten.
+  PASS Gast: nicht angebotene Antwort -> 400 :: 400 Bitte wählen Sie eine der angebotenen Antworten.
+InspectionCommunicationService: Recording feedback response from Gastkunde
+InspectionCommunicationService: Recording feedback response from Gastkunde
+InspectionCommunicationService: Error responding to feedback: Error: Diese Rückfrage wurde bereits beantwortet.
+InspectionCommunicationService: Feedback response recorded successfully
+  PASS Gast: zwei parallele Antworten -> 200 + 409 :: 200,409
+  PASS genau eine Team-Benachrichtigungsrunde, Zaehler 0, Gast-E-Mail vermerkt :: 2 0 gast2@test.invalid
+RequireRole middleware: User comms-staff@test.invalid has required role staff
+InspectionCommunicationService: Creating quick action customer_defect_info for order 6abf92bfce2afa67277ee9e7
+InspectionCommunicationService: Quick action created successfully
+InspectionCommunicationService: Completing quick action in order 6abf92bfce2afa67277ee9e7
+InspectionCommunicationService: Quick action completed successfully
+  PASS Gast erledigt Aktion ueber den Service (Rolle guest), zweites Mal 409 :: 200/409 guest
+  PASS neue Kundennachricht: Zusammenfassung sofort +1 (Cache geleert) :: 72 -> 73
+InspectionCommunicationService: Marking messages as read for user 6abf92bcce2afa67277ee4c5 in order 6abf92bfce2afa67277eea51
+InspectionCommunicationService: 1 messages marked as read
+RequireRole middleware: User comms-admin2@test.invalid has required role admin
+  PASS nach Lesen: Zusammenfassung und Dashboard sofort wieder -1 :: 72/72
+  PASS Zusammenfassung == frisch berechnetes Postfach :: 72/72
+
+Ergebnis: 125 bestanden, 0 fehlgeschlagen

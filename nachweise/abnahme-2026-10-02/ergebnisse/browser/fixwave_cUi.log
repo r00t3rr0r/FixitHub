@@ -1,0 +1,19 @@
+   Testdaten: storniert ORD-2026-083, offen ORD-2026-077, bereit ORD-2026-082
+  PASS Storniert: Hinweis im Dialog sichtbar :: Auftrag storniert – Arbeitsschritte sind gesperrt. Zum Fortsetzen muss ein Admin die Stornierung aufheben.
+  PASS Storniert: Fortsetzen / Reparatur abschließen / Zwischenfall / Pausieren gesperrt :: {"resume":"disabled","complete":"disabled","incident":"disabled","pause":"disabled"}
+   [shot] 01_K09_cancelled_dialog.png
+  PASS Storniert: Workflow unveraendert (keine Anfrage) :: paused -> paused
+  PASS Offener Auftrag: kein Storno-Hinweis 
+  PASS Offener Auftrag: Schrittaktionen weiterhin bedienbar :: {"complete":"ENABLED","incident":"ENABLED"}
+  PASS K09-Testkunde: gespeicherte Sitzung gueltig :: /orders/6abf12f2d6f617ff2aa212e2
+  PASS Statusbadge: text-transform none :: none
+  PASS Statusbadge zeigt deutschen Text unveraendert (kleingeschriebene Woerter bleiben klein) :: Reparatur abgeschlossen – Versand an Sie wird vorbereitet
+   .payment-status-badge im DOM: 0 (-)
+   [shot] 02_K09_css_status_badge.png
+  PASS K06: Benachrichtigungs-Schalter deutsch beschriftet 
+  PASS K06: keine englischen Notify-Beschriftungen mehr 
+  PASS K06: Hinweis "Vorbelegung – derzeit ohne Wirkung" am Benachrichtigungsblock 
+   [shot] 03_K06_step_notification_note.png
+  PASS K06: Automation-Tab mit Hinweis "derzeit ohne Wirkung" :: Vorbelegung – derzeit ohne Wirkung: Automatisierungsregeln werden gespeichert, aber nicht ausgeführt (auch „Benachrichti
+   [shot] 04_K06_automation_note.png
+==== fixwave_cUi: 12 bestanden, 0 fehlgeschlagen ====

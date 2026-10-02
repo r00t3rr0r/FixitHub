@@ -1,0 +1,23 @@
+   Auftrag fuer diesen Lauf: 6abf81352a854d3cec736441
+  PASS Statuswechsel gespeichert + Verlaufseintrag :: pending->in-progress timeline 1->3
+  PASS Eintrag mit Akteur und echter Zeit :: Admin User Fri Oct 02 2026 12:02:43 GMT+0200 (Central European Summer Time)
+   Workflow-Dialog: Workflow zuweisen Wählen Sie eine passende Workflow-Vorlage für den Gerätetyp und die Services dieses Auftrags. Personal für diesen Workflow Kein Personal zuweisen VERFÜGBARE WORKFLOWS Quick Diagnostic Lightweight diagnostic workflow for walk-in inspections. Zuweisen 2 Schritte 0 Min. Standard Repai
+   [shot] 01_workflow_zugewiesen.png
+   Kontrollen nach Zuweisung: button "Inspektion starten" || button "Arbeitsablauf zuweisen" || button "Workflow starten" || button "Geräteinspection starten"
+  PASS Pausieren gespeichert :: paused
+   letzter Eintrag: {"status":"Order Status Updated","description":"Status geändert: Reparatur in Bearbeitung → Pausiert","completedAt":"2026-10-02T10:02:50.960Z","staffId":"6abf702e7ce3fee63969ca9b","staffName":"Admin User","photos":[],"type":"status","source":"Statusmenü","changes":[{"field":"status","label":"Auftrag
+  PASS Storno oeffnet den Dialog (OrderCancelDialog) 
+   [shot] 02_storno_dialog.png
+  PASS Stornieren ohne Grund gesperrt 
+  PASS Auftrag storniert :: cancelled
+  PASS Storno-Grund im Verlauf gespeichert :: {"status":"Order Status Updated","description":"Status geändert: Pausiert → Storniert","completedAt":"2026-10-02T10:02:54.382Z","staffId":"6abf702e7ce3fee63969ca9b","staffName":"Admin User","photos":[
+   [shot] 03_nach_storno.png
+  PASS Statusmenue-Weg nach Storno vom Server abgelehnt (409) :: 409 ORDER_CANCELLED
+  PASS UI: stornierter Auftrag bietet nur "Stornierung aufheben" an :: Auftrag ist storniert Ein stornierter Auftrag wird nicht weiterbearbeitet. Wieder öffnen nur mit Begründung. Stornierung aufheben …
+   (kein RepairWorkflow-Dokument fuer den Auftrag - Template-Workflow-Pfad)
+  PASS Storno erzeugt keine Rechnung/Stornorechnung automatisch :: 0
+   [shot] 04_verlauf_alle.png
+   Verlauf-Filter: Rechnung erstellen | Zahlung Storniert – keine Zahlung offenGesamt (brutto) 47,40 € · Bezahlt 0,00 € · Offen 0,00 €Bezahlt/Offen gelten für die gesamte Buchung BKG-2026-0010 (Gesamt 0,00 €) | Alle7 | Status & Workflow5 | Gerät & Leistungen0 | Preise & Rabatte1 | Personal1 | Prüfung & Angebot0 | Kommunikation0 | Zahlung & Rechnung0 | Versand0
+   [shot] 05_verlauf_filter_status.png
+  PASS Filter "Status" zeigt Statuswechsel inkl. Storno-Grund 
+==== k08_k09: 11 bestanden, 0 fehlgeschlagen ====

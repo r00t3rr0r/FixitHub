@@ -1,0 +1,5 @@
+test-dhl-label-download-helper.js exit=0 Ergebnis: 12 bestanden, 0 fehlgeschlagen
+test-fin-money-format.js exit=0 Ergebnis: 44 PASS, 0 FAIL
+test-parts-ui-helpers.js exit=0 Ergebnis: 27 PASS, 0 FAIL
+test-money-server-copies.js exit=0 Ergebnis: 20 bestanden, 0 fehlgeschlagen
+test-logs-bootstrap.js exit=0 Ergebnis: 55 PASS, 0 FAIL

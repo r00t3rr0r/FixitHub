@@ -7,10 +7,14 @@ import {
   Calendar,
   CheckCircle2,
   ChevronLeft,
+  Circle,
   Clock,
+  Loader2,
   Mail,
   MapPin,
+  MinusCircle,
   Package,
+  RefreshCw,
   Search,
   ShoppingCart,
   TrendingUp,
@@ -26,6 +30,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import type { OrderMilestone, OrderMilestones } from "@/api/orders";
+
+// Server-Projektion (GET /api/track-order): Verlauf nur aus freigegebenen Einträgen
+// (title/description/completedAt) und ehrliche Meilensteine.
+type GuestTimelineEntry = {
+  _id?: string;
+  status?: string;
+  title?: string;
+  description?: string;
+  completedAt?: string | null;
+};
+type GuestOrderView = { milestones?: OrderMilestones; timeline?: GuestTimelineEntry[] };
 
 export function GuestOrderTracking() {
   const { t, i18n } = useTranslation();
@@ -41,6 +57,9 @@ export function GuestOrderTracking() {
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [activeOrder, setActiveOrder] = useState<any | null>(null);
+  // Laden und Fehler sind eigene Zustände (nicht nur ein Toast): der Gast sieht, dass geladen
+  // wird bzw. was schiefging, und kann es direkt erneut versuchen.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const urlToken = searchParams.get("token");
@@ -55,9 +74,10 @@ export function GuestOrderTracking() {
   }, [searchParams]);
 
   const locale = i18n.language?.toLowerCase().startsWith("de") ? "de-DE" : "en-US";
+  // Geldbetraege immer im deutschen Format ("47,40 €"), unabhaengig von der Sprache.
   const currencyFormatter = useMemo(
-    () => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }),
-    [locale]
+    () => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }),
+    []
   );
 
   const handleTrackOrder = async (trackingToken?: string, trackingEmail?: string) => {
@@ -75,6 +95,7 @@ export function GuestOrderTracking() {
 
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await trackOrder({ token: finalToken, email: finalEmail });
 
       setOrder(response.order);
@@ -88,6 +109,7 @@ export function GuestOrderTracking() {
         description: t("orderTracking.orderFound"),
       });
     } catch (error: any) {
+      setLoadError(error?.message || t("orderTracking.orderNotFound"));
       toast({
         title: t("common.error"),
         description: error?.message || t("orderTracking.orderNotFound"),
@@ -143,7 +165,7 @@ export function GuestOrderTracking() {
     }
   };
 
-  const formatDate = (value?: string | Date) => (value ? new Date(value).toLocaleString(locale) : "-");
+  const formatDate = (value?: string | Date | null) => (value ? new Date(value).toLocaleString(locale) : "-");
   const formatPrice = (value: number) => currencyFormatter.format(Number(value || 0));
   const formatStatus = (status: string) =>
     t(`orderTracking.statuses.${status}`, {
@@ -155,7 +177,87 @@ export function GuestOrderTracking() {
     setDetailOpen(true);
   };
 
+  // Meilenstein: Symbol + Text (Farbe ist nie das einzige Signal).
+  const milestoneVisual = (stage: OrderMilestone) => {
+    switch (stage.state) {
+      case "reached":
+        return {
+          icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />,
+          text: stage.date
+            ? t("orderTracking.milestoneReachedAt", { date: stage.date })
+            : t("orderTracking.milestoneTimeUnknown"),
+          textClass: "text-slate-700",
+        };
+      case "current":
+        return {
+          icon: <Clock className="h-4 w-4 text-sky-600" aria-hidden="true" />,
+          text: [t("orderTracking.milestoneCurrent"), stage.detail].filter(Boolean).join(" · "),
+          textClass: "font-semibold text-sky-800",
+        };
+      case "skipped":
+        return {
+          icon: <MinusCircle className="h-4 w-4 text-slate-400" aria-hidden="true" />,
+          text: t("orderTracking.milestoneSkipped"),
+          textClass: "text-slate-500",
+        };
+      default:
+        return {
+          icon: <Circle className="h-4 w-4 text-slate-300" aria-hidden="true" />,
+          text: t("orderTracking.milestonePending"),
+          textClass: "text-slate-500",
+        };
+    }
+  };
+
+  const renderMilestones = (target: any) => {
+    const milestones = (target as GuestOrderView | null)?.milestones;
+    if (!milestones || !Array.isArray(milestones.stages) || milestones.stages.length === 0) return null;
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <TrendingUp className="h-4 w-4 text-[#1a2a5e]" aria-hidden="true" />
+          {t("orderTracking.milestones")}
+        </h3>
+        {milestones.cancelled && (
+          <p className="mb-3 flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800">
+            <AlertCircle className="h-4 w-4" aria-hidden="true" />
+            {t("orderTracking.milestoneCancelled")}
+          </p>
+        )}
+        <ol className="space-y-2.5">
+          {milestones.stages.map((stage) => {
+            const visual = milestoneVisual(stage);
+            return (
+              <li
+                key={stage.id}
+                className={`flex items-start gap-2.5 rounded-lg px-2 py-1.5 ${stage.state === "current" ? "bg-sky-50" : ""}`}
+                aria-current={stage.state === "current" ? "step" : undefined}
+              >
+                <span className="mt-0.5 flex-shrink-0">{visual.icon}</span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-slate-900">{stage.label}</span>
+                  <span className={`block text-xs break-words ${visual.textClass}`}>{visual.text}</span>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    );
+  };
+
+  const timelineOf = (target: any): GuestTimelineEntry[] => {
+    const entries = Array.isArray((target as GuestOrderView | null)?.timeline) ? [...(target as GuestOrderView).timeline!] : [];
+    // Neueste zuerst; Einträge ohne Zeitpunkt ans Ende.
+    return entries.sort((left, right) => {
+      const leftTime = left?.completedAt ? new Date(left.completedAt).getTime() : -Infinity;
+      const rightTime = right?.completedAt ? new Date(right.completedAt).getTime() : -Infinity;
+      return rightTime - leftTime;
+    });
+  };
+
   const resetTracking = () => {
+    setLoadError(null);
     setOrder(null);
     setRelatedOrders([]);
     setBooking(null);
@@ -202,6 +304,39 @@ export function GuestOrderTracking() {
             </div>
           </div>
         </div>
+
+        {!order && loading && (
+          <Card className="mb-4 border-none bg-white shadow-lg" role="status" aria-live="polite">
+            <CardContent className="flex items-center gap-3 py-6 text-sm text-slate-700">
+              <Loader2 className="h-5 w-5 animate-spin text-[#1a2a5e]" aria-hidden="true" />
+              {t("orderTracking.loadingOrder")}
+            </CardContent>
+          </Card>
+        )}
+
+        {!order && !loading && loadError && (
+          <Card className="mb-4 border border-rose-200 bg-rose-50 shadow-sm" role="alert">
+            <CardContent className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-2.5 text-sm text-rose-900">
+                <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                <div>
+                  <p className="font-semibold">{t("orderTracking.loadError")}</p>
+                  <p className="break-words">{loadError}</p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-rose-300 text-rose-900 hover:bg-rose-100"
+                onClick={() => handleTrackOrder()}
+                disabled={!token || !email}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+                {t("orderTracking.retry")}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {!order && (
           <Card className="border-none bg-white shadow-lg">
@@ -305,9 +440,11 @@ export function GuestOrderTracking() {
                   <p className="mt-1 text-sm font-bold text-[#1a2a5e]">{formatPrice(payableTotalOf(order))}</p>
                 </div>
 
+                <div className="sm:col-span-3">{renderMilestones(order)}</div>
+
                 <div className="sm:col-span-3">
                   <Button className="w-full bg-[#1a2a5e] text-white hover:bg-[#2a3f7e]" onClick={() => openOrderDetails(order)}>
-                    {t("common.view")}
+                    {t("orderTracking.viewDetails")}
                   </Button>
                 </div>
               </CardContent>
@@ -372,7 +509,7 @@ export function GuestOrderTracking() {
                         className="mt-3 w-full border-[#1a2a5e] text-[#1a2a5e] hover:bg-[#1a2a5e] hover:text-white"
                         onClick={() => openOrderDetails(relOrder)}
                       >
-                        {t("common.view")}
+                        {t("orderTracking.viewDetails")}
                       </Button>
                     </div>
                   ))}
@@ -441,6 +578,8 @@ export function GuestOrderTracking() {
                       </div>
                     </div>
                   </div>
+
+                  {renderMilestones(detailOrder)}
 
                   {Array.isArray(detailOrder.services) && detailOrder.services.length > 0 && (
                     <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 space-y-2">
@@ -551,25 +690,31 @@ export function GuestOrderTracking() {
                     </div>
                   </div>
 
-                  {Array.isArray(detailOrder.timeline) && detailOrder.timeline.length > 0 && (
-                    <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
-                      <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
-                        <Calendar className="h-4 w-4 text-[#1a2a5e]" />
-                        {t("orderTracking.timeline")}
-                      </h3>
-                      <div className="space-y-4">
-                        {detailOrder.timeline.map((event: any, index: number) => (
-                          <div key={`${event.status}-${index}`} className="relative pl-6">
+                  {/* Verlauf: nur freigegebene Einträge (Server-Positivliste), neueste zuerst.
+                      Leer ist ein eigener Zustand mit eigenem Text. */}
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
+                    <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <Calendar className="h-4 w-4 text-[#1a2a5e]" aria-hidden="true" />
+                      {t("orderTracking.timeline")}
+                    </h3>
+                    {timelineOf(detailOrder).length === 0 ? (
+                      <p className="text-sm text-slate-500">{t("orderTracking.timelineEmpty")}</p>
+                    ) : (
+                      <ol className="space-y-4">
+                        {timelineOf(detailOrder).map((event, index, list) => (
+                          <li key={event._id || `${event.status}-${index}`} className="relative pl-6">
                             <div className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full bg-[#1a2a5e]" />
-                            {index < detailOrder.timeline.length - 1 && <div className="absolute left-1 top-4 h-[calc(100%+8px)] w-px bg-slate-200" />}
-                            <p className="text-sm font-semibold text-slate-800">{formatStatus(String(event?.status || ""))}</p>
-                            <p className="text-sm text-slate-600 break-words">{event?.description || t("orderTracking.notAvailable")}</p>
-                            <p className="text-xs text-slate-500">{formatDate(event?.completedAt)}</p>
-                          </div>
+                            {index < list.length - 1 && <div className="absolute left-1 top-4 h-[calc(100%+8px)] w-px bg-slate-200" />}
+                            <p className="text-sm font-semibold text-slate-800">{event.title || formatStatus(String(event?.status || ""))}</p>
+                            {event.description && <p className="text-sm text-slate-600 break-words">{event.description}</p>}
+                            <p className="text-xs text-slate-500">
+                              {event.completedAt ? formatDate(event.completedAt) : t("orderTracking.milestoneTimeUnknown")}
+                            </p>
+                          </li>
                         ))}
-                      </div>
-                    </div>
-                  )}
+                      </ol>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (

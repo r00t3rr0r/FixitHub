@@ -1,0 +1,23 @@
+(node:1103376) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1103376) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1103376) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[1] Erstinstallation ohne Admin: Bootstrap oeffentlich
+SeedService.seedAdminUser: Starting admin user seeding...
+SeedService.seedAdminUser: Admin user created successfully: new ObjectId('6abf9391c3928fb492c0c7b7')
+SeedService.seedAdminUser: Initial password for admin@example.com taken from SEED_ADMIN_PASSWORD
+  PASS ohne vorhandenen Admin legt POST /api/seed/admin den Admin an :: 200
+
+[2] Admin vorhanden: anonyme/Kunden-Aufrufe aendern nichts
+  PASS anonym /api/seed/admin: 401 :: 401
+RequireRole middleware: User seed-kunde@test.invalid has role customer, but requires one of: admin
+  PASS Kunde /api/seed/admin: 403 :: 403
+  PASS anonym /api/seed/all: 401 :: 401
+RequireRole middleware: User seed-kunde@test.invalid has role customer, but requires one of: admin
+  PASS Kunde /api/seed/all: 403 :: 403
+  PASS Passwort des bestehenden Admins unveraendert :: true
+RequireRole middleware: User admin@example.com has required role admin
+  PASS Admin darf den Bootstrap weiterhin ausloesen :: 200
+
+==== 7 bestanden, 0 fehlgeschlagen ====

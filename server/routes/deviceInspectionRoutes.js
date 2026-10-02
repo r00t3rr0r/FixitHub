@@ -1,6 +1,7 @@
 const express = require('express');
 const DeviceInspectionService = require('../services/deviceInspectionService');
 const Order = require('../models/Order');
+const DeviceInspection = require('../models/DeviceInspection');
 const { requireUser } = require('./middleware/auth');
 
 const router = express.Router();
@@ -27,6 +28,92 @@ const userFacingError = (error, fallbackDe) => {
   return error.message;
 };
 
+// Kundenansicht einer Inspektion (K04): POSITIVLISTE statt Ausschlussliste - ein neues
+// (internes) Feld erreicht den Kunden nie automatisch. Sichtbar ist der dokumentierte
+// Geraetezustand, den die Kundenansicht (InspectionResultsDisplay) rendert: Modell,
+// Identifikation, Zubehoer, aeusserer Zustand, Testergebnisse, Apple-Pruefungen, das
+// Reparaturangebot (nur der bekannte Preis) und von der Kundeninformation nur Grund und
+// ausdruecklicher Kundentext. NIE: interne Notiz (customerInformation.note) und die
+// Teamfelder der Kundeninformation (suggestedStatus, mailTemplate, generatedAt),
+// Aktionsprotokoll (Technikernamen/-details), Techniker-/Supervisor-IDs, Bericht-Dateipfad
+// (reportUrl), Altfelder isRepairable/completionAction.
+const pickFields = (source, fields) => {
+  if (!source || typeof source !== 'object') return undefined;
+  const picked = {};
+  fields.forEach((field) => {
+    if (source[field] !== undefined) picked[field] = source[field];
+  });
+  return picked;
+};
+const pickCheck = (source, fields = ['status', 'notes']) => pickFields(source, fields);
+const CUSTOMER_INSPECTION_FIELDS = [
+  '_id', 'orderId', 'status', 'currentStep', 'completedSteps', 'hasFailedTests',
+  'customerNotificationCreated', 'approvalStatus', 'reportGenerated', 'reportGeneratedAt',
+  'startedAt', 'completedAt', 'createdAt', 'updatedAt', 'repairOfferKnownCost',
+];
+const toCustomerInspectionView = (inspection) => {
+  if (!inspection) return inspection;
+  const full = typeof inspection.toJSON === 'function' ? inspection.toJSON() : { ...inspection };
+  const view = pickFields(full, CUSTOMER_INSPECTION_FIELDS);
+  if (view.orderId && typeof view.orderId === 'object' && view.orderId._id) view.orderId = view.orderId._id;
+  if (full.modelVerification) {
+    view.modelVerification = pickFields(full.modelVerification, [
+      'reportedModel', 'actualModel', 'verified', 'verificationStatus', 'costDifference', 'notes',
+      'reportedModelSource', 'verifiedAt',
+    ]);
+  }
+  if (full.identification) {
+    view.identification = pickFields(full.identification, [
+      'deviceType', 'deviceTypeLabel', 'imei', 'serialNumber', 'imeiRequired', 'identified', 'identifiedAt',
+    ]);
+  }
+  if (full.accessories) {
+    const accessory = (entry) => pickFields(entry, ['present', 'description']);
+    view.accessories = {
+      ...pickFields(full.accessories, ['additionalAccessoriesText', 'description', 'checkedAt']),
+      ...Object.fromEntries(['originalPackaging', 'caseCover', 'powerAdapter', 'simTray', 'cables']
+        .filter((key) => full.accessories[key]).map((key) => [key, accessory(full.accessories[key])])),
+      otherAccessories: (full.accessories.otherAccessories || []).map((entry) => pickFields(entry, ['name', 'present', 'description'])),
+    };
+  }
+  if (full.externalInspection) {
+    const ext = full.externalInspection;
+    view.externalInspection = {
+      ...Object.fromEntries(['display', 'frame', 'backCover', 'buttons'].filter((key) => ext[key]).map((key) => [key, pickCheck(ext[key])])),
+      ...pickFields(ext, ['uniqueNotes', 'photos', 'inspectedAt']),
+      ...(ext.visibleDamages ? { visibleDamages: pickFields(ext.visibleDamages, ['hasDamage', 'description']) } : {}),
+    };
+  }
+  if (full.deviceTest) {
+    const test = full.deviceTest;
+    view.deviceTest = {
+      ...Object.fromEntries(['power', 'wifi', 'frontCamera', 'mainCamera', 'buttons'].filter((key) => test[key]).map((key) => [key, pickCheck(test[key])])),
+      ...(test.charging ? { charging: pickCheck(test.charging, ['status', 'current', 'notes']) } : {}),
+      ...pickFields(test, ['notes', 'testedAt']),
+    };
+  }
+  if (full.appleSpecific) {
+    const apple = full.appleSpecific;
+    view.appleSpecific = {
+      ...(apple.modemFirmware ? { modemFirmware: pickFields(apple.modemFirmware, ['status', 'present', 'notes']) } : {}),
+      ...(apple.touchIdFaceId ? { touchIdFaceId: pickFields(apple.touchIdFaceId, ['status', 'applicable', 'working', 'notes']) } : {}),
+      ...(apple.customerInfoAction ? { customerInfoAction: pickFields(apple.customerInfoAction, ['requested', 'note']) } : {}),
+      ...pickFields(apple, ['checkedAt']),
+    };
+  }
+  if (Array.isArray(full.failedTestDetails)) {
+    view.failedTestDetails = full.failedTestDetails.map((entry) => pickFields(entry, ['testName', 'reason']));
+  }
+  if (full.repairOffer) {
+    // Preis nur als bekannter Betrag (repairOfferKnownCost); kein roher Altwert 0.
+    view.repairOffer = pickFields(full.repairOffer, ['timeframe', 'description']);
+  }
+  if (full.customerInformation && typeof full.customerInformation === 'object') {
+    view.customerInformation = pickFields(full.customerInformation, ['shouldInform', 'reason', 'customerMessage', 'sentAt']);
+  }
+  return view;
+};
+
 // Middleware to check if user is admin or staff
 const requireAdminOrStaff = (req, res, next) => {
   if (!req.user || !['admin', 'staff'].includes(req.user.role)) {
@@ -35,11 +122,33 @@ const requireAdminOrStaff = (req, res, next) => {
   next();
 };
 
+// K09: Inspektions-Schreibzugriffe (Start, Pruefschritte, Abschluss inkl. Kundeninformation)
+// sind bei einem STORNIERTEN Auftrag gesperrt - dieselbe Regel wie beim Reparatur-Workflow
+// (repairWorkflowService assertOrderOpenForRepair, HIST-14). Lesen bleibt erlaubt.
+// Laeuft erst NACH der Rollenpruefung (Kunden erfahren so nichts ueber fremde Auftraege).
+const refuseCancelledOrder = async (req, res, next) => {
+  const orderId = String(req.params.orderId || req.body?.orderId || '');
+  if (!/^[a-f0-9]{24}$/i.test(orderId)) return next();
+  try {
+    const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true }).select('status').lean();
+    if (order && order.status === 'cancelled') {
+      return res.status(409).json({
+        error: 'Der Auftrag ist storniert – die Inspektion kann nicht gestartet oder geändert werden. Zum Fortsetzen muss ein Admin die Stornierung aufheben.',
+        code: 'INSPECTION_ORDER_CANCELLED',
+      });
+    }
+    return next();
+  } catch (error) {
+    console.error('[DeviceInspectionRoutes] Error checking order status:', error);
+    return res.status(500).json({ error: 'Der Auftragsstatus konnte nicht geprüft werden.' });
+  }
+};
+
 // Description: Initialize or get device inspection
 // Endpoint: POST /api/device-inspections/init
 // Request: { orderId: string, customerId?: string }
 // Response: { inspection: DeviceInspection }
-router.post('/init', requireUser, requireAdminOrStaff, async (req, res) => {
+router.post('/init', requireUser, requireAdminOrStaff, refuseCancelledOrder, async (req, res) => {
   console.log('[DeviceInspectionRoutes] POST /init - Initializing inspection');
 
   try {
@@ -53,13 +162,15 @@ router.post('/init', requireUser, requireAdminOrStaff, async (req, res) => {
 
     // Fallback for cases where populated customer relation is null in frontend responses.
     if (!resolvedCustomerId) {
-      const order = await Order.findById(orderId).select('customerId');
+      // skipAutoPopulate: sonst ist customerId ein Benutzer-Dokument und toString() liefert keinen
+      // ObjectId-Text (500 "Cast to ObjectId failed" beim Start ohne customerId im Body).
+      const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true }).select('customerId');
       if (!order) {
         return res.status(404).json({ error: 'Auftrag nicht gefunden.' });
       }
 
       if (order.customerId) {
-        resolvedCustomerId = order.customerId.toString();
+        resolvedCustomerId = String(order.customerId._id || order.customerId);
       }
     }
 
@@ -69,7 +180,9 @@ router.post('/init', requireUser, requireAdminOrStaff, async (req, res) => {
       req.user._id
     );
 
-    return res.status(200).json({ inspection });
+    // warnings: Auftragsstatus/-verlauf konnte nicht aktualisiert werden (nicht verschluckt, HIST-5c).
+    const warnings = inspection?.$locals?.warnings || [];
+    return res.status(200).json({ inspection, warnings });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error initializing inspection:', error);
     return res.status(500).json({ error: userFacingError(error, 'Inspektion konnte nicht gestartet werden.') });
@@ -112,6 +225,10 @@ router.get('/:orderId', requireUser, async (req, res) => {
         console.log('[DeviceInspectionRoutes] Access denied - User does not own order');
         return res.status(403).json({ error: 'Zugriff verweigert.' });
       }
+
+      if (!isAdminOrStaff) {
+        return res.status(200).json({ inspection: toCustomerInspectionView(inspection) });
+      }
     }
 
     // Return null if inspection not found (this is normal, not an error)
@@ -126,7 +243,7 @@ router.get('/:orderId', requireUser, async (req, res) => {
 // Endpoint: PUT /api/device-inspections/:orderId/model-verification
 // Request: { reportedModel, actualModel, verificationStatus, costDifference?, notes?, supervisorId? }
 // Response: { inspection: DeviceInspection }
-router.put('/:orderId/model-verification', requireUser, requireAdminOrStaff, async (req, res) => {
+router.put('/:orderId/model-verification', requireUser, requireAdminOrStaff, refuseCancelledOrder, async (req, res) => {
   console.log('[DeviceInspectionRoutes] PUT /:orderId/model-verification - Updating model verification');
 
   try {
@@ -162,7 +279,7 @@ router.put('/:orderId/model-verification', requireUser, requireAdminOrStaff, asy
 // Endpoint: PUT /api/device-inspections/:orderId/identification
 // Request: { deviceType, imei?, serialNumber? }
 // Response: { inspection: DeviceInspection }
-router.put('/:orderId/identification', requireUser, requireAdminOrStaff, async (req, res) => {
+router.put('/:orderId/identification', requireUser, requireAdminOrStaff, refuseCancelledOrder, async (req, res) => {
   console.log('[DeviceInspectionRoutes] PUT /:orderId/identification - Updating identification');
 
   try {
@@ -189,7 +306,7 @@ router.put('/:orderId/identification', requireUser, requireAdminOrStaff, async (
 // Endpoint: PUT /api/device-inspections/:orderId/accessories
 // Request: { originalPackaging, caseCover, powerAdapter, cables, otherAccessories }
 // Response: { inspection: DeviceInspection }
-router.put('/:orderId/accessories', requireUser, requireAdminOrStaff, async (req, res) => {
+router.put('/:orderId/accessories', requireUser, requireAdminOrStaff, refuseCancelledOrder, async (req, res) => {
   console.log('[DeviceInspectionRoutes] PUT /:orderId/accessories - Updating accessories');
 
   try {
@@ -211,7 +328,7 @@ router.put('/:orderId/accessories', requireUser, requireAdminOrStaff, async (req
 // Endpoint: PUT /api/device-inspections/:orderId/external-inspection
 // Request: { display, frame, backCover, buttons, visibleDamages, uniqueNotes, photos? }
 // Response: { inspection: DeviceInspection }
-router.put('/:orderId/external-inspection', requireUser, requireAdminOrStaff, async (req, res) => {
+router.put('/:orderId/external-inspection', requireUser, requireAdminOrStaff, refuseCancelledOrder, async (req, res) => {
   console.log('[DeviceInspectionRoutes] PUT /:orderId/external-inspection - Updating external inspection');
 
   try {
@@ -247,7 +364,7 @@ router.put('/:orderId/external-inspection', requireUser, requireAdminOrStaff, as
 // Endpoint: PUT /api/device-inspections/:orderId/device-tests
 // Request: { charging, power, wifi, frontCamera, mainCamera }
 // Response: { inspection: DeviceInspection }
-router.put('/:orderId/device-tests', requireUser, requireAdminOrStaff, async (req, res) => {
+router.put('/:orderId/device-tests', requireUser, requireAdminOrStaff, refuseCancelledOrder, async (req, res) => {
   console.log('[DeviceInspectionRoutes] PUT /:orderId/device-tests - Updating device tests');
 
   try {
@@ -278,7 +395,7 @@ router.put('/:orderId/device-tests', requireUser, requireAdminOrStaff, async (re
 // Endpoint: PUT /api/device-inspections/:orderId/apple-specific
 // Request: { modemFirmware, touchIdFaceId }
 // Response: { inspection: DeviceInspection }
-router.put('/:orderId/apple-specific', requireUser, requireAdminOrStaff, async (req, res) => {
+router.put('/:orderId/apple-specific', requireUser, requireAdminOrStaff, refuseCancelledOrder, async (req, res) => {
   console.log('[DeviceInspectionRoutes] PUT /:orderId/apple-specific - Updating Apple-specific checks');
 
   try {
@@ -302,7 +419,7 @@ router.put('/:orderId/apple-specific', requireUser, requireAdminOrStaff, async (
 //   isRepairable / completionAction are still accepted for old clients but IGNORED (deprecated,
 //   never written). A missing/empty cost stays unknown; 0 counts only with costSpecified: true.
 // Response: { inspection: DeviceInspection } - inspection.repairOfferKnownCost: number | null
-router.put('/:orderId/complete', requireUser, requireAdminOrStaff, async (req, res) => {
+router.put('/:orderId/complete', requireUser, requireAdminOrStaff, refuseCancelledOrder, async (req, res) => {
   console.log('[DeviceInspectionRoutes] PUT /:orderId/complete - Completing inspection');
 
   try {
@@ -313,10 +430,18 @@ router.put('/:orderId/complete', requireUser, requireAdminOrStaff, async (req, r
       isRepairable,
       repairOffer,
       completionAction,
-      customerInformation
+      customerInformation,
+      { actor: req.user }
     );
 
-    return res.status(200).json({ inspection });
+    // customerNotification: { status: 'sent' | 'duplicate' | 'skipped' | 'failed', reason?, error? }
+    // (Kundeninformation zu einem Defekt, getrennt vom Speichererfolg gemeldet - NOTIF-7)
+    // warnings: Auftragsverlauf konnte nicht aktualisiert werden (HIST-10).
+    return res.status(200).json({
+      inspection,
+      customerNotification: inspection?.$locals?.customerNotification || { status: 'skipped' },
+      warnings: inspection?.$locals?.warnings || [],
+    });
   } catch (error) {
     console.error('[DeviceInspectionRoutes] Error completing inspection:', error);
     return res.status(500).json({ error: userFacingError(error, 'Inspektion konnte nicht abgeschlossen werden.') });
@@ -331,6 +456,20 @@ router.get('/:orderId/report', requireUser, requireAdminOrStaff, async (req, res
   console.log('[DeviceInspectionRoutes] GET /:orderId/report - Generating inspection report');
 
   try {
+    // Storniert: einen Bericht einer ABGESCHLOSSENEN Inspektion darf das Team weiter erstellen/lesen; eine
+    // laufende Inspektion ist gesperrt (der Bericht schreibt Datei + reportGenerated an die Inspektion).
+    if (/^[a-f0-9]{24}$/i.test(String(req.params.orderId || ''))) {
+      const order = await Order.findById(req.params.orderId).setOptions({ skipAutoPopulate: true }).select('status').lean();
+      if (order && order.status === 'cancelled') {
+        const current = await DeviceInspection.findOne({ orderId: req.params.orderId }).select('status').lean();
+        if (!current || current.status !== 'completed') {
+          return res.status(409).json({
+            error: 'Der Auftrag ist storniert – für eine nicht abgeschlossene Inspektion wird kein Prüfbericht erstellt.',
+            code: 'INSPECTION_ORDER_CANCELLED',
+          });
+        }
+      }
+    }
     const inspection = await DeviceInspectionService.generateInspectionReport(req.params.orderId);
 
     return res.status(200).json({

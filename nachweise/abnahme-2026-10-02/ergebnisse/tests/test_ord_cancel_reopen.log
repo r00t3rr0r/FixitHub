@@ -1,0 +1,26 @@
+
+[1] Storno ueber den Dialog-Weg (Grund Pflicht)
+  PASS Storno ohne Grund abgelehnt :: 400 Bitte einen Grund für die Stornierung angeben.
+  PASS Storno mit Grund gespeichert :: 200
+  PASS laufender Workflow wurde angehalten :: ["on-hold"]
+
+[2] Kein Fortsetzen ueber das Statusmenue
+  PASS /api/admin/orders (staff): in-progress nach Storno -> 409 ORDER_CANCELLED :: 409 ORDER_CANCELLED
+  PASS /api/admin/orders (admin): in-progress nach Storno -> 409 ORDER_CANCELLED :: 409 ORDER_CANCELLED
+  PASS /api/orders (staff): in-progress nach Storno -> 409 ORDER_CANCELLED :: 409 ORDER_CANCELLED
+  PASS /api/orders (admin): in-progress nach Storno -> 409 ORDER_CANCELLED :: 409 ORDER_CANCELLED
+  PASS auch "Abgeschlossen" nach Storno -> 409 :: 409
+  PASS Auftrag bleibt storniert, kein Verlaufseintrag :: cancelled 4
+
+[3] Stornierung aufheben: nur Admin, Grund Pflicht, Ziel "pending"
+  PASS Staff darf nicht wieder oeffnen (403) :: 403 REOPEN_ADMIN_ONLY
+  PASS Kunde: 403 :: 403
+  PASS Admin ohne Grund -> 400 :: 400 REOPEN_REASON_REQUIRED
+  PASS Admin direkt nach "In Bearbeitung" -> 400 :: 400 REOPEN_TARGET_INVALID
+  PASS Admin mit Grund: wieder "Ausstehend" :: 200 pending
+  PASS Verlauf: "Stornierung aufgehoben" mit Grund und Akteur :: {"k":"Order Reopened","r":"Storno versehentlich ausgeloest","a":"Anna Admin"}
+  PASS angehaltene Workflows bleiben angehalten :: ["on-hold"]
+  PASS Kundenverlauf zeigt keine internen Gruende :: 200
+  PASS nach dem Aufheben normaler Statuswechsel wieder moeglich :: 200
+
+==== 18 bestanden, 0 fehlgeschlagen ====

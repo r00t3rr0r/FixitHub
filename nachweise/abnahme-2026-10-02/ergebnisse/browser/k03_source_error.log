@@ -1,0 +1,39 @@
+Testdaten: Reparaturanfrage RR-1790935160067-00004 (Kunde partner@e2e.invalid, API) + Kundennachricht "E2E-K03 5159944: Gibt es schon einen Termin?" (API)
+Testdaten: Kontaktanfrage "E2E K03 Kontakt 5159944" (E2E-K03-5159944, Status neu) direkt in e2e_after.contactmessages eingefuegt
+  PASS Ausgangslage (API): Postfach ohne Quellenfehler :: 200 errors=[]
+  PASS Ausgangslage (API): Test-Reparaturanfrage und Test-Kontaktanfrage werden gelistet :: contact.all=1
+   Failpoint aktiv: failCommand find auf e2e_after.contactmessages, errorCode 2, times 8
+  PASS Server meldet den echten Quellenfehler (sourceErrors enthaelt "contact") :: [{"source":"contact","label":"Kontaktanfrage","message":"Kontaktanfragen konnten nicht geladen werden."}]
+  PASS Hinweis "Nicht alle Nachrichten konnten geladen werden" sichtbar :: Nicht alle Nachrichten konnten geladen werden Kontaktanfragen konnten nicht geladen werden. Andere Nachrichten werden angezeigt. Erneut versuchen
+  PASS Hinweis nennt die ausgefallene Quelle verstaendlich auf Deutsch 
+  PASS Hinweis bietet "Erneut versuchen" an 
+  PASS kein irrefuehrendes "keine Nachrichten" in der Ansicht "Alle" 
+  PASS gesunde Quelle listet weiter: Reparaturanfrage RR-1790935160067-00004 sichtbar 
+  PASS Liste zeigt weiterhin Gespraeche der anderen Quellen :: 26 Zeilen
+  PASS Kontaktanfrage der ausgefallenen Quelle wird nicht (veraltet) angezeigt 
+  PASS Zaehler "Ungelesen" sichtbar (gesunde Quellen, = Serverwert, Test-Anfrage ungelesen) :: UI 57 / Server 57
+  PASS Zaehler "Antwort ausstehend" sichtbar (= Serverwert) :: UI 56 / Server 56
+  PASS Kopfzeile zeigt die Zaehler weiterhin :: 57 ungelesen · 56 Antwort ausstehend
+  PASS Zaehler stammen nur aus den gesunden Quellen (Kontaktanfragen nicht mitgezaehlt) :: {"order":{"all":57,"unread":56,"awaitingReply":55},"repair_request":{"all":3,"unread":1,"awaitingReply":1},"complaint":{"all":1,"unread":0,"awaitingReply":0},"contact":{"all":0,"unread":0,"awaitingReply":0}}
+   [shot] 01_hinweis_quelle_ausgefallen_alle.png
+   Failpoint erneut gesetzt (times 8) vor dem Filterwechsel
+  PASS Filter "Kontaktanfragen": Server meldet weiterhin den Quellenfehler :: ?source=contact&filter=all&q=&page=1&limit=25 [{"source":"contact","label":"Kontaktanfrage","message":"Kontaktanfragen konnten nicht geladen werden."}]
+  PASS Filter "Kontaktanfragen": Hinweis auf den Ladefehler sichtbar :: Nicht alle Nachrichten konnten geladen werden Kontaktanfragen konnten nicht geladen werden. Erneut versuchen
+  PASS Filter "Kontaktanfragen": KEIN "Keine Gespräche"/"keine Nachrichten" bei ausgefallener Quelle :: Gespräche durchsuchen Alle Aufträge Reparaturanfragen Reklamationen Kontaktanfragen Alle (0) Ungelesen (0) Antwort ausstehend (0) „Ungelesen“ gilt nur für Sie. „Antwort ausstehend“ gilt für das ganze Team, bis jemand dem Kunden antwortet. Nicht alle Nachrichten konnten geladen werden Kontaktanfragen konnten nicht geladen werden. Erneut versuchen Gespräche konnten nicht vollständig geladen werden –
+  PASS Filter "Kontaktanfragen": Listenbereich verweist auf den Ladefehler statt "leer" 
+  PASS Filter "Kontaktanfragen": Hinweis behauptet nicht, andere Nachrichten wuerden angezeigt 
+   [shot] 02_hinweis_filter_kontaktanfragen.png
+   Failpoint abgeschaltet (Quelle wieder gesund)
+  PASS "Erneut versuchen" laedt neu, Server ohne Quellenfehler :: []
+  PASS nach "Erneut versuchen" ist der Hinweis verschwunden 
+  PASS Test-Kontaktanfrage "E2E K03 Kontakt 5159944" ist wieder sichtbar 
+   [shot] 03_nach_wiederherstellung_erneut_versuchen.png
+  PASS nach Reload (Filter Kontaktanfragen): kein Hinweis, Kontaktanfrage sichtbar 
+  PASS Ansicht "Alle" nach Wiederherstellung: Reparaturanfrage UND Kontaktanfrage, kein Hinweis 
+  PASS Zaehler zaehlen die Kontaktanfragen wieder mit :: UI Ungelesen 58 / Server 58 contact={"all":1,"unread":1,"awaitingReply":1}
+   [shot] 04_nach_wiederherstellung_alle.png
+  PASS Serverprotokoll belegt den echten Datenbankfehler der Quelle "contact" :: 0 -> 3
+   Failpoint im finally abgeschaltet
+Testdaten: eigene Kontaktanfrage auf Status "geschlossen" gesetzt (Aufraeumen)
+   neue .eml-Dateien waehrend des Laufs (auch parallele Ablaeufe): 1 -> partner@e2e.invalid
+==== k03_source_error: 26 bestanden, 0 fehlgeschlagen ====

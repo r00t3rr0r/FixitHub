@@ -1,0 +1,26 @@
+  PASS Option "Mein Gerät ist nicht aufgeführt" sichtbar (neben dem Katalog) 
+   Auswahlfelder: 1
+   [shot] 01_fragebogen_katalog_gewaehlt.png
+   [shot] 02_anfrage_abgesendet.png
+  PASS Anfrage im Admin gefunden :: RR-1790935314250-00006
+  PASS gespeichert als Katalog-Geraet mit Modell-ID (keine Freitext-Kopie) :: catalog 6abf70407ce3fee6396a46aa
+  PASS Erstangabe (reportedDevice) gespeichert :: {"deviceType":"Smartphone","brand":"Apple","model":"iPhone 15","modelNumber":"","deviceModelId":"6abf70407ce3fee6396a46a
+   [shot] 03_admin_0euro_angebot_gesendet.png
+  PASS 0,00 € ist ein gueltiger, veroeffentlichter Kostenvoranschlag :: {"amount":0,"description":"Kostenlose Kulanzprüfung der Face-ID-Einheit","status":"sent","version":1,"legacy":false,"draftUpdatedAt":"2026-10-02T10:02:10.635Z",
+  PASS Kunde hat eine In-App-Benachrichtigung zum Kostenvoranschlag :: Kostenvoranschlag zu Ihrer Reparaturanfrage RR-1790935314250-00006 -> /my-repair-requests?requestId=6abf81122a854d3cec734ba2
+   [shot] 04_kunde_angebot_sichtbar.png
+  PASS Kunde: "Annehmen" im Anfragedetail 
+  PASS Kunde sieht "angenommen" 
+   URL nach Reload: http://127.0.0.1:5199/admin/repair-requests?q=RR-1790935314250-00006&requestId=6abf81122a854d3cec734ba2 / Dialog offen: 1
+   [shot] 05_admin_umwandeln_dialog.png
+   Umwandeln-Dialog: In Auftrag umwandeln – RR-1790935314250-00006 Leistungen aus dem Katalog wählen. Der Auftragswert wird nach Katalogpreisen und Kundenkonditionen berechnet. Gerät im Auftrag: Apple iPhone 15 Kundenangabe: Apple iPhone 15 Kunde: Paula Partner Passende Reparaturleistungen Diagnose E2E Diagnose 49,90 € Ausgewählte Leistungen 0 Summe Listenpreise (vor Kundenkonditionen) 0,00 € Kostenvoranschlag (angenommen) 0,00 € Versandart Gerät liegt vor bzw. Abgabe im Laden Es wird kein DHL-Einsendelabel erstellt
+   nach Leistungswahl: Ausgewählte Leistungen 1 Summe Listenpreise (vor Kundenkonditionen) 49,90 € Kostenvoranschlag (angenommen) 0,00 € Abweichung +49,90 € Mir ist bewusst, dass der Auftragswert vom angenommenen Kostenvoranschlag (0,00 €) abweicht. Ich passe den Auftrag ggf. danach an. Versandart Gerät liegt vor bzw. Abg
+  PASS Dialog zeigt die Abweichung zum angenommenen Kostenvoranschlag 
+   [shot] 06_admin_umwandeln_mit_leistung.png
+  PASS Umwandeln gesperrt, bis die Abweichung bestaetigt ist 
+   [shot] 07_admin_umgewandelt.png
+  PASS Anfrage umgewandelt, Auftrag existiert :: converted ORD-2026-067
+  PASS Auftrag uebernimmt dasselbe Geraet :: Apple iPhone 15
+  PASS Katalog-ID / Erstangabe im Auftrag erhalten :: {"rep":{"brand":"Apple","model":"iPhone 15","deviceType":"Smartphone","capturedAt":"2026-10-02T10:01:54.247Z"}}
+  PASS Umwandlung erzeugt KEIN DHL-Label ohne ausdrueckliche Wahl :: - / -
+==== k07b_catalog_convert: 14 bestanden, 0 fehlgeschlagen ====

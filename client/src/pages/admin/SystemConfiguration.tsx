@@ -169,6 +169,35 @@ type IntegrationTestResult = {
   [key: string]: unknown
 }
 
+// Abschnitte, die diese Seite bearbeitet. PUT /api/system-config mischt serverseitig
+// abschnittsweise; gesendet werden nur geaenderte Abschnitte dieser Liste. Finanz-,
+// Analyse-Einstellungen, Vorlagen und Integrationen haben eigene Speicherwege und
+// werden hier nie mitgeschickt (SET-1: kein Ueberschreiben anderer Seiten).
+const PAGE_SECTIONS = [
+  'siteName',
+  'adminEmail',
+  'timezone',
+  'maintenanceMode',
+  'notificationSettings',
+  'templateLinkSettings',
+  'workflowSettings',
+  'securitySettings',
+  'contentSettings',
+  'cartSettings',
+] as const
+
+const buildSectionPayload = (current: SystemConfig, saved: SystemConfig | null) => {
+  const payload: Record<string, unknown> = {}
+  const currentRecord = current as unknown as Record<string, unknown>
+  const savedRecord = (saved || {}) as unknown as Record<string, unknown>
+  PAGE_SECTIONS.forEach((section) => {
+    if (JSON.stringify(currentRecord[section] ?? null) !== JSON.stringify(savedRecord[section] ?? null)) {
+      payload[section] = currentRecord[section]
+    }
+  })
+  return payload
+}
+
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message) {
     return error.message
@@ -180,6 +209,9 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 export function SystemConfiguration() {
   const { t } = useTranslation()
   const [config, setConfig] = useState<SystemConfig | null>(null)
+  // Zuletzt geladener/gespeicherter Stand - Grundlage fuer "nur Geaendertes speichern".
+  const [savedConfig, setSavedConfig] = useState<SystemConfig | null>(null)
+  const [loadError, setLoadError] = useState('')
   const [templates, setTemplates] = useState<NotificationTemplate[]>([])
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
@@ -225,6 +257,8 @@ export function SystemConfiguration() {
   })
 
   const loadData = useCallback(async () => {
+    setLoading(true)
+    setLoadError('')
     try {
       console.log("SystemConfiguration: Loading system configuration data...")
       const [configResponse, templatesResponse, integrationsResponse] = await Promise.all([
@@ -239,16 +273,13 @@ export function SystemConfiguration() {
       }
 
       setConfig(normalizedConfig)
+      setSavedConfig(normalizedConfig)
       setTemplates(templatesResponse.templates)
       setIntegrations(integrationsResponse.integrations)
       console.log("SystemConfiguration: Data loaded successfully")
     } catch (error: unknown) {
       console.error("SystemConfiguration: Error loading data:", error)
-      toast({
-        title: "Error",
-        description: getErrorMessage(error, "Failed to load system configuration"),
-        variant: "destructive"
-      })
+      setLoadError(getErrorMessage(error, "Unbekannter Fehler"))
     } finally {
       setLoading(false)
     }
@@ -258,24 +289,32 @@ export function SystemConfiguration() {
     loadData()
   }, [loadData])
 
+  const pendingPayload = config ? buildSectionPayload(config, savedConfig) : {}
+  const pendingSections = Object.keys(pendingPayload)
+
   const handleSaveConfig = async () => {
-    if (!config) return
+    if (!config || saving) return
 
-    const normalizedTemplateLinkSettings = getNormalizedTemplateLinkSettings(config)
-    const normalizedProductionBaseUrl = normalizeBaseUrl(normalizedTemplateLinkSettings.productionBaseUrl)
-
-    if (!normalizedProductionBaseUrl) {
-      toast({
-        title: "Ungueltige Production-URL",
-        description: "Bitte geben Sie eine gueltige URL mit http:// oder https:// ein.",
-        variant: "destructive"
-      })
+    const payload = buildSectionPayload(config, savedConfig)
+    if (Object.keys(payload).length === 0) {
+      toast({ title: "Keine Änderungen", description: "Es gibt nichts zu speichern." })
       return
     }
 
-    const payload: SystemConfig = {
-      ...config,
-      templateLinkSettings: {
+    if (payload.templateLinkSettings) {
+      const normalizedTemplateLinkSettings = getNormalizedTemplateLinkSettings(config)
+      const normalizedProductionBaseUrl = normalizeBaseUrl(normalizedTemplateLinkSettings.productionBaseUrl)
+
+      if (!normalizedProductionBaseUrl) {
+        toast({
+          title: "Ungültige Production-URL",
+          description: "Bitte eine gültige URL mit http:// oder https:// eingeben.",
+          variant: "destructive"
+        })
+        return
+      }
+
+      payload.templateLinkSettings = {
         ...normalizedTemplateLinkSettings,
         productionBaseUrl: normalizedProductionBaseUrl,
       }
@@ -283,21 +322,24 @@ export function SystemConfiguration() {
 
     setSaving(true)
     try {
-      console.log("SystemConfiguration: Saving configuration...")
-      const response = await updateSystemConfig(payload)
-      setConfig({
+      console.log("SystemConfiguration: Saving sections:", Object.keys(payload))
+      // Teil-Payload: der Server mischt nur diese Abschnitte in den gespeicherten Stand.
+      const response = await updateSystemConfig(payload as unknown as SystemConfig)
+      const nextConfig = {
         ...response.config,
         templateLinkSettings: getNormalizedTemplateLinkSettings(response.config),
-      })
+      }
+      setConfig(nextConfig)
+      setSavedConfig(nextConfig)
       toast({
-        title: "Success",
-        description: "System configuration updated successfully"
+        title: "Systemeinstellungen gespeichert",
+        description: "Finanz- und Analyse-Einstellungen bleiben unverändert."
       })
     } catch (error: unknown) {
       console.error("SystemConfiguration: Error saving config:", error)
       toast({
-        title: "Error",
-        description: getErrorMessage(error, "Failed to save configuration"),
+        title: "Systemeinstellungen konnten nicht gespeichert werden",
+        description: `${getErrorMessage(error, "Unbekannter Fehler")} Ihre Eingaben bleiben erhalten.`,
         variant: "destructive"
       })
     } finally {
@@ -532,14 +574,16 @@ export function SystemConfiguration() {
       const response = await updateIntegration(integration._id, toIntegrationPayload(updatedIntegration))
       setIntegrations((prev) => prev.map((item) => item._id === integration._id ? response.integration : item))
       toast({
-        title: 'Success',
-        description: `Booking label mode set to ${bookingLabelMode}`,
+        title: 'Gespeichert',
+        description: bookingLabelMode === 'live'
+          ? 'Buchungslabel-Modus: Live – neue Buchungen erhalten echte DHL-Labels.'
+          : 'Buchungslabel-Modus: Dummy – neue Buchungen erhalten Testlabels (kein echtes DHL-Label).',
       })
     } catch (error: unknown) {
       setIntegrations((prev) => prev.map((item) => item._id === integration._id ? integration : item))
       toast({
         title: 'Error',
-        description: getErrorMessage(error, 'Failed to update booking label mode'),
+        description: getErrorMessage(error, 'Der Buchungslabel-Modus konnte nicht gespeichert werden.'),
         variant: 'destructive'
       })
     }
@@ -567,8 +611,15 @@ export function SystemConfiguration() {
 
   if (!config) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Failed to load system configuration</p>
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+        <AlertCircle className="h-6 w-6 text-red-600" aria-hidden="true" />
+        <p className="text-sm text-red-700">
+          Systemeinstellungen konnten nicht geladen werden{loadError ? ` (${loadError})` : ''}.
+        </p>
+        <Button variant="outline" onClick={() => loadData()}>
+          <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+          Erneut versuchen
+        </Button>
       </div>
     )
   }
@@ -584,22 +635,27 @@ export function SystemConfiguration() {
               {t('admin.systemConfig.title')}
             </h1>
             <p className="text-blue-100 text-sm mt-1">
-              Configure system settings, notifications, integrations, and security
+              Allgemein, Benachrichtigungen, Workflows, Sicherheit und Inhalte. Vorlagen und Integrationen speichern sofort in ihrem Dialog; Finanz- und Analyse-Einstellungen werden auf ihren eigenen Seiten gespeichert.
             </p>
           </div>
-          <Button onClick={handleSaveConfig} disabled={saving} className="bg-white text-[#1a2a5e] hover:bg-blue-50">
-            {saving ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Save Changes
-              </>
-            )}
-          </Button>
+          <div className="flex flex-col items-start gap-1 sm:items-end">
+            <Button onClick={handleSaveConfig} disabled={saving || pendingSections.length === 0} className="bg-white text-[#1a2a5e] hover:bg-blue-50">
+              {saving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  Wird gespeichert …
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Systemeinstellungen speichern
+                </>
+              )}
+            </Button>
+            <span className="text-xs text-blue-100" aria-live="polite">
+              {pendingSections.length === 0 ? 'Keine ungespeicherten Änderungen' : `Ungespeicherte Änderungen in ${pendingSections.length} Bereich(en)`}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -1354,9 +1410,9 @@ export function SystemConfiguration() {
                               </div>
 
                               <div>
-                                <p className="text-sm font-medium">Booking Label Mode</p>
+                                <p className="text-sm font-medium">Buchungslabel-Modus (Einsendelabel)</p>
                                 <p className="text-xs text-muted-foreground">
-                                  Choose whether booking creation prepares a dummy PDF label or calls the live DHL API.
+                                  Dummy erzeugt bei neuen Buchungen ein Testlabel (kein echtes DHL-Label, nicht für den Versand); Live erstellt echte DHL-Labels über die DHL-Schnittstelle.
                                 </p>
                               </div>
                               <Select
@@ -1367,8 +1423,8 @@ export function SystemConfiguration() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="dummy">Dummy PDF Label</SelectItem>
-                                  <SelectItem value="live">Live DHL Label</SelectItem>
+                                  <SelectItem value="dummy">Dummy – Testlabel (kein echtes DHL-Label)</SelectItem>
+                                  <SelectItem value="live">Live – echtes DHL-Label</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>

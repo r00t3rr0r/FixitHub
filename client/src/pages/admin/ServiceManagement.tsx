@@ -27,7 +27,7 @@ import {
   Plus,
   Edit,
   Trash2,
-  DollarSign,
+  Euro,
   Clock,
   Star,
   Save,
@@ -87,6 +87,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
+import { formatEUR } from "@/lib/utils"
 import "./ServiceManagement.css"
 
 type SortField = 'name' | 'category' | 'manufacturer' | 'model' | 'price' | 'estimatedTime' | 'popularity'
@@ -139,7 +140,7 @@ function ServiceDetailView({ service }: { service: RepairService }) {
     )
   }
 
-  const formatMoney = (value?: number) => `$${(value ?? 0).toFixed(2)}`
+  const formatMoney = (value?: number) => formatEUR(value ?? 0)
 
   return (
     <div className="sd-layout">
@@ -195,7 +196,7 @@ function ServiceDetailView({ service }: { service: RepairService }) {
 
           {/* Pricing & Performance */}
           <div className="sd-section">
-            <div className="sd-section-title"><DollarSign size={12} /> Pricing &amp; Performance</div>
+            <div className="sd-section-title"><Euro size={12} /> Pricing &amp; Performance</div>
             <div className="sd-kv-grid">
               <span className="sd-kv-label">Price</span>
               <span className="sd-kv-value sd-money">{formatMoney(service.price)}</span>
@@ -638,7 +639,7 @@ export function ServiceManagement() {
       case 'model':
         return service.model?.trim() || '—'
       case 'price':
-        return `$${service.price}`
+        return formatEUR(service.price)
       case 'estimatedTime':
         return service.estimatedTime || '—'
       case 'knowledgeBase':
@@ -1131,11 +1132,11 @@ export function ServiceManagement() {
             <CardTitle className="text-xs font-medium text-green-700 dark:text-green-300">
               Avg. Price
             </CardTitle>
-            <DollarSign className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+            <Euro className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
           </CardHeader>
           <CardContent className="px-4 pb-3 pt-0">
             <div className="text-xl font-bold text-green-900 dark:text-green-100">
-              ${services.length > 0 ? (services.reduce((sum, s) => sum + s.price, 0) / services.length).toFixed(0) : 0}
+              {formatEUR(services.length > 0 ? services.reduce((sum, s) => sum + s.price, 0) / services.length : 0)}
             </div>
           </CardContent>
         </Card>
@@ -1409,8 +1410,8 @@ export function ServiceManagement() {
                     </TableCell>
                     <TableCell className="py-2">
                       <div className="flex items-center gap-1">
-                        <DollarSign className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-medium">${service.price}</span>
+                        <Euro className="h-3 w-3 text-muted-foreground" />
+                        <span className="font-medium">{formatEUR(service.price)}</span>
                       </div>
                     </TableCell>
                     <TableCell className="py-2">

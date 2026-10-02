@@ -1,0 +1,54 @@
+
+[1] Client formatMoney / formatEUR
+  PASS formatMoney(47.4) = "47,40 €" :: 47,40 €
+  PASS Tausenderpunkt :: 1.234,50 €
+  PASS anderes Format nur ausdruecklich (en-GB) :: €47.40
+  PASS ungueltiger Waehrungscode -> EUR :: 1,00 €
+  PASS nicht lesbar -> 0,00 € :: 0,00 € 0,00 €
+  PASS Waehrung kommt aus den Daten (CHF-Datensatz bleibt CHF) :: 10,00 CHF
+  PASS formatEUR bleibt kompatibel (auch Decimal128) :: 47,40 € 7,57 €
+
+[2] Server money.js
+  PASS formatEuroDe(37.4) = "37,40 €" (normales Leerzeichen) :: 37,40 €
+  PASS describeGross mit MwSt. :: 47,40 € (inkl. 7,57 € MwSt. 19 %)
+  PASS Reverse Charge ausdruecklich benannt :: 47,40 € (Reverse Charge – ohne MwSt.)
+  PASS unbekannte Steuer: nur Brutto, nie "0,00 € MwSt." :: 47,40 €
+  PASS mit Rabatt :: 47,40 € (nach 2,50 € Rabatt, inkl. 7,57 € MwSt.)
+  PASS zusammengesetzter Text wird von localizeTemplateDisplayVariables nicht umformatiert (keine reine Zahl) :: NaN
+
+[3] Uebersetzungen
+  PASS en: kein "$" mehr (frueher "$47.40") :: Total for all orders: 47,40 €
+  PASS de: genau ein "€" :: Gesamt für alle Aufträge: 47,40 €
+  PASS en quantityTotalCost ohne "$" :: Total cost: 47,40 €
+  PASS Profil: "Auftragswert gesamt" statt "Gesamt Spent" :: Auftragswert gesamt
+  PASS Button "Rechnung aus Aufträgen erstellen" :: Rechnung aus Aufträgen erstellen
+  PASS Erfolgsmeldung Finanzeinstellungen (frueher "Zahlung erfolgreich aktualisiert") :: Finanzeinstellungen gespeichert
+  PASS en: kein "$"-Betrag in den Uebersetzungen :: 
+
+[4] Quelltext-Scan der umgestellten Dateien
+  PASS src/pages/admin/UserManagement.tsx :: sauber
+  PASS src/pages/Profile.tsx :: sauber
+  PASS src/pages/NewOrder.tsx :: sauber
+  PASS src/pages/staff/Performance.tsx :: sauber
+  PASS src/pages/admin/ServiceManagement.tsx :: sauber
+  PASS src/pages/admin/PartsManagement.tsx :: sauber
+  PASS src/pages/OrderTracking.tsx :: sauber
+  PASS src/pages/admin/AdminDashboard.tsx :: sauber
+  PASS src/pages/admin/FinancialManagement.tsx :: sauber
+  PASS src/pages/admin/Analytics.tsx :: sauber
+  PASS src/pages/WebShop.tsx :: sauber
+  PASS src/pages/admin/AddOnServiceManagement.tsx :: sauber
+  PASS src/pages/admin/WebShopManagement.tsx :: sauber
+  PASS src/components/admin/UserDetailsDialog.tsx :: sauber
+  PASS src/components/admin/ShopProductSelectionDialog.tsx :: sauber
+  PASS src/components/cart/RepairOrderDetailsDialog.tsx :: sauber
+  PASS src/components/repair/RepairMainInterface.tsx :: sauber
+  PASS src/components/admin/ServiceCSVPreviewTable.tsx :: sauber
+  PASS src/components/admin/ProductCSVPreviewTable.tsx :: sauber
+  PASS src/components/admin/PartsCSVPreviewTable.tsx :: sauber
+  PASS src/components/admin/AddOnCSVPreviewTable.tsx :: sauber
+  PASS src/components/admin/TrackingPanel.tsx :: sauber
+  PASS src/pages/GuestOrderTracking.tsx :: sauber
+  PASS src/pages/GuestBookingTracking.tsx :: sauber
+
+Ergebnis: 44 PASS, 0 FAIL

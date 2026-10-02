@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 const CalculationHelper = require('../services/calculationHelper');
 
+// Einzige Liste der Auftragsstatus (Enum des Modells; Routen pruefen dagegen, HIST-7).
+const ORDER_STATUSES = ['pending', 'diagnostic-assessment', 'in-progress', 'paused', 'quality-check', 'completed', 'ready-for-pickup', 'cancelled'];
+
 // Mitarbeiterzuweisung an eine einzelne Zusatzleistung (OrderService.assignStaffToAddon).
 const addOnAssignedStaffSchema = new mongoose.Schema({
   staffId: {
@@ -155,6 +158,51 @@ const orderTimelineSchema = new mongoose.Schema({
   photos: [{
     type: String,
   }],
+  // ---- Verlaufsvertrag (server/utils/orderHistory.js). Alle Felder OPTIONAL und ohne
+  // Default: Alteintraege behalten ihre Bedeutung, `status` bleibt der stabile Schluessel.
+  type: {
+    type: String,
+  },
+  source: {
+    type: String,
+  },
+  changes: {
+    type: [{
+      _id: false,
+      field: String,
+      label: String,
+      from: mongoose.Schema.Types.Mixed,
+      to: mongoose.Schema.Types.Mixed,
+    }],
+    default: undefined,
+  },
+  reason: {
+    type: String,
+  },
+  refs: {
+    type: new mongoose.Schema({
+      revisionId: mongoose.Schema.Types.ObjectId,
+      revisionNumber: Number,
+      invoiceId: mongoose.Schema.Types.ObjectId,
+      paymentId: mongoose.Schema.Types.ObjectId,
+      inspectionId: mongoose.Schema.Types.ObjectId,
+      workflowId: mongoose.Schema.Types.ObjectId,
+      workflowStepId: mongoose.Schema.Types.ObjectId,
+      repairWorkflowId: mongoose.Schema.Types.ObjectId,
+      communicationId: mongoose.Schema.Types.ObjectId,
+      complaintId: mongoose.Schema.Types.ObjectId,
+      bookingId: mongoose.Schema.Types.ObjectId,
+      trackingNumber: String,
+    }, { _id: false }),
+    default: undefined,
+  },
+  visibility: {
+    type: String,
+    enum: ['staff', 'customer'],
+  },
+  eventKey: {
+    type: String,
+  },
 }, { _id: true });
 
 const workflowPauseEventSchema = new mongoose.Schema({
@@ -630,7 +678,7 @@ const orderSchema = new mongoose.Schema({
   addOns: [addOnServiceSchema],
   status: {
     type: String,
-    enum: ['pending', 'diagnostic-assessment', 'in-progress', 'paused', 'quality-check', 'completed', 'ready-for-pickup', 'cancelled'],
+    enum: ORDER_STATUSES,
     default: 'pending',
   },
   priority: {
@@ -1001,16 +1049,33 @@ orderSchema.pre('save', async function(next) {
     this.originalGrossAmount = currentGross;
   }
 
+  // FIN-13: ein ausdruecklich gespeicherter Satz 0 bleibt 0 (frueher machte
+  // `this.taxRate || 19` daraus 19). Ein fehlender/leerer Satz (null) ist "nicht
+  // gespeichert": gerechnet wird mit dem konfigurierten Standardsatz, das Feld selbst
+  // wird dabei NICHT stillschweigend befuellt (die Anzeige weist es als Standardsatz aus).
+  // Neue Auftraege erhalten wie bisher den Schema-Standard 19.
+  const hasStoredRate = CalculationHelper.hasStoredTaxRate(this.taxRate);
+  let effectiveTaxRate = hasStoredRate ? Number(this.taxRate) : CalculationHelper.DEFAULT_TAX_RATE;
+  if (!hasStoredRate) {
+    try {
+      // Lazy: Modell -> Service nur im seltenen Fall eines fehlenden Satzes.
+      const configuredDefault = await require('../services/orderService').resolveDefaultTaxRate(); // eslint-disable-line global-require
+      effectiveTaxRate = CalculationHelper.resolveTaxRate(null, configuredDefault).taxRate;
+    } catch (error) {
+      console.error('Order: default tax rate could not be read:', error.message);
+    }
+  }
+
   const orderValueCalc = CalculationHelper.calculateOrderValue(
     this.isNew ? (this.originalGrossAmount || currentGross) : currentGross,
     this.dealerDiscountPercent || 0,
-    this.taxRate || 19
+    effectiveTaxRate
   );
 
   this.dealerDiscountAmount = orderValueCalc.dealerDiscountAmount;
   this.netAmount = orderValueCalc.netAmount;
   this.taxAmount = orderValueCalc.taxAmount;
-  this.taxRate = orderValueCalc.taxRate;
+  if (hasStoredRate) this.taxRate = orderValueCalc.taxRate;
 
   this.updatedAt = new Date();
   next();
@@ -1215,5 +1280,6 @@ orderSchema.post('save', async function(doc) {
 });
 
 const Order = mongoose.model('Order', orderSchema);
+Order.ORDER_STATUSES = ORDER_STATUSES;
 
 module.exports = Order;

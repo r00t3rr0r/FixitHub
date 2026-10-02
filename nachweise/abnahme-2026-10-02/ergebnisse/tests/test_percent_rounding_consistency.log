@@ -1,0 +1,160 @@
+
+[1] Gemeinsame Regel === bisherige Warenkorb-Formel (Warenkorb unveraendert)
+  PASS percentOf liefert fuer ~34.000 Faelle exakt die Warenkorb-Werte :: alle gleich
+
+[2] Warenkorb, Auftrag (POST /api/orders-Weg) und Rechnung: derselbe Rabatt
+(node:1102147) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1102147) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1102147) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf936506871f0587fb3835'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf936506871f0587fb38bb' ],
+  totalCost: 1,
+  discount: 0
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf936506871f0587fb38e1')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Generating invoice from repair orders: [ '6abf936506871f0587fb38e1' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0001
+  PASS 49,9 € @ 15 %: Warenkorb-Rabatt 7.48 :: 7.48
+  PASS 49,9 € @ 15 %: Auftrag-Rabatt 7.48 :: 7.48
+  PASS 49,9 € @ 15 %: Auftragswert 42.42 :: 42.42
+  PASS 49,9 € @ 15 %: Rechnung = Auftrag :: 7.48 / 42.42 === 42.42
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf936506871f0587fb3966'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf936506871f0587fb396a' ],
+  totalCost: 1,
+  discount: 0
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf936506871f0587fb3970')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Generating invoice from repair orders: [ '6abf936506871f0587fb3970' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0002
+  PASS 99,9 € @ 15 %: Warenkorb-Rabatt 14.98 :: 14.98
+  PASS 99,9 € @ 15 %: Auftrag-Rabatt 14.98 :: 14.98
+  PASS 99,9 € @ 15 %: Auftragswert 84.92 :: 84.92
+  PASS 99,9 € @ 15 %: Rechnung = Auftrag :: 14.98 / 84.92 === 84.92
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf936606871f0587fb39b2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf936606871f0587fb39b6' ],
+  totalCost: 1,
+  discount: 0
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf936606871f0587fb39bc')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Generating invoice from repair orders: [ '6abf936606871f0587fb39bc' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0003
+  PASS 29,9 € @ 15 %: Warenkorb-Rabatt 4.48 :: 4.48
+  PASS 29,9 € @ 15 %: Auftrag-Rabatt 4.48 :: 4.48
+  PASS 29,9 € @ 15 %: Auftragswert 25.42 :: 25.42
+  PASS 29,9 € @ 15 %: Rechnung = Auftrag :: 4.48 / 25.42 === 25.42
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf936606871f0587fb39fe'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf936606871f0587fb3a02' ],
+  totalCost: 1,
+  discount: 0
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf936606871f0587fb3a08')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Generating invoice from repair orders: [ '6abf936606871f0587fb3a08' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0004
+  PASS 19,9 € @ 5 %: Warenkorb-Rabatt 0.99 :: 0.99
+  PASS 19,9 € @ 5 %: Auftrag-Rabatt 0.99 :: 0.99
+  PASS 19,9 € @ 5 %: Auftragswert 18.91 :: 18.91
+  PASS 19,9 € @ 5 %: Rechnung = Auftrag :: 0.99 / 18.91 === 18.91
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf936606871f0587fb3a4a'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf936606871f0587fb3a4e' ],
+  totalCost: 1,
+  discount: 0
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf936606871f0587fb3a54')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Generating invoice from repair orders: [ '6abf936606871f0587fb3a54' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0005
+  PASS 100 € @ 10 %: Warenkorb-Rabatt 10 :: 10
+  PASS 100 € @ 10 %: Auftrag-Rabatt 10 :: 10
+  PASS 100 € @ 10 %: Auftragswert 90 :: 90
+  PASS 100 € @ 10 %: Rechnung = Auftrag :: 10 / 90 === 90
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf936606871f0587fb3a96'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf936606871f0587fb3a9a' ],
+  totalCost: 1,
+  discount: 0
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf936606871f0587fb3aa0')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Generating invoice from repair orders: [ '6abf936606871f0587fb3aa0' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0006
+  PASS 59 € @ 15 %: Warenkorb-Rabatt 8.85 :: 8.85
+  PASS 59 € @ 15 %: Auftrag-Rabatt 8.85 :: 8.85
+  PASS 59 € @ 15 %: Auftragswert 50.15 :: 50.15
+  PASS 59 € @ 15 %: Rechnung = Auftrag :: 8.85 / 50.15 === 50.15
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf936606871f0587fb3ae2'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf936606871f0587fb3ae6' ],
+  totalCost: 1,
+  discount: 0
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf936606871f0587fb3aec')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+FinancialService: Generating invoice from repair orders: [ '6abf936606871f0587fb3aec' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0007
+  PASS 129,9 € @ 7,5 %: Warenkorb-Rabatt 9.74 :: 9.74
+  PASS 129,9 € @ 7,5 %: Auftrag-Rabatt 9.74 :: 9.74
+  PASS 129,9 € @ 7,5 %: Auftragswert 120.16 :: 120.16
+  PASS 129,9 € @ 7,5 %: Rechnung = Auftrag :: 9.74 / 120.16 === 120.16
+
+[3] Sophies Fall ausdruecklich: 49,90 € bei 15 % -> 7,48 / 42,42 ueberall
+  PASS Rabatt 7,48 / Brutto 42,42 :: 7.48 / 42.42
+
+[4] Standardrabatt einer frei erstellten manuellen Rechnung folgt derselben Regel
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  customerId: '6abf936606871f0587fb3b2e',
+  customerName: 'Manuell',
+  customerEmail: 'manuell@test.invalid',
+  items: [
+    {
+      description: 'Diagnose',
+      quantity: 1,
+      unitPrice: 49.9,
+      total: 49.9,
+      type: 'service'
+    }
+  ],
+  dueDate: 2026-10-09T11:20:06.711Z
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS Manuelle Rechnung: 7,48 / 42,42 (vorher 7,49 / 42,41) :: 7.48 / 42.42
+
+==== 31 bestanden, 0 fehlgeschlagen ====

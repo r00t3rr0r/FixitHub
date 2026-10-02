@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatEUR } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -164,10 +165,10 @@ export const PartsCSVPreviewTable: React.FC<PartsCSVPreviewTableProps> = ({
                         <TableCell>{part.manufacturer}</TableCell>
                         <TableCell className="text-right">{version.quantity || 0}</TableCell>
                         <TableCell className="text-right">
-                          ${(version.unitCost || 0).toFixed(2)}
+                          {formatEUR(version.unitCost || 0)}
                         </TableCell>
                         <TableCell className="text-right">
-                          ${(version.sellingPrice || 0).toFixed(2)}
+                          {formatEUR(version.sellingPrice || 0)}
                         </TableCell>
                         <TableCell>
                           <Badge variant="default" className="bg-green-500">

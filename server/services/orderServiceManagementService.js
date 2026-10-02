@@ -6,6 +6,7 @@ const OrderService = require('./orderService');
 const OrderRevisionService = require('./orderRevisionService');
 const ServiceService = require('./serviceService');
 const CalculationHelper = require('./calculationHelper');
+const OrderHistory = require('../utils/orderHistory');
 
 const toIdString = (value) => {
   if (!value) return '';
@@ -35,7 +36,8 @@ const buildError = (message, statusCode = 400, code = 'ORDER_SERVICE_INVALID') =
   return error;
 };
 
-const formatEuro = (value) => `${CalculationHelper.round(value).toFixed(2).replace('.', ',')} €`;
+// Gemeinsame de-DE-Formatierung (mit Tausenderpunkt), wie im restlichen Verlauf.
+const formatEuro = (value) => require('../utils/money').formatEuroDe(CalculationHelper.round(value)); // eslint-disable-line global-require
 
 const toMoney = (value, label) => {
   const numeric = typeof value === 'string' ? Number(value.replace(',', '.')) : Number(value);
@@ -107,7 +109,7 @@ class OrderServiceManagementService {
         dealerDiscountPercent: order.dealerDiscountPercent,
         dealerDiscountAmount: order.dealerDiscountAmount,
         taxRate: order.taxRate
-      });
+      }, { defaultTaxRate: await OrderService.resolveDefaultTaxRate(order) });
 
       console.log(`[OrderServiceManagement] Retrieved ${services.length} services for order ${orderId}`);
       return { services, pricing, order };
@@ -259,10 +261,40 @@ class OrderServiceManagementService {
           const { conditions } = ensureEdit();
           OrderService.applyOrderPricing(freshOrder, conditions);
         }
+
+        // Verlaufseintrag im SELBEN bedingten Speichervorgang wie Position und Auftragswert
+        // (HIST-3/HIST-5a). Die Revision (Finanz-Snapshot) folgt nach dem Speichern und wird
+        // ueber den eventKey verknuepft (refs.revisionId), damit der Verlauf sie nicht doppelt zeigt.
+        let historyEventKey = null;
+        // Nur echte Aenderungen erzeugen einen Eintrag: ein erneut gesendeter oder parallel
+        // doppelt gesendeter Stand (Preis bereits gesetzt) bleibt ohne Eintrag, auch mit Grund
+        // (HIST-6/HIST-3). Ein Grund allein ist keine Aenderung.
+        const wantsHistory = priced || (change && change.recordHistory === true);
+        if (wantsHistory) {
+          historyEventKey = OrderService.newEditEventKey();
+          const structuredChanges = [
+            ...(Array.isArray(change?.historyChanges) ? change.historyChanges : []),
+            ...(priced ? [{ field: 'totalCost', label: 'Auftragswert', from: previousGross, to: CalculationHelper.round(freshOrder.totalCost) }] : []),
+          ];
+          const onlyPrice = structuredChanges.length > 0
+            && structuredChanges.every((item) => /price|totalCost/.test(item.field));
+          OrderHistory.push(freshOrder, OrderHistory.entry({
+            key: 'Order Services Changed',
+            type: triggerReason === 'service_updated' && onlyPrice ? 'pricing' : 'services',
+            description: change?.action || 'Leistungen geändert',
+            actor,
+            source: 'Leistungen bearbeiten',
+            changes: structuredChanges,
+            reason,
+            eventKey: historyEventKey,
+            force: true,
+          }));
+        }
         return {
           ...change,
           priced,
           previousGross,
+          historyEventKey,
           reconciliation: edit ? edit.reconciliation : null,
         };
       },
@@ -270,7 +302,7 @@ class OrderServiceManagementService {
     );
 
     const warnings = [];
-    const hasHistoryEntry = context.priced || context.recordHistory === true || Boolean(reason);
+    const hasHistoryEntry = Boolean(context.historyEventKey);
     if (hasHistoryEntry) {
       const revision = await OrderServiceManagementService.recordRevisionWithRetry(order, {
         triggerReason,
@@ -287,7 +319,9 @@ class OrderServiceManagementService {
         ].filter(Boolean).join(' | '),
       });
       if (!revision) {
-        warnings.push('Die Änderung wurde gespeichert, konnte aber nicht in der Auftragshistorie protokolliert werden.');
+        warnings.push('Die Änderung wurde gespeichert und im Verlauf protokolliert, der Änderungsbeleg (Revision) konnte jedoch nicht angelegt werden.');
+      } else {
+        await OrderService.linkRevisionToHistory(order._id, context.historyEventKey, revision);
       }
     }
 
@@ -308,7 +342,9 @@ class OrderServiceManagementService {
 
     return {
       order,
-      pricing: OrderService.buildOrderPricingSummary(order),
+      pricing: OrderService.buildOrderPricingSummary(order, {
+        defaultTaxRate: await OrderService.resolveDefaultTaxRate(order),
+      }),
       warnings,
       financialSync,
     };
@@ -353,6 +389,8 @@ class OrderServiceManagementService {
           const line = order.services[serviceIndex];
           const previousPrice = CalculationHelper.round(line.price);
           const changes = [];
+          const historyChanges = [];
+          const previousName = await resolveLineName(line);
 
           const priceChanged = newPriceInput !== null && newPriceInput !== previousPrice;
           if (priceChanged) {
@@ -360,6 +398,7 @@ class OrderServiceManagementService {
             ensurePricing();
             line.price = newPriceInput;
             changes.push(`Standardpreis ${formatEuro(previousPrice)} → ${formatEuro(newPriceInput)}`);
+            historyChanges.push({ field: 'services.price', label: `Standardpreis „${previousName}“`, from: previousPrice, to: newPriceInput });
           }
 
           if (updateData.estimatedTime !== undefined && updateData.estimatedTime !== null && updateData.estimatedTime !== '') {
@@ -368,12 +407,18 @@ class OrderServiceManagementService {
             );
             if (minutes !== Number(line.estimatedTime)) {
               changes.push(`Zeit ${Number(line.estimatedTime) || 0} → ${minutes} Min.`);
+              historyChanges.push({ field: 'services.estimatedTime', label: `Zeit „${previousName}“ (Min.)`, from: Number(line.estimatedTime) || 0, to: minutes });
               line.estimatedTime = minutes;
             }
           }
 
           if (updateData.notes !== undefined) {
-            line.notes = String(updateData.notes || '');
+            const nextNotes = String(updateData.notes || '');
+            if (nextNotes !== String(line.notes || '')) {
+              changes.push('Notiz geändert');
+              historyChanges.push({ field: 'services.notes', label: `Notiz „${previousName}“`, from: String(line.notes || ''), to: nextNotes });
+            }
+            line.notes = nextNotes;
           }
 
           if (line.isManual === true) {
@@ -384,6 +429,7 @@ class OrderServiceManagementService {
               }
               if (name !== line.name) {
                 changes.push(`Name „${line.name}“ → „${name}“`);
+                historyChanges.push({ field: 'services.name', label: 'Name der Position', from: line.name, to: name });
                 line.name = name;
               }
             }
@@ -398,6 +444,7 @@ class OrderServiceManagementService {
             // eines aus dem Checkout uebernommenen Werts, kein Finanzabgleich).
             priced: priceChanged,
             recordHistory: changes.length > 0,
+            historyChanges,
             action: `Position „${name}“ geändert${changes.length ? `: ${changes.join(', ')}` : ''}`,
             customerMessage: `Ein Reparaturservice in Ihrem Auftrag #${order.orderNumber} wurde aktualisiert.`,
             logLine: `Service ${serviceId} updated in order ${orderId}. List price: ${line.price}.`,

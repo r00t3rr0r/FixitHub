@@ -1,0 +1,50 @@
+
+[CUSTUX-3 Kundensuche serverseitig, nur eigene Buchungen]
+  PASS search=iPhone -> genau die 2 eigenen iPhone-Buchungen :: 200 2
+  PASS total passt zur Trefferliste (nicht alle 3 Buchungen) :: 2
+  PASS fremde iPhone-Buchung nicht enthalten :: 6abf92b9667f2c3667a0f2f2,6abf92b9667f2c3667a0f33b
+  PASS Suche "Apple iPhone 13" (Marke + Modell) findet Buchung A :: 1
+  PASS Suche nach Auftragsnummer (Kleinschreibung) findet Buchung B :: 1
+  PASS Suche nach Buchungsnummer findet Buchung C :: BKG-2026-0003 -> 1
+  PASS fremde Auftragsnummer -> 0 Treffer (kein Fremdzugriff ueber die Suche) :: 200 0
+  PASS Suche wirkt ueber alle Seiten (Seite 2 mit limit=1 hat 1 Treffer, total 2) :: 2/1
+  PASS Sonderzeichen ".*" als Text: 200, 0 Treffer :: 200 0
+  PASS Sonderzeichen "(" als Text: 200, 0 Treffer :: 200 0
+  PASS Sonderzeichen "[" als Text: 200, 0 Treffer :: 200 0
+  PASS Sonderzeichen "iPhone|Pixel" als Text: 200, 0 Treffer :: 200 0
+  PASS Sonderzeichen "\" als Text: 200, 0 Treffer :: 200 0
+  PASS ohne Suche weiterhin alle 3 eigenen Buchungen :: 3
+  PASS paymentBalance (Gesamt/Offen) weiterhin in der Kundenliste :: {"total":99.8,"open":99.8}
+  PASS fremder Kunde findet nur seine eigene Buchung :: 1
+  PASS ohne Anmeldung -> 401 :: 401
+
+[Team-Suche unveraendert]
+  PASS Admin-Suche nach Kundenname findet die Buchung :: 200 1
+
+[CUSTUX-14 aktuelles Geraet + Nebenbefund hasComplaint]
+  PASS items[].device = aktuelles Geraet aus dem Auftrag :: Apple iPhone 13 Pro
+  PASS items[].orderNumber aus dem Auftrag :: ORD-BCL-001
+  PASS hasComplaint/status aus dem Auftrag (Reklamation nicht erneut angeboten) :: true completed
+  PASS gespeicherter Buchungs-Snapshot unveraendert (keine stille Datenaenderung) :: Apple iPhone 13
+  PASS Suche findet das korrigierte Geraet ("13 Pro") :: 1
+
+[Decision O4 Reklamations-Folgeauftraege bleiben in "Meine Buchungen" erreichbar]
+  PASS Folgeauftrag mit bookingId erscheint als eigene Position der Buchung :: ORD-BCL-001,ORD-BCL-002,ORD-BCL-FU1
+  PASS Position traegt isComplaintFollowup + Ursprungsauftrag (Label "Reklamationsauftrag zu ORD-…") :: true ORD-BCL-001
+  PASS Status/Geraet des Folgeauftrags aus dem Auftrag :: in-progress Apple iPhone 13
+  PASS fremder Auftrag mit gleicher bookingId erscheint NICHT :: 3
+  PASS Ursprungsauftrag nicht doppelt :: 3
+  PASS Folgeauftrag ohne bookingId (nur parentOrderId) erscheint bei der Buchung des Ursprungsauftrags :: ORD-BCL-FU2
+  PASS gespeicherte Buchungspositionen unveraendert (Lesezeit-Position) :: 2
+  PASS Suche nach der Folgeauftragsnummer findet die Buchung (total passt) :: 1
+  PASS fremder Kunde findet den Folgeauftrag nicht :: 200 0
+  PASS Liste des fremden Kunden ohne Folgeauftraege des Eigentuemers :: ORD-BCL-005,ORD-BCL-FOREIGN
+
+[DHL REVIEW-7 Gast-Buchung: Richtung des Buchungslabels]
+  PASS aelteres Rueckweg-Label -> shippingLabelDirection outbound :: 200 outbound
+  PASS Gastverlauf ohne Mitarbeiternamen (Kundenansicht bleibt) :: [["_id","status","title","description","completedAt","type"],["_id","status","title","description","completedAt","type"]]
+  PASS Einsendelabel (Hinweg) -> inbound :: 200 inbound
+  PASS /by-number liefert dieselbe Richtung :: 200 outbound
+  PASS falsche E-Mail -> 403 ohne Buchungsdaten :: 403
+
+Ergebnis: 38 PASS, 0 FAIL

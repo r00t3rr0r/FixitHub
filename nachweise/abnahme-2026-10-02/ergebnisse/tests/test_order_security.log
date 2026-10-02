@@ -1,0 +1,213 @@
+(node:1101363) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1101363) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1101363) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[A] Auftragshistorie (GET /api/orders/:id/revisions): Besitzpruefung und Filter
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9349ac9bbb84c978e65b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9349ac9bbb84c978e71f' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9349ac9bbb84c978e730')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+  PASS Vorbedingung: Revision mit Mitarbeitername und Notiz :: initial_creation,addon_added
+  PASS fremder Kunde: 403 deutsch :: 403 Zugriff verweigert.
+  PASS fremder Kunde: keine Historie, kein Mitarbeitername in der Antwort :: {"success":false,"error":"Zugriff verweigert."}
+  PASS Kunde: unbekannte und ungueltige ID -> ebenfalls 403 (keine Existenzpruefung) :: 403 403 Zugriff verweigert.
+  PASS Eigentuemer: 200 mit Betraegen seiner Historie :: 200 [[0,100],[100,120]]
+  PASS Eigentuemer: KEINE Mitarbeiternamen/-IDs und KEINE internen Notizen :: _id,orderId,revisionNumber,triggerReason,previousGrossAmount,newGrossAmount,deltaGrossAmount,snapshotItems,createdAt
+  PASS Personal: vollstaendige Historie :: 200 Sophie SEC
+  PASS Admin: vollstaendige Historie :: 200
+  PASS Personal: ungueltige/unbekannte ID -> 404 deutsch (kein 500 mit Cast-Fehler) :: 404 404 Auftrag wurde nicht gefunden.
+Get order by ID request received: 6abf9349ac9bbb84c978e730
+OrderService: Getting order by ID: 6abf9349ac9bbb84c978e730
+Access control check - Order customer ID: 6abf9349ac9bbb84c978e65b
+Access control check - Current user ID: 6abf9349ac9bbb84c978e6d3
+Access control check - User role: customer
+Access denied - User does not own order and is not admin/staff
+  PASS fremder Kunde GET /api/orders/:id: 403 ohne Auftragsdaten :: 403 Zugriff verweigert.
+Get order progress timeline request received for order: 6abf9349ac9bbb84c978e730
+OrderService: Getting order by ID: 6abf9349ac9bbb84c978e730
+Access denied - User does not own order and is not admin/staff
+  PASS fremder Kunde GET /api/orders/:id/progress-timeline: 403 ohne Auftragsdaten :: 403 Zugriff verweigert.
+  PASS fremder Kunde GET /api/orders/:id/shipments: 403 ohne Auftragsdaten :: 403 Zugriff verweigert.
+OrderService: Getting order by ID: 6abf9349ac9bbb84c978e730
+  PASS fremder Kunde GET /api/orders/:id/shipping-label: 403 ohne Auftragsdaten :: 403 Zugriff verweigert.
+OrderService: Getting order by ID: 6abf9349ac9bbb84c978e730
+  PASS fremder Kunde GET /api/orders/:id/return-label: 403 ohne Auftragsdaten :: 403 Zugriff verweigert.
+Get tracking info request received for order: 6abf9349ac9bbb84c978e730
+OrderService: Getting order by ID: 6abf9349ac9bbb84c978e730
+  PASS fremder Kunde GET /api/orders/:id/tracking: 403 ohne Auftragsdaten :: 403 Zugriff verweigert.
+  PASS fremder Kunde GET /api/orders/:id/revisions: 403 ohne Auftragsdaten :: 403 Zugriff verweigert.
+OrderService: Getting order by ID: 6abf9349ac9bbb84c978e730
+  PASS fremder Kunde POST /api/orders/:id/complaint: 403 :: 403
+
+[B] Mitarbeiterzuweisung an Zusatzleistung wird gespeichert
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9349ac9bbb84c978e65b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9349ac9bbb84c978e71f' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9349ac9bbb84c978e7b0')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+OrderService: Adding add-on to order: {
+  orderId: '6abf9349ac9bbb84c978e7b0',
+  addonData: { name: 'Expressbearbeitung', price: 30 },
+  staffId: new ObjectId('6abf9349ac9bbb84c978e706')
+}
+OrderService: Add-on added successfully
+OrderService: Adding add-on to order: {
+  orderId: '6abf9349ac9bbb84c978e7b0',
+  addonData: { name: 'Datensicherung', price: 20 },
+  staffId: new ObjectId('6abf9349ac9bbb84c978e706')
+}
+OrderService: Add-on added successfully
+Assign staff to add-on request received: 6abf9349ac9bbb84c978e7b0 6abf9349ac9bbb84c978e7de { staffId: '6abf9349ac9bbb84c978e711' }
+OrderService: Assigning staff to add-on: {
+  orderId: '6abf9349ac9bbb84c978e7b0',
+  addonId: '6abf9349ac9bbb84c978e7de',
+  staffId: '6abf9349ac9bbb84c978e711',
+  assigningStaffId: new ObjectId('6abf9349ac9bbb84c978e719')
+}
+OrderService: Staff assigned to add-on successfully
+  PASS nach 200: Mitarbeiter in der DB an der richtigen Zusatzleistung gespeichert :: 200 Der Mitarbeiter wurde der Zusatzleistung zugewiesen. :: [{"staffId":"6abf9349ac9bbb84c978e711","name":"Tom SEC","avatar":"","assignedAt":"2026-10-02T11:19:37.944Z"}]
+  PASS Name und Zeitpunkt der Zuweisung gespeichert :: {"staffId":"6abf9349ac9bbb84c978e711","name":"Tom SEC","avatar":"","assignedAt":"2026-10-02T11:19:37.944Z"}
+  PASS andere Zusatzleistung unveraendert :: null
+  PASS Antwort enthaelt die gespeicherte Zuweisung :: [{"staffId":"6abf9349ac9bbb84c978e711","name":"Tom SEC","avatar":"","assignedAt":"2026-10-02T11:19:37.944Z"}]
+Assign staff to add-on request received: 6abf9349ac9bbb84c978e7b0 6abf9349ac9bbb84c978e7de { staffId: '6abf9349ac9bbb84c978e711' }
+OrderService: Assigning staff to add-on: {
+  orderId: '6abf9349ac9bbb84c978e7b0',
+  addonId: '6abf9349ac9bbb84c978e7de',
+  staffId: '6abf9349ac9bbb84c978e711',
+  assigningStaffId: new ObjectId('6abf9349ac9bbb84c978e706')
+}
+OrderService: Staff assigned to add-on successfully
+  PASS doppelte Zuweisung: weiterhin genau EIN Eintrag :: 200 1
+  PASS Zuweisung aendert den Auftragswert nicht :: 150 -> 150
+Admin get order by ID request received: 6abf9349ac9bbb84c978e7b0
+OrderService: Getting order by ID: 6abf9349ac9bbb84c978e7b0
+  PASS Admin-Detail zeigt die Zuweisung :: [{"staffId":"6abf9349ac9bbb84c978e711","name":"Tom SEC","avatar":"","assignedAt":"2026-10-02T11:19:37.944Z"}]
+Get order by ID request received: 6abf9349ac9bbb84c978e7b0
+OrderService: Getting order by ID: 6abf9349ac9bbb84c978e7b0
+Access control check - Order customer ID: 6abf9349ac9bbb84c978e65b
+Access control check - Current user ID: 6abf9349ac9bbb84c978e65b
+Access control check - User role: customer
+Access granted - returning order details
+  PASS Kunde: Zusatzleistung ohne interne Mitarbeiterzuweisung :: 200 "(nicht enthalten)"
+
+[C] Reklamation: Nachholen der Pauschalenrechnung ist gegen langsame Rechnungserstellung abgesichert
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9349ac9bbb84c978e65b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9349ac9bbb84c978e71f' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf934aac9bbb84c978e82b')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error creating invoice for rejected offer: Simulierter Ausfall der Rechnungserstellung
+  PASS Vorbedingung: Ablehnung ohne Rechnung :: 200
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: '6abf934aac9bbb84c978e837',
+  customerId: '6abf9349ac9bbb84c978e65b',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0001',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS langsame Rechnungserstellung + zweite Wiederholung: genau EINE Rechnung :: INV-2026-0001=39
+  PASS Wiederholung A erstellt die Rechnung (39,00) :: 200 INV-2026-0001
+  PASS Wiederholung B waehrenddessen: 200 mit Hinweis "wird gerade erstellt", keine Rechnung :: 200 ["Die Rechnung über die Servicepauschale wird gerade erstellt. Bitte laden Sie die Seite in Kürze neu."]
+  PASS spaetere Wiederholung: dieselbe Rechnung :: 200 INV-2026-0001
+  PASS Protokoll: genau EIN Eintrag "Rechnung nachgeholt" :: offer_rejected,fee_invoice_created
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9349ac9bbb84c978e65b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9349ac9bbb84c978e71f' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf934aac9bbb84c978e8e7')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error creating invoice for rejected offer: Simulierter Ausfall der Rechnungserstellung
+ComplaintRoutes: Error re-creating invoice for rejected offer: Simulierter Dauerausfall
+ComplaintRoutes: Error re-creating invoice for rejected offer: Simulierter Dauerausfall
+ComplaintRoutes: Error re-creating invoice for rejected offer: Simulierter Dauerausfall
+  PASS drei gescheiterte Nachholversuche: jeweils 200 mit Warnung :: 200,200,200
+  PASS Protokoll: gescheiterte Versuche zusammengefasst (hoechstens EIN Eintrag) :: fee_invoice_retry_failed:{"attempts":3,"lastFailedAt":"2026-10-02T11:19:38.870Z"}
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: '6abf934aac9bbb84c978e8f3',
+  customerId: '6abf9349ac9bbb84c978e65b',
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'Servicepauschale für abgelehnte Reklamation CMP-2026-0002',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ],
+  discount: 0
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS nach den Ausfaellen: naechste Wiederholung erstellt genau EINE Rechnung :: 200 INV-2026-0002
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf9349ac9bbb84c978e65b'),
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  deviceType: 'Smartphone',
+  errorDescription: 'Test',
+  services: [ '6abf9349ac9bbb84c978e71f' ]
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf934bac9bbb84c978e9b8')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+ComplaintRoutes: Error creating invoice for rejected offer: Simulierter Ausfall der Rechnungserstellung
+  PASS Vorbedingung: haengender Lauf hat die Beanspruchung gesetzt und steckt in createInvoice :: erreicht=true
+  PASS haengender Versuch (auch nach 60 Min.): keine Rechnung auf Verdacht, deutscher Hinweis :: 200 ["Die Rechnung über die Servicepauschale wird gerade erstellt oder ein früherer Versuch wurde unterbrochen. Bitte in der Finanzverwaltung prüfen, ob die Rechnung vorliegt, und sie andernfalls manuell erstellen."]
+FinancialService: Creating invoice
+FinancialService: Cleaned invoice data: {
+  orderId: new ObjectId('6abf934bac9bbb84c978e9c4'),
+  customerId: new ObjectId('6abf9349ac9bbb84c978e65b'),
+  discount: 0,
+  items: [
+    {
+      serviceName: 'Servicepauschale',
+      description: 'manuell',
+      quantity: 1,
+      unitPrice: 39,
+      total: 39,
+      type: 'fee'
+    }
+  ]
+}
+FinancialService: Invoice created successfully with defaults applied
+  PASS nach manueller Rechnung: genau diese wird geliefert, keine zweite :: 200 INV-2026-0003
+
+[D] Loeschbestaetigung einer Reparaturposition an die gezeigte Abweichung gebunden
+  PASS confirmDeleteRepairService bildet die Bestaetigung aus der gezeigten Abweichung :: gefunden
+  PASS handleDeleteRepairService reicht repricingBasis an removeServiceFromOrder weiter :: gefunden
+Service s1 removed from order o1
+  OFFEN (cross-track client/src/api/orderServices.ts + server/routes/orderServiceRoutes.js + server/services/orderServiceManagementService.js): removeServiceFromOrder verwirft repricingBasis :: {"reason":"Test","confirmRepricing":true}
+
+==== 39 bestanden, 0 fehlgeschlagen ====
+  server/logs: 0 Schreibzugriff(e) dieses Tests umgeleitet nach /tmp/order-security-logs-xBeN3l

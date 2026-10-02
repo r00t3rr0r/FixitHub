@@ -1,0 +1,40 @@
+(node:1098088) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1098088) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1098088) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[Pfad 1] generateFromRepairOrders ohne manuellen Rabatt
+FinancialService: Generating invoice from repair orders: [ '6abf92cce473ec4bac165ede' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0001
+  PASS Rabatt = 7,48 (nicht 13,84) :: 7.48
+  PASS Brutto = 42,42 (nicht 36,06) :: 42.42
+  PASS Netto = 35,65 (nicht 30,30) :: 35.65
+  PASS MwSt = 6,77 (nicht 5,76) :: 6.77
+  PASS Rechnungsbrutto === Auftragswert :: 42.42 === 42.42
+
+[Pfad 2] createInvoiceFromOrder
+FinancialService: Creating invoice from order: 6abf92cce473ec4bac165fa2
+FinancialService: Invoice created from order successfully with resolved tax rate: 19%
+  PASS Rabatt = 7,48 :: 7.48
+  PASS Brutto = 42,42 === Auftragswert :: 42.42
+
+[Pfad 3] Ausdruecklicher Zusatzrabatt addiert sich, ersetzt nicht
+FinancialService: Generating invoice from repair orders: [ '6abf92cce473ec4bac165fd9' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0003
+  PASS Rabatt = 7,48 + 5,00 = 12,48 :: 12.48
+  PASS Brutto = 49,90 - 12,48 = 37,42 :: 37.42
+
+[Pfad 4] Mehrere Auftraege - Summe bleibt erhalten
+FinancialService: Generating invoice from repair orders: [ '6abf92cde473ec4bac166014', '6abf92cde473ec4bac166018' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0004
+  PASS Rabatt = 2 x 7,48 = 14,96 :: 14.96
+  PASS Brutto = 2 x 42,42 = 84,84 :: 84.84
+  PASS Rechnungsbrutto === Summe der Auftragswerte :: 84.84
+
+[Pfad 5] Kunde ohne Gruppenrabatt bleibt unveraendert
+FinancialService: Generating invoice from repair orders: [ '6abf92cde473ec4bac16604e' ]
+FinancialService: Invoice generated from repair orders: INV-2026-0005
+  PASS Kein Rabatt :: 0
+  PASS Brutto = 49,90 === Auftragswert :: 49.9
+
+==== 14 bestanden, 0 fehlgeschlagen ====

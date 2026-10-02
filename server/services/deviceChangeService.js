@@ -7,6 +7,8 @@ const OrderService = require('./orderService');
 const OrderRevisionService = require('./orderRevisionService');
 const ServiceService = require('./serviceService');
 const NotificationService = require('./notificationService');
+const { formatEuroDe } = require('../utils/money');
+const OrderHistory = require('../utils/orderHistory');
 
 const buildDeviceChangeError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -109,6 +111,23 @@ class DeviceChangeService {
 
         const originalTotalCost = Number(order.totalCost) || 0;
 
+        // Identische Wiederholung (Doppelklick/erneutes Absenden): nichts speichern, kein
+        // zweiter Verlaufseintrag 'Modellwechsel X -> X' (HIST-6).
+        const sameText = (left, right) => String(left || '').trim().toLowerCase() === String(right || '').trim().toLowerCase();
+        const hasReplacements = (Array.isArray(newDeviceInfo.serviceReplacements) && newDeviceInfo.serviceReplacements.length > 0)
+          || Boolean(newDeviceInfo.serviceReplacement && newDeviceInfo.serviceReplacement.newServiceId);
+        if (
+          sameText(originalDevice.brand, newDeviceInfo.deviceBrand)
+          && sameText(originalDevice.model, newDeviceInfo.deviceModel)
+          && sameText(originalDevice.type, newDeviceInfo.deviceType)
+          && !hasReplacements
+        ) {
+          throw buildDeviceChangeError(
+            `Gerät ist bereits als ${originalDevice.brand} ${originalDevice.model} (${originalDevice.type}) erfasst – keine Änderung gespeichert.`,
+            409
+          );
+        }
+
         // Preserve the originally booked device before it is overwritten. Write-once:
         // a second correction must not move the snapshot forward.
         if (!order.reportedDevice?.model) {
@@ -123,7 +142,13 @@ class DeviceChangeService {
         // Update device information
         order.deviceBrand = newDeviceInfo.deviceBrand;
         order.deviceModel = newDeviceInfo.deviceModel;
-        order.deviceType = newDeviceInfo.deviceType;
+        // K08: Katalogwerte sind klein geschrieben (DeviceModel.deviceType lowercase) - ein
+        // Unterschied nur in Gross-/Kleinschreibung ist keine Aenderung: gespeicherten Wert
+        // behalten, kein Eintrag 'Gerätetyp: Smartphone → smartphone' im Verlauf.
+        const storedDeviceType = sameText(originalDevice.type, newDeviceInfo.deviceType)
+          ? originalDevice.type
+          : newDeviceInfo.deviceType;
+        order.deviceType = storedDeviceType;
 
         const selectedServiceReplacements = [];
 
@@ -351,7 +376,7 @@ class DeviceChangeService {
           newDevice: {
             brand: newDeviceInfo.deviceBrand,
             model: newDeviceInfo.deviceModel,
-            type: newDeviceInfo.deviceType,
+            type: storedDeviceType,
           },
           serviceChanges: pricingChanges,
           totalCostBefore: originalTotalCost,
@@ -366,13 +391,33 @@ class DeviceChangeService {
         };
 
         // EIN atomarer Schreibvorgang: Geraet, Positionen, Auftragswert und Verlaufseintrag.
-        const timelineEntry = {
-          status: 'Device Changed',
-          description: `Modellwechsel: ${originalDevice.brand} ${originalDevice.model} -> ${newDeviceInfo.deviceBrand} ${newDeviceInfo.deviceModel}. Auftragskosten: ${originalTotalCost.toFixed(2)} EUR -> ${newTotalCost.toFixed(2)} EUR.`,
-          completedAt: new Date(),
-          staffId: String(userId || 'system'),
-          staffName: changedByName,
-        };
+        // Schluessel 'Device Changed' und der Beschreibungsanfang 'Modellwechsel: <alt> -> <neu>.'
+        // bleiben UNVERAENDERT - deviceInspectionService (Original/Ist-Geraet im Prüfbericht, K18)
+        // parst genau diesen Text. Grund, Geraetetyp und Service-Tausch stehen strukturiert in
+        // changes/reason (HIST-9).
+        const historyEventKey = OrderService.newEditEventKey();
+        const timelineEntry = OrderHistory.entry({
+          key: 'Device Changed',
+          type: 'device',
+          description: `Modellwechsel: ${originalDevice.brand} ${originalDevice.model} -> ${newDeviceInfo.deviceBrand} ${newDeviceInfo.deviceModel}. Auftragskosten: ${formatEuroDe(originalTotalCost)} -> ${formatEuroDe(newTotalCost)}.`,
+          actor: { id: String(userId || 'system'), name: changedByName },
+          source: String(newDeviceInfo.source || '').trim().slice(0, 80) || 'Gerätewechsel-Dialog',
+          changes: [
+            { field: 'deviceType', label: 'Gerätetyp', from: originalDevice.type, to: storedDeviceType },
+            { field: 'deviceBrand', label: 'Marke', from: originalDevice.brand, to: newDeviceInfo.deviceBrand },
+            { field: 'deviceModel', label: 'Modell', from: originalDevice.model, to: newDeviceInfo.deviceModel },
+            ...selectedServiceSwaps.map((swap) => ({
+              field: 'services',
+              label: 'Reparaturservice',
+              from: `${swap.previousServiceName} (${OrderHistory.formatEuroDe(swap.previousServicePrice)})`,
+              to: `${swap.newServiceName} (${OrderHistory.formatEuroDe(swap.newServicePrice)})`,
+            })),
+            { field: 'totalCost', label: 'Auftragswert', from: originalTotalCost, to: newTotalCost },
+          ],
+          reason: newDeviceInfo.reason,
+          eventKey: historyEventKey,
+          force: true,
+        });
         order.timeline.push(timelineEntry);
 
         return {
@@ -384,6 +429,7 @@ class DeviceChangeService {
           selectedServiceSwaps,
           timelineEntry,
           reconciliation,
+          historyEventKey,
         };
       });
       const {
@@ -395,6 +441,7 @@ class DeviceChangeService {
         selectedServiceSwaps,
         timelineEntry,
         reconciliation,
+        historyEventKey,
       } = context;
 
       const warnings = [];
@@ -405,14 +452,16 @@ class DeviceChangeService {
         changedByName,
         notes: [
           `Gerätewechsel ${originalDevice.brand} ${originalDevice.model} → ${newDeviceInfo.deviceBrand} ${newDeviceInfo.deviceModel}`,
-          ...selectedServiceSwaps.map((swap) => `„${swap.previousServiceName}“ → „${swap.newServiceName}“ (${swap.newServicePrice.toFixed(2)} EUR)`),
-          `Auftragswert ${originalTotalCost.toFixed(2)} EUR → ${newTotalCost.toFixed(2)} EUR`,
+          ...selectedServiceSwaps.map((swap) => `„${swap.previousServiceName}“ → „${swap.newServiceName}“ (${formatEuroDe(swap.newServicePrice)})`),
+          `Auftragswert ${formatEuroDe(originalTotalCost)} → ${formatEuroDe(newTotalCost)}`,
           OrderService.describeConfirmedRepricing(reconciliation),
           newDeviceInfo.reason ? `Grund: ${newDeviceInfo.reason}` : '',
         ].filter(Boolean).join(' | '),
       });
       if (!revision) {
-        warnings.push('Der Gerätewechsel wurde gespeichert, konnte aber nicht in der Auftragshistorie protokolliert werden.');
+        warnings.push('Der Gerätewechsel wurde gespeichert und im Verlauf protokolliert, der Änderungsbeleg (Revision) konnte jedoch nicht angelegt werden.');
+      } else {
+        await OrderService.linkRevisionToHistory(order._id, historyEventKey, revision);
       }
 
       try {
@@ -436,18 +485,22 @@ class DeviceChangeService {
       pricingChangesSummary.warnings = warnings;
       const paymentHistory = paymentAdjustment
         ? paymentAdjustment.refundAmount > 0
-          ? ` Erstattung fällig: ${paymentAdjustment.refundAmount.toFixed(2)} EUR.`
+          ? ` Erstattung fällig: ${formatEuroDe(paymentAdjustment.refundAmount)}.`
           : paymentAdjustment.additionalPaymentAmount > 0
-            ? ` Noch offen: ${paymentAdjustment.additionalPaymentAmount.toFixed(2)} EUR.`
+            ? ` Noch offen: ${formatEuroDe(paymentAdjustment.additionalPaymentAmount)}.`
             : ' Zahlung ist ausgeglichen.'
         : '';
       if (paymentHistory) {
         // Nur ein Zusatzhinweis im Verlauf - ein Fehler hier macht den bereits
         // gespeicherten Gerätewechsel nicht rückgängig und wird nicht als Fehler gemeldet.
         try {
-          const entry = order.timeline[order.timeline.length - 1];
-          entry.description = `${timelineEntry.description}${paymentHistory}`;
-          await order.save();
+          const description = `${timelineEntry.description}${paymentHistory}`;
+          await Order.updateOne(
+            { _id: order._id, 'timeline.eventKey': historyEventKey },
+            { $set: { 'timeline.$.description': description } }
+          );
+          const entry = (order.timeline || []).find((item) => item && item.eventKey === historyEventKey);
+          if (entry) entry.description = description;
         } catch (timelineError) {
           console.warn(`[DeviceChange] Warning updating timeline payment note: ${timelineError.message}`);
         }
@@ -486,11 +539,39 @@ class DeviceChangeService {
         throw buildDeviceChangeError('Auftrag wurde nicht gefunden.', 404);
       }
 
+      // Wer hat bestaetigt / abgelehnt (HIST-9)? Ein Eintrag je Geraetewechsel (eventKey
+      // bezieht sich auf den letzten 'Device Changed'-Eintrag) - Wiederholungen schreiben nichts.
+      const lastChange = [...(order.timeline || [])].reverse()
+        .find((item) => item && String(item.status || '').toLowerCase() === 'device changed');
+      const actor = await OrderHistory.resolveActor(userId);
+      const confirmationKey = `device-change-${confirmed ? 'confirmed' : 'not-confirmed'}:${lastChange?._id || 'none'}`;
+      // Nur der Aufruf, der den Eintrag tatsaechlich schreibt, benachrichtigt den Kunden -
+      // Wiederholung oder paralleler Doppelklick loesen keine zweite Benachrichtigung aus (HIST-6).
+      let firstConfirmation = false;
+      if (!OrderHistory.hasEventKey(order, confirmationKey)) {
+        const historyEntry = OrderHistory.entry({
+          key: confirmed ? 'Device Change Confirmed' : 'Device Change Not Confirmed',
+          type: 'device',
+          description: confirmed
+            ? `Gerätewechsel bestätigt (${order.deviceBrand} ${order.deviceModel})`
+            : `Gerätewechsel nicht bestätigt – der gespeicherte Stand (${order.deviceBrand} ${order.deviceModel}) bleibt bestehen`,
+          actor,
+          source: 'Gerätewechsel-Dialog',
+          eventKey: confirmationKey,
+        });
+        const { filter, update } = OrderHistory.updateFor(historyEntry, { _id: order._id });
+        const written = await Order.updateOne(filter, update);
+        firstConfirmation = Number(written?.modifiedCount || 0) > 0;
+        if (firstConfirmation && Array.isArray(order.timeline)) {
+          order.timeline.push(historyEntry);
+        }
+      }
+
       if (confirmed) {
         console.log(`[DeviceChange] Device change confirmed for order ${orderId} by user ${userId}`);
 
-        // Send confirmation notification to customer
-        try {
+        // Send confirmation notification to customer (nur beim ersten Bestaetigen)
+        if (firstConfirmation) try {
           const customerId = order.customerId?._id || order.customerId;
           if (customerId) {
             await NotificationService.createNotification({

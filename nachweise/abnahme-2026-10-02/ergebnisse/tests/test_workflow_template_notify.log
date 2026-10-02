@@ -1,0 +1,293 @@
+(node:1104325) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1104325) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1104325) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[A] Vorlagen-Optionen (Benachrichtigungsschalter, Automatisierungsregeln) wirken nicht
+Assign workflow to order request received: 6abf93ad9c3c405a38bccf05 { workflowTemplateId: '6abf93ad9c3c405a38bccef6' }
+OrderService: Assigning workflow to order: {
+  orderId: '6abf93ad9c3c405a38bccf05',
+  workflowTemplateId: '6abf93ad9c3c405a38bccef6',
+  staffId: new ObjectId('6abf93ac9c3c405a38bcceec'),
+  assignedWorkflowStaffId: null
+}
+OrderService: Order found: { orderId: '6abf93ad9c3c405a38bccf05', orderNumber: 'ORD-TPL-001' }
+OrderService: Workflow template found: {
+  templateId: new ObjectId('6abf93ad9c3c405a38bccef6'),
+  name: 'Vorlage AUS'
+}
+OrderService: Workflow not yet assigned, proceeding...
+OrderService: Workflow assigned successfully
+Start workflow request received: 6abf93ad9c3c405a38bccf05 6abf93ad9c3c405a38bccf0e
+OrderService: Starting workflow: {
+  orderId: '6abf93ad9c3c405a38bccf05',
+  workflowId: '6abf93ad9c3c405a38bccf0e',
+  staffId: new ObjectId('6abf93ac9c3c405a38bcceec')
+}
+OrderService: Updating order status to in-progress and assigning staff
+OrderService: Order status changed from "diagnostic-assessment" to "in-progress"
+OrderService: Assigning staff to order: Sven Technik
+OrderService: Added timeline entry for order status change
+OrderService: Added timeline entry for workflow start
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bcce85
+NotificationService: Notification created successfully
+OrderService: Workflow started successfully with order status updated and staff assigned
+Complete workflow step request received: 6abf93ad9c3c405a38bccf05 6abf93ad9c3c405a38bccf0e 6abf93ad9c3c405a38bccf0f {}
+OrderService: Completing workflow step: {
+  orderId: '6abf93ad9c3c405a38bccf05',
+  workflowId: '6abf93ad9c3c405a38bccf0e',
+  stepId: '6abf93ad9c3c405a38bccf0f',
+  staffId: new ObjectId('6abf93ac9c3c405a38bcceec')
+}
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bcce85
+NotificationService: Notification created successfully
+OrderService: Workflow step completed successfully
+Complete workflow step request received: 6abf93ad9c3c405a38bccf05 6abf93ad9c3c405a38bccf0e 6abf93ad9c3c405a38bccf10 {}
+OrderService: Completing workflow step: {
+  orderId: '6abf93ad9c3c405a38bccf05',
+  workflowId: '6abf93ad9c3c405a38bccf0e',
+  stepId: '6abf93ad9c3c405a38bccf10',
+  staffId: new ObjectId('6abf93ac9c3c405a38bcceec')
+}
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bcce85
+SystemConfigService: Getting system configuration
+SystemConfigService: No configuration found, creating default
+SystemConfigService: Configuration retrieved successfully
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:17] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"tpl-kunde-a@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:17] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"18ms","messageId":"<muqvhbz2.eun7y36dra@mcrepair.de>","to":"tpl-kunde-a@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:17] [EmailDelivery] INFO: Email delivered[0m {"to":"tpl-kunde-a@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvhbz2.eun7y36dra@mcrepair.de>","duration":"18ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+OrderService: Workflow step completed successfully
+Assign workflow to order request received: 6abf93ad9c3c405a38bcdd28 { workflowTemplateId: '6abf93ad9c3c405a38bccefb' }
+OrderService: Assigning workflow to order: {
+  orderId: '6abf93ad9c3c405a38bcdd28',
+  workflowTemplateId: '6abf93ad9c3c405a38bccefb',
+  staffId: new ObjectId('6abf93ac9c3c405a38bcceec'),
+  assignedWorkflowStaffId: null
+}
+OrderService: Order found: { orderId: '6abf93ad9c3c405a38bcdd28', orderNumber: 'ORD-TPL-002' }
+OrderService: Workflow template found: {
+  templateId: new ObjectId('6abf93ad9c3c405a38bccefb'),
+  name: 'Vorlage AN'
+}
+OrderService: Workflow not yet assigned, proceeding...
+OrderService: Workflow assigned successfully
+Start workflow request received: 6abf93ad9c3c405a38bcdd28 6abf93ad9c3c405a38bcdd36
+OrderService: Starting workflow: {
+  orderId: '6abf93ad9c3c405a38bcdd28',
+  workflowId: '6abf93ad9c3c405a38bcdd36',
+  staffId: new ObjectId('6abf93ac9c3c405a38bcceec')
+}
+OrderService: Updating order status to in-progress and assigning staff
+OrderService: Order status changed from "diagnostic-assessment" to "in-progress"
+OrderService: Assigning staff to order: Sven Technik
+OrderService: Added timeline entry for order status change
+OrderService: Added timeline entry for workflow start
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bcceca
+NotificationService: Notification created successfully
+OrderService: Workflow started successfully with order status updated and staff assigned
+Complete workflow step request received: 6abf93ad9c3c405a38bcdd28 6abf93ad9c3c405a38bcdd36 6abf93ad9c3c405a38bcdd37 {}
+OrderService: Completing workflow step: {
+  orderId: '6abf93ad9c3c405a38bcdd28',
+  workflowId: '6abf93ad9c3c405a38bcdd36',
+  stepId: '6abf93ad9c3c405a38bcdd37',
+  staffId: new ObjectId('6abf93ac9c3c405a38bcceec')
+}
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bcceca
+NotificationService: Notification created successfully
+OrderService: Workflow step completed successfully
+Complete workflow step request received: 6abf93ad9c3c405a38bcdd28 6abf93ad9c3c405a38bcdd36 6abf93ad9c3c405a38bcdd38 {}
+OrderService: Completing workflow step: {
+  orderId: '6abf93ad9c3c405a38bcdd28',
+  workflowId: '6abf93ad9c3c405a38bcdd36',
+  stepId: '6abf93ad9c3c405a38bcdd38',
+  staffId: new ObjectId('6abf93ac9c3c405a38bcceec')
+}
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bcceca
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:17] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"tpl-kunde-b@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:17] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"11ms","messageId":"<muqvhc6j.c0srw9e9ng@mcrepair.de>","to":"tpl-kunde-b@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:17] [EmailDelivery] INFO: Email delivered[0m {"to":"tpl-kunde-b@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvhc6j.c0srw9e9ng@mcrepair.de>","duration":"11ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+OrderService: Workflow step completed successfully
+  PASS echter Ablauf: zuweisen/starten/2 Schritte abschliessen -> 200 :: 200,200,200,200 | 200,200,200,200
+  PASS beide Auftraege: Reparatur abgeschlossen (ready-for-pickup) :: ready-for-pickup ready-for-pickup
+  PASS Schalter AN vs. AUS: identische Kundenbenachrichtigungen (Server wertet notificationSettings nicht aus) :: 3 vs 3
+  PASS genau die automatischen Statusmeldungen: Start, Fortschritt, Reparatur fertig :: order_update|Statusupdate zu Ihrem Auftrag ; order_update|Statusupdate zu Ihrem Auftrag ; order_update|Statusupdate zu Ihrem Auftrag
+  PASS Schalter AN vs. AUS: gleiche Anzahl E-Mails :: 1 vs 1
+  PASS Automatisierungsregel "send_notification" verschickt nichts :: kein Regeltext
+  PASS gespeicherte Vorlagenwerte bleiben unveraendert erhalten :: unveraendert
+
+[B] Reparatur-Workflow: Abschluss + E-Mail-Fehler -> getrennt gemeldet, Wiederholen ohne Duplikat
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93ad9c3c405a38bce505') to in-progress
+OrderService: Order status updated successfully
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93ad9c3c405a38bce505') to ready-for-pickup
+OrderService: Order status updated successfully
+  PASS Abschluss mit "Kunde informieren" AUS: keine Benachrichtigung, keine E-Mail :: 200
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93ae9c3c405a38bce535') to in-progress
+OrderService: Order status updated successfully
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93ae9c3c405a38bce535') to ready-for-pickup
+OrderService: Order status updated successfully
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bccee3
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:18] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"tpl-retry@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[31m[11:21:18] [EmailRetry] ERROR: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) failed after 1 attempts[0m {"attempt":1,"maxRetries":3,"isRetryable":false,"to":"tpl-retry@test.invalid","errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at transporter.sendMail (/home/adar/Projects/FixitHub/test-workflow-template-notify.js:138:25) |     at EmailService.operation (/home/adar/Projects/FixitHub/server/services/emailService.js:1024:34)"} [Context: {"retryHandler":true}]
+[31m[11:21:18] [EmailRetry] ERROR: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) failed after 2 attempts[0m {"attempt":2,"maxRetries":3,"isRetryable":false,"to":"tpl-retry@test.invalid","errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at transporter.sendMail (/home/adar/Projects/FixitHub/test-workflow-template-notify.js:138:25) |     at EmailService.operation (/home/adar/Projects/FixitHub/server/services/emailService.js:1024:34)"} [Context: {"retryHandler":true}]
+[31m[11:21:18] [EmailRetry] ERROR: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) failed after 3 attempts[0m {"attempt":3,"maxRetries":3,"isRetryable":false,"to":"tpl-retry@test.invalid","errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at transporter.sendMail (/home/adar/Projects/FixitHub/test-workflow-template-notify.js:138:25) |     at EmailService.operation (/home/adar/Projects/FixitHub/server/services/emailService.js:1024:34)"} [Context: {"retryHandler":true}]
+[31m[11:21:18] [EmailDelivery] ERROR: Email delivery failed[0m {"to":"tpl-retry@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","attempts":1,"errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at EmailDeliveryTracker.recordDelivery (/home/adar/Projects/FixitHub/server/utils/emailLogger.js:206:9) |     at EmailService.sendTemplateEmail (/home/adar/Projects/FixitHub/server/services/emailService.js:1084:30)"} [Context: {"deliveryTracker":true}]
+NotificationService: Error sending notification email: Error: 550 Mailbox nicht verfügbar (Testfehler)
+    at NotificationService.sendCustomerNotificationEmail (/home/adar/Projects/FixitHub/server/services/notificationService.js:498:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NotificationService.createNotification (/home/adar/Projects/FixitHub/server/services/notificationService.js:611:25)
+    at async RepairWorkflowService._notifyOrderCustomer (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:384:22)
+    at async RepairWorkflowService.completeRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:737:38)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:217:22
+NotificationService: Notification created successfully
+  PASS Abschluss gespeichert (200, Workflow abgeschlossen) trotz E-Mail-Fehler :: 200 completed
+  PASS Ergebnis getrennt gemeldet: In-App angekommen, E-Mail fehlgeschlagen, Warnung :: {"s":"failed","i":true,"e":"failed","w":1}
+  PASS fehlgeschlagenes Ergebnis am Workflow gespeichert :: failed
+  PASS nach Fehler: 1 In-App-Zeile, 0 zugestellte E-Mails :: 1 0
+RequireRole middleware: User tpl-retry@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde darf die Benachrichtigung nicht ausloesen (403) :: 403
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bccee3
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:18] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"tpl-retry@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:18] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"7ms","messageId":"<muqvhcjs.hq2h0jpt5u@mcrepair.de>","to":"tpl-retry@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:18] [EmailDelivery] INFO: Email delivered[0m {"to":"tpl-retry@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvhcjs.hq2h0jpt5u@mcrepair.de>","duration":"7ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS "Benachrichtigung erneut senden": gesendet :: 200 sent sent
+  PASS Wiederholen erzeugt KEINE zweite In-App-Zeile (nur E-Mail wiederholt) :: 1
+  PASS genau eine E-Mail mit dem urspruenglichen Kundentext :: 1
+  PASS gespeichertes Ergebnis: sent (In-App vorhanden) :: sent true
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+  PASS erneutes Wiederholen nach Erfolg: duplicate, nichts gesendet :: duplicate
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93ae9c3c405a38bcf498') to in-progress
+OrderService: Order status updated successfully
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93ae9c3c405a38bcf498') to ready-for-pickup
+OrderService: Order status updated successfully
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bccee3
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:18] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"tpl-retry@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[31m[11:21:18] [EmailRetry] ERROR: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) failed after 1 attempts[0m {"attempt":1,"maxRetries":3,"isRetryable":false,"to":"tpl-retry@test.invalid","errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at transporter.sendMail (/home/adar/Projects/FixitHub/test-workflow-template-notify.js:138:25) |     at EmailService.operation (/home/adar/Projects/FixitHub/server/services/emailService.js:1024:34)"} [Context: {"retryHandler":true}]
+[31m[11:21:18] [EmailRetry] ERROR: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) failed after 2 attempts[0m {"attempt":2,"maxRetries":3,"isRetryable":false,"to":"tpl-retry@test.invalid","errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at transporter.sendMail (/home/adar/Projects/FixitHub/test-workflow-template-notify.js:138:25) |     at EmailService.operation (/home/adar/Projects/FixitHub/server/services/emailService.js:1024:34)"} [Context: {"retryHandler":true}]
+[31m[11:21:18] [EmailRetry] ERROR: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) failed after 3 attempts[0m {"attempt":3,"maxRetries":3,"isRetryable":false,"to":"tpl-retry@test.invalid","errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at transporter.sendMail (/home/adar/Projects/FixitHub/test-workflow-template-notify.js:138:25) |     at EmailService.operation (/home/adar/Projects/FixitHub/server/services/emailService.js:1024:34)"} [Context: {"retryHandler":true}]
+[31m[11:21:18] [EmailDelivery] ERROR: Email delivery failed[0m {"to":"tpl-retry@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","attempts":1,"errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at EmailDeliveryTracker.recordDelivery (/home/adar/Projects/FixitHub/server/utils/emailLogger.js:206:9) |     at EmailService.sendTemplateEmail (/home/adar/Projects/FixitHub/server/services/emailService.js:1084:30)"} [Context: {"deliveryTracker":true}]
+NotificationService: Error sending notification email: Error: 550 Mailbox nicht verfügbar (Testfehler)
+    at NotificationService.sendCustomerNotificationEmail (/home/adar/Projects/FixitHub/server/services/notificationService.js:498:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NotificationService.createNotification (/home/adar/Projects/FixitHub/server/services/notificationService.js:611:25)
+    at async RepairWorkflowService._notifyOrderCustomer (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:384:22)
+    at async RepairWorkflowService.completeRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:737:38)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:217:22
+NotificationService: Notification created successfully
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bccee3
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bccee3
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bccee3
+NotificationService: Concurrent duplicate e-mail-only notification suppressed: repairwf:6abf93ae9c3c405a38bcf49e:completion:main:retry:1790940078419
+NotificationService: Duplicate e-mail-only notification suppressed: repairwf:6abf93ae9c3c405a38bcf49e:completion:main:retry:1790940078419
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:18] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"tpl-retry@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:18] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"2ms","messageId":"<muqvhcss.j06dtv766q@mcrepair.de>","to":"tpl-retry@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:18] [EmailDelivery] INFO: Email delivered[0m {"to":"tpl-retry@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvhcss.j06dtv766q@mcrepair.de>","duration":"2ms","attempts":1} [Context: {"deliveryTracker":true}]
+  PASS paralleles Wiederholen: genau eine E-Mail, eine In-App-Zeile :: duplicate,duplicate,sent mails=1 rows=1
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93ae9c3c405a38bd040b') to in-progress
+OrderService: Order status updated successfully
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+OrderService: Updating order status: new ObjectId('6abf93ae9c3c405a38bd040b') to ready-for-pickup
+OrderService: Order status updated successfully
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bccee3
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:18] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"tpl-retry@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[31m[11:21:18] [EmailRetry] ERROR: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) failed after 1 attempts[0m {"attempt":1,"maxRetries":3,"isRetryable":false,"to":"tpl-retry@test.invalid","errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at transporter.sendMail (/home/adar/Projects/FixitHub/test-workflow-template-notify.js:138:25) |     at EmailService.operation (/home/adar/Projects/FixitHub/server/services/emailService.js:1024:34)"} [Context: {"retryHandler":true}]
+[31m[11:21:18] [EmailRetry] ERROR: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) failed after 2 attempts[0m {"attempt":2,"maxRetries":3,"isRetryable":false,"to":"tpl-retry@test.invalid","errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at transporter.sendMail (/home/adar/Projects/FixitHub/test-workflow-template-notify.js:138:25) |     at EmailService.operation (/home/adar/Projects/FixitHub/server/services/emailService.js:1024:34)"} [Context: {"retryHandler":true}]
+[31m[11:21:18] [EmailRetry] ERROR: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) failed after 3 attempts[0m {"attempt":3,"maxRetries":3,"isRetryable":false,"to":"tpl-retry@test.invalid","errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at transporter.sendMail (/home/adar/Projects/FixitHub/test-workflow-template-notify.js:138:25) |     at EmailService.operation (/home/adar/Projects/FixitHub/server/services/emailService.js:1024:34)"} [Context: {"retryHandler":true}]
+[31m[11:21:18] [EmailDelivery] ERROR: Email delivery failed[0m {"to":"tpl-retry@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","attempts":1,"errorMessage":"550 Mailbox nicht verfügbar (Testfehler)","errorStack":"Error: 550 Mailbox nicht verfügbar (Testfehler) |     at EmailDeliveryTracker.recordDelivery (/home/adar/Projects/FixitHub/server/utils/emailLogger.js:206:9) |     at EmailService.sendTemplateEmail (/home/adar/Projects/FixitHub/server/services/emailService.js:1084:30)"} [Context: {"deliveryTracker":true}]
+NotificationService: Error sending notification email: Error: 550 Mailbox nicht verfügbar (Testfehler)
+    at NotificationService.sendCustomerNotificationEmail (/home/adar/Projects/FixitHub/server/services/notificationService.js:498:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NotificationService.createNotification (/home/adar/Projects/FixitHub/server/services/notificationService.js:611:25)
+    at async RepairWorkflowService._notifyOrderCustomer (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:384:22)
+    at async RepairWorkflowService.completeRepair (/home/adar/Projects/FixitHub/server/services/repairWorkflowService.js:737:38)
+    at async /home/adar/Projects/FixitHub/server/routes/repairWorkflowRoutes.js:217:22
+NotificationService: Notification created successfully
+RequireRole middleware: User tpl-staff@test.invalid has required role staff
+NotificationService: Creating notification for user: 6abf93ac9c3c405a38bccee3
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+[32m[11:21:18] [EmailService] INFO: Attempting to send template email[0m {"templateName":"Benachrichtigungs-Updates fuer Kunden","to":"tpl-retry@test.invalid","variableKeys":["companyName","customerName","notificationCategoryLabel","notificationCreatedAt","notificationTitle","notificationMessage","notificationReference","notificationActionLabel","notificationsUrl","notificationActionUrl","notificationTypeSummary","orderNumber","deviceBrand","deviceModel","orderDeviceVisual","supportEmail","supportPhone","baseUrl","deviceModelImageUrl"]} [Context: {"service":"email","version":"2.0"}]
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Rendering template "Benachrichtigungs-Updates fuer Kunden" for channel "email"
+SystemConfigService: Getting system configuration
+SystemConfigService: Configuration retrieved successfully
+NotificationTemplateService: Template rendered successfully
+[32m[11:21:18] [EmailRetry] INFO: sendTemplateEmail(Benachrichtigungs-Updates fuer Kunden) succeeded[0m {"attempt":1,"duration":"3ms","messageId":"<muqvhd06.ru28rdbfgf@mcrepair.de>","to":"tpl-retry@test.invalid"} [Context: {"retryHandler":true}]
+[32m[11:21:18] [EmailDelivery] INFO: Email delivered[0m {"to":"tpl-retry@test.invalid","subject":"Neue Benachrichtigung bei McRepair.de: Aufträge","messageId":"<muqvhd06.ru28rdbfgf@mcrepair.de>","duration":"3ms","attempts":1} [Context: {"deliveryTracker":true}]
+NotificationService: Notification created successfully
+  PASS geaenderter Text: neue Nachricht in Glocke und E-Mail :: sent rows=2 mails=1
+
+Ergebnis: 20 bestanden, 0 fehlgeschlagen

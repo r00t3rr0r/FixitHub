@@ -32,14 +32,54 @@ export const getCommunicationThread = async (orderId: string) => {
   }
 };
 
-// Description: Send a message in the communication thread
+// Interne Notiz eines Auftrags (Speicher Order.staffNotes, Typ 'internal'). Kommt NUR in
+// Personal-Antworten vor - Kunden- und Gastpfade liefern das Feld nie aus.
+export interface InternalNote {
+  _id: string;
+  staffId: string | null;
+  staffName: string;
+  note: string;
+  createdAt: string;
+  visibility: 'internal';
+}
+
+// Description: Get thread plus (staff only) internal notes
+// Endpoint: GET /api/inspection-communication/:orderId
+// Response: { communication: Object|null, internalNotes?: InternalNote[] }
+export const getCommunicationThreadWithNotes = async (orderId: string): Promise<{ communication: any; internalNotes: InternalNote[] | null }> => {
+  try {
+    const response = await api.get(`/api/inspection-communication/${orderId}`);
+    return {
+      communication: response.data.communication,
+      internalNotes: Array.isArray(response.data.internalNotes) ? response.data.internalNotes : null,
+    };
+  } catch (error) {
+    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+  }
+};
+
+// Description: Save an internal note (staff only; customer is NOT notified)
+// Endpoint: POST /api/inspection-communication/:orderId/internal-note
+// Request: { note: string, clientMessageId?: string }
+// Response: { internalNote, internalNotes, created }
+export const addInternalNote = async (orderId: string, note: string, clientMessageId?: string) => {
+  try {
+    const response = await api.post(`/api/inspection-communication/${orderId}/internal-note`, { note, clientMessageId });
+    return response.data as { internalNote: InternalNote | null; internalNotes: InternalNote[]; created: boolean };
+  } catch (error) {
+    throw new Error((error as any)?.response?.data?.error || (error as any).message);
+  }
+};
+
+// Description: Send a message in the communication thread (customer-visible)
 // Endpoint: POST /api/inspection-communication/:orderId/message
-// Request: { content: string }
-// Response: { communication: Object }
-export const sendMessage = async (orderId: string, content: string) => {
+// Request: { content: string, clientMessageId?: string }  (gleiche clientMessageId = keine Doppelnachricht)
+// Response: { communication: Object, created: boolean }
+export const sendMessage = async (orderId: string, content: string, clientMessageId?: string) => {
   try {
     const response = await api.post(`/api/inspection-communication/${orderId}/message`, {
       content,
+      clientMessageId,
     });
     return response.data.communication;
   } catch (error) {
@@ -52,17 +92,20 @@ export const sendMessage = async (orderId: string, content: string) => {
 // Endpoint: POST /api/inspection-communication/:orderId/feedback-request
 // Request: { inspectionId: string, question: string, options: Array<{label, value}> }
 // Response: { communication: Object }
+// inspectionId ist optional: der Server uebernimmt nur eine DeviceInspection dieses Auftrags.
 export const sendFeedbackRequest = async (
   orderId: string,
-  inspectionId: string,
+  inspectionId: string | undefined,
   question: string,
-  options: Array<{ label: string; value: string }>
+  options: Array<{ label: string; value: string }>,
+  clientMessageId?: string
 ) => {
   try {
     const response = await api.post(`/api/inspection-communication/${orderId}/feedback-request`, {
-      inspectionId,
+      inspectionId: inspectionId || undefined,
       question,
       options,
+      clientMessageId,
     });
     return response.data.communication;
   } catch (error) {
@@ -98,17 +141,19 @@ export const respondToFeedback = async (
 // Response: { communication: Object }
 export const createQuickAction = async (
   orderId: string,
-  inspectionId: string,
+  inspectionId: string | undefined,
   actionType: 'part_replacement' | 'incorrect_device' | 'incorrect_unlock_code' | 'additional_costs' | 'update_unlock_info' | 'customer_defect_info',
   description?: string,
-  metadata?: any
+  metadata?: any,
+  clientMessageId?: string
 ) => {
   try {
     const response = await api.post(`/api/inspection-communication/${orderId}/quick-action`, {
-      inspectionId,
+      inspectionId: inspectionId || undefined,
       actionType,
       description,
       metadata,
+      clientMessageId,
     });
     return response.data.communication;
   } catch (error) {

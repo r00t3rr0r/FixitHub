@@ -1,3 +1,4 @@
+import { formatEUR } from '@/lib/utils';
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +15,9 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Eye,
+  Lock,
+  Send,
 } from 'lucide-react';
 import {
   initializeInspection,
@@ -27,7 +31,6 @@ import {
   completeInspection,
   getKnownRepairCost,
 } from '@/api/deviceInspection';
-import { createQuickAction } from '@/api/inspectionCommunication';
 import {
   getDeviceTypes,
   getManufacturersByDeviceType,
@@ -233,9 +236,15 @@ export function DeviceInspectionForm({
   const [repairTimeframe, setRepairTimeframe] = useState('');
   const [repairDescription, setRepairDescription] = useState('');
   const [informCustomer, setInformCustomer] = useState(false);
+  // Warnung, wenn beim Start der Eingangsprüfung Auftragsstatus/-verlauf nicht gespeichert wurden.
+  const [orderSyncWarning, setOrderSyncWarning] = useState<string | null>(null);
+  const [retryingOrderSync, setRetryingOrderSync] = useState(false);
   const [customerInfoReason, setCustomerInfoReason] = useState('');
   const [customerInfoNote, setCustomerInfoNote] = useState('');
+  // "Nachricht an Kunden" (NOTIF-7): der EINZIGE Text, der den Kunden erreicht. customerInfoNote
+  // ist die interne Notiz und bleibt im Team. (Der Zustandsname stammt vom frueheren Vorlagenfeld.)
   const [customerInfoMailTemplate, setCustomerInfoMailTemplate] = useState('');
+  const [customerInfoSentAt, setCustomerInfoSentAt] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [submittingStep, setSubmittingStep] = useState<number | null>(null);
@@ -741,7 +750,8 @@ export function DeviceInspectionForm({
       setInformCustomer(Boolean(insp.customerInformation.shouldInform));
       setCustomerInfoReason(insp.customerInformation.reason || '');
       setCustomerInfoNote(insp.customerInformation.note || '');
-      setCustomerInfoMailTemplate(insp.customerInformation.mailTemplate || '');
+      setCustomerInfoMailTemplate(insp.customerInformation.customerMessage || insp.customerInformation.mailTemplate || '');
+      setCustomerInfoSentAt(insp.customerInformation.sentAt || null);
     }
 
     const completedStepIds: number[] = Array.isArray(insp.completedSteps)
@@ -886,6 +896,9 @@ export function DeviceInspectionForm({
         if (!existingInspection) {
           const result = await initializeInspection(orderId, customerId);
           existingInspection = result.inspection;
+          // Auftragsstatus/-verlauf nicht aktualisiert (HIST-5c): sichtbar melden statt verschlucken.
+          const initWarnings: string[] = Array.isArray((result as any)?.warnings) ? (result as any).warnings : [];
+          if (!cancelled) setOrderSyncWarning(initWarnings[0] || null);
         }
 
         if (cancelled) return;
@@ -1540,21 +1553,19 @@ export function DeviceInspectionForm({
   const handleCompleteInspection = async () => {
     if (submitting) return;
 
-    const shouldSendCustomerInfo = informCustomer || completionAction === 'inform-customer' || defectActionRequested;
-    const generatedTemplate = customerInfoMailTemplate.trim() || [
-      'Betreff: Wichtige Information zu Ihrer Reparatur',
-      '',
-      'Guten Tag,',
-      '',
-      `bei der Geräteinspektion zu Auftrag ${orderId} wurden zusätzliche Auffälligkeiten festgestellt.`,
-      customerInfoReason ? `Grund: ${customerInfoReason}` : '',
-      customerInfoNote ? `Hinweis: ${customerInfoNote}` : '',
-      '',
-      'Bitte teilen Sie uns mit, wie wir weiter vorgehen sollen.',
-      '',
-      'Viele Grüße',
-      'Ihr McRepair.de Team',
-    ].filter(Boolean).join('\n');
+    // Nur der Haken in Schritt 7 entscheidet (der Haken in Schritt 6 setzt ihn vor; der alte
+    // completionAction-Wert zaehlt nicht mehr). Gesendet wird ausschliesslich die "Nachricht an
+    // Kunden" - nie die interne Notiz.
+    const shouldSendCustomerInfo = informCustomer;
+    const customerMessage = customerInfoMailTemplate.trim();
+    if (shouldSendCustomerInfo && !customerMessage) {
+      toast({
+        variant: 'destructive',
+        title: t('inspection.toast.errorTitle', 'Fehler'),
+        description: 'Bitte geben Sie die Nachricht an den Kunden ein (oder entfernen Sie den Haken „Kunde informieren“).',
+      });
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -1591,7 +1602,9 @@ export function DeviceInspectionForm({
           note: customerInfoNote,
           suggestedStatus: completionAction === 'inform-customer' ? 'awaiting-customer' : '',
           // Only stored when the customer is actually to be informed.
-          mailTemplate: shouldSendCustomerInfo ? generatedTemplate : '',
+          mailTemplate: shouldSendCustomerInfo ? customerMessage : '',
+          // The server informs the customer (in-app + e-mail, once per inspection) only with this text.
+          customerMessage: shouldSendCustomerInfo ? customerMessage : '',
         }
       );
       // Step 7 is held to the same rule as steps 1-6: a 2xx without an inspection in the
@@ -1599,37 +1612,60 @@ export function DeviceInspectionForm({
       const completedInspection = assertSaved(completionResult);
       applySavedInspection(completedInspection);
 
-      if (shouldSendCustomerInfo && inspection?._id) {
-        try {
-          await createQuickAction(
-            orderId,
-            inspection._id,
-            'customer_defect_info',
-            customerInfoNote || customerInfoReason || 'Kunde über technischen Defekt informieren',
-            {
-              completionAction,
-              reason: customerInfoReason,
-              defectActionRequested,
-              imeiMissing: canonicalDeviceType === 'Smartphone' && !imei,
-            }
-          );
-        } catch (quickActionError) {
-          console.warn('Could not create customer defect quick action', quickActionError);
-        }
-      }
-
       localStorage.removeItem(draftKey);
       sessionStorage.removeItem(draftKey);
       toast({
         title: t('inspection.toast.successTitle', 'Erfolg'),
         description: t('inspection.toast.completed', 'Inspektion abgeschlossen'),
       });
+
+      // Verlauf nicht aktualisiert (HIST-10): getrennt vom Speichererfolg melden.
+      const completionWarnings: string[] = Array.isArray((completionResult as any)?.warnings) ? (completionResult as any).warnings : [];
+      completionWarnings.forEach((warning) => toast({ variant: 'destructive', title: 'Hinweis', description: warning }));
+
+      // Speichern und Kundeninformation werden getrennt gemeldet.
+      if (shouldSendCustomerInfo) {
+        const customerNotification = (completionResult as any)?.customerNotification as
+          | { status?: string; reason?: string; error?: string }
+          | undefined;
+        const notifyStatus = customerNotification?.status;
+        if (notifyStatus === 'sent') {
+          toast({ title: 'Kunde wurde informiert', description: 'Die Nachricht an den Kunden wurde gesendet (Benachrichtigung und E-Mail).' });
+        } else if (notifyStatus === 'duplicate') {
+          toast({ title: 'Kunde bereits informiert', description: 'Zu dieser Inspektion wurde der Kunde bereits informiert. Es wurde keine zweite Nachricht gesendet.' });
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Kunde wurde nicht informiert',
+            description: customerNotification?.reason === 'no_customer_account'
+              ? 'Der Auftrag hat kein Kundenkonto. Bitte informieren Sie den Kunden auf anderem Weg.'
+              : `Die Inspektion ist gespeichert, aber die Nachricht an den Kunden konnte nicht gesendet werden${customerNotification?.error ? `: ${customerNotification.error}` : '.'}`,
+          });
+        }
+      }
       onComplete?.();
     } catch (error: any) {
       showErrorToast(error);
     } finally {
       setSubmitting(false);
       setSubmittingStep(null);
+    }
+  };
+
+  // Erneut versuchen: der Server holt Status und Verlaufseintrag genau einmal nach (idempotent).
+  const handleRetryOrderSync = async () => {
+    try {
+      setRetryingOrderSync(true);
+      const result: any = await initializeInspection(orderId, customerId);
+      const warnings: string[] = Array.isArray(result?.warnings) ? result.warnings : [];
+      setOrderSyncWarning(warnings[0] || null);
+      if (!warnings.length) {
+        toast({ title: 'Auftragsstatus aktualisiert', description: 'Die Eingangsprüfung steht jetzt auch im Auftragsverlauf.' });
+      }
+    } catch (error: any) {
+      showErrorToast(error);
+    } finally {
+      setRetryingOrderSync(false);
     }
   };
 
@@ -1643,6 +1679,14 @@ export function DeviceInspectionForm({
 
   return (
     <div className="inspection-form">
+      {orderSyncWarning && (
+        <div role="alert" className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <span className="flex-1 min-w-[200px]">{orderSyncWarning}</span>
+          <Button type="button" size="sm" variant="outline" onClick={handleRetryOrderSync} disabled={retryingOrderSync}>
+            {retryingOrderSync ? 'Wird erneut versucht …' : 'Erneut versuchen'}
+          </Button>
+        </div>
+      )}
       {bookedRepairs.length > 0 && (
         <Card className="inspection-step-card">
           <CardHeader className="inspection-step-header">
@@ -1652,13 +1696,13 @@ export function DeviceInspectionForm({
             {bookedRepairs.map((repair, index) => (
               <div key={`${repair.name}-${index}`} className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 text-sm">
                 <span>{repair.quantity && repair.quantity > 1 ? `${repair.name} x${repair.quantity}` : repair.name}</span>
-                <span className="font-semibold">{typeof repair.price === 'number' ? `${repair.price.toFixed(2)} EUR` : '-'}</span>
+                <span className="font-semibold">{typeof repair.price === 'number' && Number.isFinite(repair.price) ? formatEUR(repair.price) : 'Preis nicht hinterlegt'}</span>
               </div>
             ))}
             {typeof orderTotalCost === 'number' && (
               <div className="flex items-center justify-between border-t border-slate-200 pt-2 text-sm font-semibold">
                 <span>Aktuelle Auftragssumme</span>
-                <span>{orderTotalCost.toFixed(2)} EUR</span>
+                <span>{formatEUR(orderTotalCost)}</span>
               </div>
             )}
           </CardContent>
@@ -1755,8 +1799,13 @@ export function DeviceInspectionForm({
 
             <div>
               <Label htmlFor="model-notes">{t('inspection.fields.notes', 'Notizen')}</Label>
+              {/* Diese Notiz steht in der Kundenansicht der Inspektion (Allowlist im Server) - Text + Symbol, nicht nur Farbe. */}
+              <p id="model-notes-visibility" className="mt-1 mb-1.5 flex w-fit items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                <Eye className="h-3 w-3" aria-hidden="true" /> Für Kunden sichtbar (erscheint in „Diagnose ansehen“)
+              </p>
               <Textarea
                 id="model-notes"
+                aria-describedby="model-notes-visibility"
                 value={modelNotes}
                 onChange={(e) => setModelNotes(e.target.value)}
                 placeholder={t('inspection.placeholders.notes', 'Zusätzliche Hinweise...')}
@@ -1877,8 +1926,12 @@ export function DeviceInspectionForm({
 
               <div>
                 <Label htmlFor="additional-accessories">Weiteres Zubehör (z. B. Stift, Ladekabel)</Label>
+                <p id="additional-accessories-visibility" className="mt-1 mb-1.5 flex w-fit items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                  <Eye className="h-3 w-3" aria-hidden="true" /> Für Kunden sichtbar (erscheint in „Diagnose ansehen“)
+                </p>
                 <Input
                   id="additional-accessories"
+                  aria-describedby="additional-accessories-visibility"
                   value={additionalAccessories}
                   onChange={(e) => setAdditionalAccessories(e.target.value)}
                   placeholder="Freitext oder Komma-getrennte Liste"
@@ -1888,8 +1941,13 @@ export function DeviceInspectionForm({
 
             <div>
               <Label htmlFor="accessories-notes">{t('inspection.fields.additionalNotes', 'Zusätzliche Notizen')}</Label>
+              {/* Kundenansicht der Inspektion (Allowlist im Server) - Text + Symbol, nicht nur Farbe. */}
+              <p id="accessories-notes-visibility" className="mt-1 mb-1.5 flex w-fit items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                <Eye className="h-3 w-3" aria-hidden="true" /> Für Kunden sichtbar (erscheint in „Diagnose ansehen“)
+              </p>
               <Textarea
                 id="accessories-notes"
+                aria-describedby="accessories-notes-visibility"
                 value={accessoriesNotes}
                 onChange={(e) => setAccessoriesNotes(e.target.value)}
                 placeholder={t('inspection.placeholders.accessoriesNotes', 'Zubehör oder Zustand beschreiben...')}
@@ -1959,8 +2017,12 @@ export function DeviceInspectionForm({
               {hasDamage && (
                 <div>
                   <Label htmlFor="damage-desc">{t('inspection.fields.damageDescription', 'Schäden beschreiben')}</Label>
+                  <p id="damage-desc-visibility" className="mt-1 mb-1.5 flex w-fit items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                    <Eye className="h-3 w-3" aria-hidden="true" /> Für Kunden sichtbar (erscheint in „Diagnose ansehen“)
+                  </p>
                   <Textarea
                     id="damage-desc"
+                    aria-describedby="damage-desc-visibility"
                     value={damageDescription}
                     onChange={(e) => setDamageDescription(e.target.value)}
                     placeholder={t('inspection.placeholders.damageDescription', 'Schäden beschreiben...')}
@@ -1971,8 +2033,13 @@ export function DeviceInspectionForm({
 
             <div>
               <Label htmlFor="external-notes">{t('inspection.fields.additionalNotes', 'Zusätzliche Notizen')}</Label>
+              {/* Kundenansicht der Inspektion (Allowlist im Server) - Text + Symbol, nicht nur Farbe. */}
+              <p id="external-notes-visibility" className="mt-1 mb-1.5 flex w-fit items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                <Eye className="h-3 w-3" aria-hidden="true" /> Für Kunden sichtbar (erscheint in „Diagnose ansehen“)
+              </p>
               <Textarea
                 id="external-notes"
+                aria-describedby="external-notes-visibility"
                 value={externalNotes}
                 onChange={(e) => setExternalNotes(e.target.value)}
                 placeholder={t('inspection.placeholders.externalNotes', 'Besondere Beobachtungen...')}
@@ -2068,8 +2135,12 @@ export function DeviceInspectionForm({
             {buttonsStatus === 'not-working' && (
               <div>
                 <Label htmlFor="buttons-description">Beschreibung (optional)</Label>
+                <p id="buttons-description-visibility" className="mt-1 mb-1.5 flex w-fit items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                  <Eye className="h-3 w-3" aria-hidden="true" /> Für Kunden sichtbar (erscheint in „Diagnose ansehen“)
+                </p>
                 <Textarea
                   id="buttons-description"
+                  aria-describedby="buttons-description-visibility"
                   value={buttonsDescription}
                   onChange={(e) => setButtonsDescription(e.target.value)}
                   placeholder="Welche Taste funktioniert nicht?"
@@ -2089,8 +2160,12 @@ export function DeviceInspectionForm({
 
             <div>
               <Label htmlFor="device-test-notes">Zusätzliche Hinweise zu den Gerätetests</Label>
+              <p id="device-test-notes-visibility" className="mt-1 mb-1.5 flex w-fit items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                <Eye className="h-3 w-3" aria-hidden="true" /> Für Kunden sichtbar (erscheint in „Diagnose ansehen“)
+              </p>
               <Textarea
                 id="device-test-notes"
+                aria-describedby="device-test-notes-visibility"
                 value={deviceTestNotes}
                 onChange={(e) => setDeviceTestNotes(e.target.value)}
                 placeholder="z. B. Gerät lässt sich nicht einschalten"
@@ -2158,16 +2233,28 @@ export function DeviceInspectionForm({
                     <Checkbox
                       id="defect-action"
                       checked={defectActionRequested}
-                      onCheckedChange={(checked) => setDefectActionRequested(checked as boolean)}
+                      onCheckedChange={(checked) => {
+                        setDefectActionRequested(checked as boolean);
+                        // Setzt den Haken in Schritt 7 vor; gesendet wird erst dort mit der Nachricht an den Kunden.
+                        if (checked) setInformCustomer(true);
+                      }}
                     />
-                    <Label htmlFor="defect-action">Zusatzaktion aktivieren: Kunde über Defekt informieren</Label>
+                    <Label htmlFor="defect-action">Zusatzaktion aktivieren: Kunde über Defekt informieren (Nachricht in Schritt 7)</Label>
                   </div>
                   {defectActionRequested && (
-                    <Textarea
-                      value={defectActionNote}
-                      onChange={(e) => setDefectActionNote(e.target.value)}
-                      placeholder="Hinweis für Kommunikation/Statusnotiz"
-                    />
+                    <>
+                      <Label htmlFor="defect-action-note" className="sr-only">Hinweis an den Kunden zum Defekt</Label>
+                      <p id="defect-action-note-visibility" className="mt-1 mb-1.5 flex w-fit items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                        <Eye className="h-3 w-3" aria-hidden="true" /> Für Kunden sichtbar (erscheint in „Diagnose ansehen“)
+                      </p>
+                      <Textarea
+                        id="defect-action-note"
+                        aria-describedby="defect-action-note-visibility"
+                        value={defectActionNote}
+                        onChange={(e) => setDefectActionNote(e.target.value)}
+                        placeholder="Hinweis an den Kunden zum Defekt"
+                      />
+                    </>
                   )}
                 </div>
               )}
@@ -2238,8 +2325,12 @@ export function DeviceInspectionForm({
 
             <div>
               <Label htmlFor="repair-timeframe">{t('inspection.fields.repairTimeframe', 'Reparaturzeitraum')}</Label>
+              <p id="repair-timeframe-visibility" className="mt-1 mb-1.5 flex w-fit items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                <Eye className="h-3 w-3" aria-hidden="true" /> Für Kunden sichtbar (erscheint in „Diagnose ansehen“)
+              </p>
               <Input
                 id="repair-timeframe"
+                aria-describedby="repair-timeframe-visibility"
                 value={repairTimeframe}
                 onChange={(e) => setRepairTimeframe(e.target.value)}
                 placeholder={t('inspection.placeholders.repairTimeframe', 'z. B. 3-5 Tage')}
@@ -2248,8 +2339,12 @@ export function DeviceInspectionForm({
 
             <div>
               <Label htmlFor="repair-description">{t('inspection.fields.repairDescription', 'Reparaturbeschreibung')}</Label>
+              <p id="repair-description-visibility" className="mt-1 mb-1.5 flex w-fit items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                <Eye className="h-3 w-3" aria-hidden="true" /> Für Kunden sichtbar (erscheint in „Diagnose ansehen“)
+              </p>
               <Textarea
                 id="repair-description"
+                aria-describedby="repair-description-visibility"
                 value={repairDescription}
                 onChange={(e) => setRepairDescription(e.target.value)}
                 placeholder={t('inspection.placeholders.repairDescription', 'Erforderliche Reparatur beschreiben...')}
@@ -2269,7 +2364,7 @@ export function DeviceInspectionForm({
               {informCustomer && (
                 <>
                   <div>
-                    <Label htmlFor="customer-info-reason">Grund</Label>
+                    <Label htmlFor="customer-info-reason">Festgestellter Defekt (erscheint im Prüfbericht für den Kunden)</Label>
                     <Input
                       id="customer-info-reason"
                       value={customerInfoReason}
@@ -2277,22 +2372,58 @@ export function DeviceInspectionForm({
                       placeholder="z. B. Touch ID defekt / Modem-Firmware fehlerhaft"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="customer-info-note">Notiz</Label>
+                  <div className="space-y-1 rounded-md border border-blue-200 bg-blue-50/40 p-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label htmlFor="customer-message" className="flex items-center gap-2">
+                        <Send className="h-4 w-4" aria-hidden="true" />
+                        Nachricht an Kunden
+                        <Badge variant="outline" className="border-blue-300 text-blue-800">An Kunden</Badge>
+                      </Label>
+                      {!customerInfoMailTemplate.trim() && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCustomerInfoMailTemplate([
+                            'Guten Tag,',
+                            '',
+                            'bei der Eingangsprüfung Ihres Geräts ist uns ein Defekt bzw. eine Auffälligkeit aufgefallen'
+                              + (customerInfoReason.trim() ? `: ${customerInfoReason.trim()}.` : '.'),
+                            '',
+                            'Bitte teilen Sie uns mit, wie wir weiter vorgehen sollen.',
+                            '',
+                            'Viele Grüße',
+                            'Ihr McRepair.de Team',
+                          ].join('\n'))}
+                        >
+                          Vorschlag einfügen
+                        </Button>
+                      )}
+                    </div>
+                    <Textarea
+                      id="customer-message"
+                      value={customerInfoMailTemplate}
+                      onChange={(e) => setCustomerInfoMailTemplate(e.target.value)}
+                      placeholder="Dieser Text wird dem Kunden als Benachrichtigung und E-Mail gesendet."
+                      aria-required="true"
+                    />
+                    <p className="text-xs text-slate-600">
+                      {customerInfoSentAt
+                        ? `Bereits am ${new Date(customerInfoSentAt).toLocaleString('de-DE')} an den Kunden gesendet – erneutes Abschließen sendet keine zweite Nachricht.`
+                        : 'Wird beim Abschließen der Inspektion einmalig an den Kunden gesendet (Benachrichtigung und E-Mail).'}
+                    </p>
+                  </div>
+                  <div className="space-y-1 rounded-md border border-slate-200 bg-slate-50 p-2">
+                    <Label htmlFor="customer-info-note" className="flex items-center gap-2">
+                      <Lock className="h-4 w-4" aria-hidden="true" />
+                      Interne Notiz
+                      <Badge variant="secondary">Intern – nur für das Team</Badge>
+                    </Label>
                     <Textarea
                       id="customer-info-note"
                       value={customerInfoNote}
                       onChange={(e) => setCustomerInfoNote(e.target.value)}
-                      placeholder="Interne oder kundenbezogene Hinweise"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="customer-mail-template">Mail-Vorlage (optional editierbar)</Label>
-                    <Textarea
-                      id="customer-mail-template"
-                      value={customerInfoMailTemplate}
-                      onChange={(e) => setCustomerInfoMailTemplate(e.target.value)}
-                      placeholder="Automatisch generiert, falls leer"
+                      placeholder="Nur für das Team sichtbar – wird dem Kunden nie gesendet."
                     />
                   </div>
                 </>

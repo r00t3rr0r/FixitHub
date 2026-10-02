@@ -1,0 +1,33 @@
+
+[1] parseDecimalInput
+  PASS "0,02" -> 0.02 :: 0.02
+  PASS "0.02" -> 0.02 :: 0.02
+  PASS "12.50" -> 12.5 :: 12.5
+  PASS "12,50" -> 12.5 :: 12.5
+  PASS "6.90" -> 6.9 :: 6.9
+  PASS "0.015" -> 0.015 :: 0.015
+  PASS " 7 " -> 7 :: 7
+  PASS ",5" -> 0.5 :: 0.5
+  PASS "" -> null :: null
+  PASS "   " -> null :: null
+  PASS "abc" -> null :: null
+  PASS "1,2,3" -> null :: null
+  PASS "12." -> 12 :: 12
+  PASS "1.234,50" -> 1234.5 :: 1234.5
+  PASS "1.234,5" -> 1234.5 :: 1234.5
+  PASS "1,234.50" -> 1234.5 :: 1234.5
+  PASS "12.345.678,9" -> 12345678.9 :: 12345678.9
+  PASS "1.234" -> 1.234 :: 1.234
+  PASS "1.2.3" -> null :: null
+  PASS "1.23,4" -> null :: null
+  PASS "1.234," -> 1234 :: 1234
+  PASS formatDecimalInput deutsch :: 12,5 0,02
+
+[2] normalizeDialogOverflow
+  PASS overflow-hidden -> x-hidden + y-auto :: max-h-[85vh] overflow-x-hidden overflow-y-auto p-0
+  PASS overflow-y-hidden -> overflow-y-auto :: overflow-y-auto
+  PASS praefixierte Klasse bleibt :: sm:overflow-hidden
+  PASS overflow-clip (bewusstes Clippen) bleibt :: overflow-clip p-0
+  PASS undefined bleibt undefined :: undefined
+
+Ergebnis: 27 PASS, 0 FAIL

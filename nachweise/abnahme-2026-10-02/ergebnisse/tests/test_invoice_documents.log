@@ -1,0 +1,87 @@
+
+[0 Allererste Zaehleranlage unter Parallelitaet (noch kein Index)]
+  PASS erste Zaehleranlage parallel: 25 eindeutige Nummern, genau ein Zaehler :: 25 eindeutig / 1 Zaehler
+  PASS lueckenlos 0001..0025 :: INV-2031-0001 .. INV-2031-0025
+  PASS erste Gutschrift-Zaehleranlage parallel: eindeutig :: INV-CN-2032-0001,INV-CN-2032-0002,INV-CN-2032-0003,INV-CN-2032-0004,INV-CN-2032-0005,INV-CN-2032-0006
+
+[1 PDF-Inhalt einer Rechnung (alle Pflichtangaben)]
+  PASS Rechnung = Auftragswert, Rabatt einmal :: 84.92 / 14.98
+  PASS Rechnungsnummer :: INV-2026-0001
+  PASS Rechnungsdatum :: 02.10.2026
+  PASS Leistungsdatum = Rechnungsdatum :: 02.10.2026
+  PASS Fälligkeitsdatum (mit Umlaut) :: Fälligkeitsdatum: 09.10.2026
+  PASS Kundennummer :: K-10042
+  PASS Auftragsnummer :: ORD-2026-0101
+  PASS Buchungsnummer :: BKG-2026-0001
+  PASS Rechnungsadresse :: Hauptstraße 5 / 50667 Köln
+  PASS jede Position einzeln :: Displaytausch, Akkutausch, Rahmen richten
+  PASS IMEI und Seriennummer :: IMEI/SN
+  PASS Beschreibung der manuellen Position :: manuell
+  PASS Rabatt ausgewiesen :: 14,98
+  PASS Netto / MwSt / Brutto :: 71.36 / 13.56 / 84,92
+  PASS Steuersatz 19 % :: 19,00
+  PASS Zahlungsart deutsch (nicht roher Enum-Wert) :: Zahlungsart: PayPal
+  PASS Offener Betrag bei Erstellung (84,92 - 30,00 Vorauszahlung) :: 54,92
+  PASS Zahlung bei Erstellung (Datum, Betrag) :: 20.09.2026 / 30,00
+
+[2 Fusszeile exakt, kein Skonto, Bewertung nur mit konfiguriertem Ziel]
+  PASS Fusszeile enthaelt alle Pflichtangaben exakt :: vollstaendig
+  PASS keine ersetzten Umlaute / falsche Schreibweise :: -
+  PASS kein Skonto im PDF :: geprueft
+  PASS Bewertungstext exakt :: Wenn Sie mit der Reparatur zufrieden waren, bewerten Sie uns gern. Wir freuen uns auf Ihr Feedback!
+  PASS ohne GOOGLE_REVIEW_URL: kein QR-Code, keine erfundene Adresse :: []
+  PASS QR-Code kodiert genau das konfigurierte Ziel :: ["https://g.page/r/TEST-KONFIGURIERT/review"]
+
+[3 Archiviertes PDF: identisch erneut abrufbar, unveraendert nach Zahlung]
+  PASS Kunde laedt PDF (200, %PDF) :: 200
+  PASS zweiter Abruf liefert byte-identisches Dokument :: 8a0d93ec22ab / 8a0d93ec22ab
+  PASS PDF ist in der Datenbank archiviert (eigene Archivsammlung, sha256 stimmt, keine Inline-Bytes) :: <hex entfernt>
+  PASS offener Betrag bei Erstellung festgehalten :: 54.92
+  PASS nach spaeterer Zahlung: PDF unveraendert (historisch) :: 8a0d93ec22ab
+  PASS aktueller Stand kommt aus dem Saldo (bezahlt, offen 0) :: paid / 0
+
+[4 Zugriff: Admin, Mitarbeiter, Eigentuemer ja - fremder Kunde nein]
+  PASS Mitarbeiter laedt PDF :: 200
+  PASS fremder Kunde: 403 mit deutscher Meldung (PDF) :: 403 Sie haben keine Berechtigung für diese Rechnung.
+  PASS fremder Kunde: 403 mit deutscher Meldung (Detail) :: 403 Sie haben keine Berechtigung für diese Rechnung.
+  PASS fremder Kunde sieht die Rechnung nicht in seiner Liste :: 0
+  PASS Entwurf fuer Kunden unsichtbar (404, deutsch) :: 404 Die Rechnung wurde nicht gefunden.
+  PASS Mitarbeiter: Rechnungen zum Auftrag abrufbar :: 200 / 1
+  PASS Kunde: eigene Rechnungen zum Auftrag :: 200
+  PASS fremder Kunde: keine Rechnungen eines fremden Auftrags :: 403
+  PASS Detail liefert die Buchung zum Sprung "Bestellung" :: {"_id":"6abf931c69b5ea644e9b12ce","bookingNumber":"BKG-2026-0001"}
+
+[5 Nummernkreise: atomar, getrennt, eindeutig]
+  PASS Gutschriften: eigener Kreis INV-CN-JJJJ-NNNN ab 0001 :: INV-CN-2031-0001,INV-CN-2031-0002,INV-CN-2031-0003,INV-CN-2031-0004,INV-CN-2031-0005
+  PASS Unique-Index auf (documentType, year) :: [{"_id":1},{"documentType":1,"year":1}]
+  PASS Unique-Index auf invoiceNumber :: vorhanden
+  PASS 8 parallele Rechnungen: eindeutig, Format INV-JJJJ-NNNN :: INV-2026-0003,INV-2026-0004,INV-2026-0005,INV-2026-0006,INV-2026-0007,INV-2026-0008,INV-2026-0009,INV-2026-0010
+  PASS Seed-Trockenlauf schreibt nichts :: kein Zaehler
+  PASS nach Seed: naechste Nummern hinter dem Altbestand, beide Kreise :: INV-2029-0045 / INV-CN-2029-0045
+  PASS historische Nummern unveraendert :: CN--CN-2029-0044,INV-2029-0041
+
+[6 Gutschrift-PDF (T21) und keine doppelte Minderung]
+  PASS Titel und Nummer der Gutschrift :: INV-CN-2026-0011
+  PASS Bezug auf Ursprungsrechnung :: INV-2026-0011
+  PASS Bezug auf Auftrag :: ORD-2026-0202
+  PASS Kundennummer und Datum :: K-10042
+  PASS Netto / MwSt / Brutto der Gutschrift :: -16.81 / -3.19 / -20
+  PASS Steuersatz ausgewiesen, keine Rechnungs-Offen-Zeile :: ok
+  PASS Grund der Gutschrift sichtbar :: Kulanz wegen Verzögerung
+  PASS Fusszeile auch auf der Gutschrift :: IBAN
+  PASS Saldo: 100 - 20 genau einmal gemindert :: 80 / 80 / 20
+
+[7 Versand: persoenliche Nachricht, E-Mail-Fehler, Status]
+  PASS Versand meldet Nachricht als zugestellt :: {"d":true}
+  PASS Nachricht steht (HTML-escaped) in der E-Mail :: enthalten?
+  PASS kein roher Platzhalter :: ok
+  PASS PDF angehaengt :: 1
+  PASS Nachricht auch mit gespeicherter Vorlage ohne Platzhalter :: ok
+  PASS ohne Nachricht: kein Platzhalter-Rest :: ok
+  PASS Rechnung ist bezahlt :: paid
+  PASS E-Mail-Fehler: keine neue Rechnung :: 14 -> 14
+  PASS E-Mail-Fehler / erneuter Versand: Status bleibt "bezahlt" :: paid
+  PASS Fehlermeldung deutsch :: Die Rechnung wurde NICHT versendet, weil der E-Mail-Versand fehlgeschlagen ist. Der Beleg bleibt unverändert; der Versand kann erneut ausgelöst werden.
+  PASS Zahlungserinnerung traegt die Nachricht :: ok
+
+==== 69 bestanden, 0 fehlgeschlagen ====

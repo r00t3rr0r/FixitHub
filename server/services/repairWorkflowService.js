@@ -4,6 +4,13 @@ const DeviceInspection = require('../models/DeviceInspection');
 const Order = require('../models/Order');
 const InspectionCommunication = require('../models/InspectionCommunication');
 const EmailService = require('./emailService');
+const OrderHistory = require('../utils/orderHistory');
+const ReturnMethod = require('../utils/returnMethod');
+
+// Spaet geladen (Zyklen vermeiden: orderService laedt diesen Dienst beim Stornieren).
+const getOrderService = () => require('./orderService'); // eslint-disable-line global-require
+const getNotificationService = () => require('./notificationService'); // eslint-disable-line global-require
+const getDHLService = () => require('./dhlService'); // eslint-disable-line global-require
 
 // Fehler mit HTTP-Status und deutscher, UI-tauglicher Meldung. Die Routen geben
 // statusCode und message unveraendert weiter.
@@ -25,6 +32,143 @@ const STATUS_LABELS = {
 };
 
 const statusLabel = (status) => STATUS_LABELS[status] || 'in einem unbekannten Zustand';
+
+const INCIDENT_TYPE_LABELS = {
+  defective_part: 'Defektes Ersatzteil',
+  spare_part_needed: 'Ersatzteil benötigt',
+  customer_info: 'Rückfrage an Kunden',
+  other_repair: 'Weitere Reparatur nötig',
+  technician_handover: 'Techniker-Übergabe',
+  needs_time: 'Mehr Zeit erforderlich',
+};
+
+const MAX_CUSTOMER_MESSAGE = 2000;
+const cleanCustomerMessage = (value) => String(value || '').trim().slice(0, MAX_CUSTOMER_MESSAGE);
+
+const deviceLabelOf = (order) => [order?.deviceBrand, order?.deviceModel].filter(Boolean).join(' ').trim();
+
+/**
+ * Kundentexte der ausdruecklichen Workflow-Benachrichtigungen (NOTIF-5). Sie enthalten NIE
+ * interne Notizen, Pausen- oder Zwischenfallgruende - nur einen neutralen Standardtext oder den
+ * Text, den der Mitarbeiter ausdruecklich als "Nachricht an Kunden" eingegeben hat.
+ */
+const CUSTOMER_TITLES = {
+  approve: 'Reparatur begonnen',
+  complete: 'Reparatur abgeschlossen',
+  incident: 'Information zu Ihrer Reparatur',
+  customer_info: 'Rückfrage zu Ihrer Reparatur',
+};
+
+// returnMethod ('shipping'|'pickup'|'unknown', utils/returnMethod) nur fuer 'complete': der Fertig-Text
+// nennt den echten Rueckgabeweg; ohne Angabe neutral.
+const defaultCustomerMessage = (kind, order, incidentType = null, returnMethod = 'unknown') => {
+  const device = deviceLabelOf(order);
+  const subject = `Ihres Geräts${device ? ` (${device})` : ''}${order?.orderNumber ? ` zu Auftrag ${order.orderNumber}` : ''}`;
+  if (kind === 'approve') {
+    return `Die Reparatur ${subject} hat begonnen. Wir informieren Sie, sobald sie abgeschlossen ist.`;
+  }
+  if (kind === 'complete') {
+    return ReturnMethod.readyCustomerMessage(returnMethod, subject);
+  }
+  const incidentTexts = {
+    defective_part: `Bei der Reparatur ${subject} wurde ein defektes Ersatzteil festgestellt. Wir beschaffen Ersatz; dadurch kann sich die Reparatur verzögern.`,
+    spare_part_needed: `Für die Reparatur ${subject} wird ein zusätzliches Ersatzteil benötigt. Wir melden uns, sobald es eingetroffen ist.`,
+    customer_info: `Wir haben eine Rückfrage zur Reparatur ${subject}. Bitte antworten Sie uns über die Nachrichten in Ihrem Kundenkonto.`,
+    other_repair: `Bei der Reparatur ${subject} wurde ein weiterer Schaden festgestellt. Wir melden uns mit einem Vorschlag zum weiteren Vorgehen.`,
+    technician_handover: `Die Reparatur ${subject} wird von einem anderen Techniker weitergeführt. Für Sie ändert sich nichts.`,
+    needs_time: `Die Reparatur ${subject} benötigt etwas mehr Zeit als geplant. Wir informieren Sie, sobald sie abgeschlossen ist.`,
+  };
+  return incidentTexts[incidentType] || `Es gibt eine neue Information zur Reparatur ${subject}.`;
+};
+
+/**
+ * Auftragsverlauf + Auftragsstatus je Zustandswechsel des Reparatur-Workflows (HIST-11).
+ * Nur bestehende Order-Statuswerte; nie 'completed' (das bleibt Abholbestaetigung/manuell), nie
+ * Zahlungen, Rechnungen oder Versandfelder.
+ *   from        - nur aus diesen Auftragsstatus wird gewechselt
+ *   pauseRule   - nur wenn kein anderer Template-Workflow des Auftrags laeuft
+ *   ownPauseOnly- nur eine Pause aufheben, die DIESER Reparatur-Workflow gesetzt hat
+ *                 (eine fremde Pause wie "Rückmeldung des Kunden erwartet" bleibt bestehen)
+ */
+const TRANSITIONS = {
+  approve: { key: 'Repair Workflow Started', label: 'Reparatur gestartet', to: 'in-progress', from: ['pending', 'diagnostic-assessment'] },
+  pause: { key: 'Repair Workflow Paused', label: 'Reparatur pausiert', to: 'paused', from: ['in-progress'], pauseRule: true },
+  incident: { key: 'Repair Workflow Incident', label: 'Zwischenfall gemeldet', to: 'paused', from: ['in-progress'], pauseRule: true },
+  resume: { key: 'Repair Workflow Resumed', label: 'Reparatur fortgesetzt', to: 'in-progress', from: ['paused'], ownPauseOnly: true },
+  complete: {
+    key: 'Repair Workflow Completed',
+    label: 'Reparatur abgeschlossen',
+    to: 'ready-for-pickup',
+    from: ['pending', 'diagnostic-assessment', 'in-progress', 'paused', 'quality-check'],
+    visibility: 'customer',
+  },
+  reopen: { key: 'Repair Workflow Reopened', label: 'Reparatur wieder aufgenommen', to: 'in-progress', from: ['ready-for-pickup'] },
+  'incident-resolved': { key: 'Repair Workflow Incident Resolved', label: 'Zwischenfall erledigt' },
+  'cancel-pause': { key: 'Repair Workflow Paused', label: 'Reparatur pausiert (Auftrag storniert)' },
+};
+
+const formatWorkTime = (ms) => {
+  const totalMinutes = Math.max(0, Math.round(Number(ms || 0) / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}:${String(minutes).padStart(2, '0')} h`;
+};
+
+const ORDER_SYNC_WARNING = 'Reparaturstatus gespeichert, der Auftragsstatus konnte nicht aktualisiert werden. Bitte erneut versuchen.';
+
+const toIdString = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (value._id && value._id !== value) return toIdString(value._id);
+  return typeof value.toString === 'function' ? value.toString() : String(value);
+};
+
+// Letzter Statuseintrag des Auftrags hat auf 'paused' gewechselt und stammt von diesem Workflow?
+const pausedByRepairWorkflow = (order, workflowId) => {
+  const timeline = Array.isArray(order?.timeline) ? order.timeline : [];
+  const lastStatus = [...timeline].reverse().find((item) => item && OrderHistory.effectiveType(item) === 'status');
+  if (!lastStatus) return false;
+  const change = OrderHistory.statusChangeOf(lastStatus);
+  return change?.to === 'paused' && toIdString(lastStatus.refs?.repairWorkflowId) === toIdString(workflowId);
+};
+
+const hasOtherActiveTemplateWorkflow = (order) => (Array.isArray(order?.workflows) ? order.workflows : [])
+  .some((item) => item && item.status === 'in-progress');
+
+// Gast-Tracking-Link (gleiches Format wie die Gast-Nachrichten-Mail im InspectionCommunicationService).
+const guestTrackingPath = (order, guestEmail) => {
+  const token = String(order?.guestTrackingToken || '').trim();
+  return token
+    ? `/track-order?token=${encodeURIComponent(token)}&email=${encodeURIComponent(guestEmail)}`
+    : '/track-order';
+};
+
+/**
+ * Auftrag fuer einen Zustandswechsel der Reparatur noch offen? (HIST-14)
+ * Ein stornierter Auftrag wird nicht weiter repariert: Freigabe, Fortsetzen, Abschluss und
+ * Zwischenfall -> 409. Ein bereits abgeschlossener Auftrag (Abholung bestaetigt/manuell) wird nicht
+ * wieder "in Arbeit" genommen: Freigabe, Fortsetzen, Zwischenfall -> 409 (Abschluss bleibt erlaubt,
+ * er aendert den Auftragsstatus dann nicht).
+ */
+const ACTION_TEXT = {
+  init: 'angelegt',
+  approve: 'freigegeben',
+  resume: 'fortgesetzt',
+  complete: 'abgeschlossen',
+  incident: 'mit einem Zwischenfall unterbrochen',
+};
+const assertOrderOpenForRepair = async (orderId, action) => {
+  const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true }).select('status').lean();
+  if (!order) return;
+  const closed = order.status === 'cancelled' || (order.status === 'completed' && action !== 'complete');
+  if (closed) {
+    throw new RepairWorkflowError(
+      `Der Auftrag ist ${order.status === 'cancelled' ? 'storniert' : 'bereits abgeschlossen'} – die Reparatur kann nicht ${ACTION_TEXT[action] || 'geändert'} werden.`,
+      409,
+      'REPAIR_ORDER_CLOSED'
+    );
+  }
+};
 
 const notFound = () => new RepairWorkflowError('Reparatur-Workflow nicht gefunden.', 404, 'REPAIR_WORKFLOW_NOT_FOUND');
 
@@ -98,6 +242,224 @@ const closeRunningPause = (workflow, now, fallbackReason, endedBy = {}) => {
 };
 
 class RepairWorkflowService {
+  /**
+   * Auftrag mit einem Zustandswechsel des Reparatur-Workflows abgleichen (HIST-11):
+   *  1. Verlaufseintrag (Typ 'workflow', Quelle 'Reparatur-Workflow', refs.repairWorkflowId) -
+   *     idempotent ueber eventKey (gleiches Format wie die Leseprojektion in GET /history).
+   *  2. Auftragsstatus nach TRANSITIONS ueber OrderService.updateStatus (bedingtes Speichern,
+   *     Buchungs-Sync, ehrlicher "von"-Wert). Der Kunde wird dabei NICHT automatisch benachrichtigt;
+   *     Kundenkommunikation ist eine eigene, ausdrueckliche Aktion (notifyCustomer).
+   * Wirft nie: ein Fehler wird als warnings[] gemeldet (der Workflow-Wechsel ist bereits gespeichert).
+   * Rueckgabe { orderStatus, statusChanged, warnings }.
+   */
+  async syncOrderFromRepairWorkflow(workflow, transition, { actor, at, reason, description } = {}) {
+    const meta = TRANSITIONS[transition];
+    const result = { orderStatus: null, statusChanged: false, warnings: [] };
+    if (!meta || !workflow) return result;
+    try {
+      const orderId = workflow.orderId?._id || workflow.orderId;
+      const order = await Order.findById(orderId)
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id status timeline workflows actualCompletion');
+      if (!order) {
+        result.warnings.push('Der zugehörige Auftrag wurde nicht gefunden – der Auftragsverlauf wurde nicht aktualisiert.');
+        return result;
+      }
+      const actorInfo = OrderHistory.normalizeActor(actor);
+      const eventKey = OrderHistory.repairWorkflowEventKey(workflow._id, transition, at);
+      const historyEntry = OrderHistory.entry({
+        key: meta.key,
+        type: 'workflow',
+        description: description || meta.label,
+        actor: actorInfo,
+        source: 'Reparatur-Workflow',
+        reason,
+        refs: { repairWorkflowId: workflow._id },
+        visibility: meta.visibility || 'staff',
+        eventKey,
+        at,
+      });
+      const { filter, update } = OrderHistory.updateFor(historyEntry, { _id: order._id });
+      await Order.updateOne(filter, update);
+
+      result.orderStatus = order.status;
+      const allowed = meta.to
+        && Array.isArray(meta.from) && meta.from.includes(order.status)
+        && (!meta.pauseRule || !hasOtherActiveTemplateWorkflow(order))
+        && (!meta.ownPauseOnly || pausedByRepairWorkflow(order, workflow._id));
+      if (allowed) {
+        const updated = await getOrderService().updateStatus(order._id, meta.to, null, actorInfo.id !== 'system' ? actorInfo.id : null, {
+          eventKey: `${eventKey}:status`,
+          source: 'Reparatur-Workflow',
+          refs: { repairWorkflowId: workflow._id },
+          reason,
+          notifyCustomer: false,
+        });
+        result.orderStatus = updated?.status || meta.to;
+        result.statusChanged = !updated?.$locals?.unchanged;
+      }
+      // Reparatur fertig: Fertigstellungszeitpunkt am Auftrag (nur wenn noch keiner erfasst ist).
+      if (transition === 'complete' && at) {
+        await Order.updateOne({ _id: order._id, actualCompletion: null }, { $set: { actualCompletion: new Date(at) } });
+      }
+    } catch (error) {
+      console.error(`RepairWorkflowService: order sync for ${transition} failed:`, error);
+      result.warnings.push(ORDER_SYNC_WARNING);
+    }
+    return result;
+  }
+
+  /**
+   * Abgleich fuer den AKTUELLEN Zustand erneut ausfuehren (Wiederholung nach einer Warnung).
+   * Idempotent ueber die eventKeys - es entsteht kein zweiter Eintrag.
+   */
+  async syncOrderForCurrentState(orderId, actor) {
+    const workflow = await RepairWorkflow.findOne({ orderId });
+    if (!workflow) throw notFound();
+    const timer = workflow.timerData || {};
+    const lastReopen = (workflow.reopenHistory || []).slice(-1)[0];
+    let transition = null;
+    let at = null;
+    let reason;
+    if (workflow.status === 'completed') {
+      transition = 'complete';
+      at = timer.completedAt;
+    } else if (workflow.status === 'paused') {
+      transition = 'pause';
+      at = timer.pausedAt;
+      reason = timer.currentPauseReason;
+    } else if (workflow.status === 'incident') {
+      const incident = (workflow.incidents || []).slice(-1)[0];
+      transition = 'incident';
+      at = incident?.timestamp;
+      reason = incident?.reason;
+    } else if (workflow.status === 'in-progress') {
+      const resumedAt = timer.resumedAt ? new Date(timer.resumedAt).getTime() : 0;
+      const reopenedAt = lastReopen?.reopenedAt ? new Date(lastReopen.reopenedAt).getTime() : 0;
+      if (reopenedAt && reopenedAt >= resumedAt) {
+        transition = 'reopen';
+        at = lastReopen.reopenedAt;
+        reason = lastReopen.reason;
+      } else if (resumedAt) {
+        transition = 'resume';
+        at = timer.resumedAt;
+      } else {
+        transition = 'approve';
+        at = workflow.approvalData?.approvedAt;
+      }
+    }
+    if (!transition || !at) {
+      return { workflow, orderSync: { orderStatus: null, statusChanged: false, warnings: [] } };
+    }
+    const orderSync = await this.syncOrderFromRepairWorkflow(workflow, transition, {
+      actor, at, reason, description: TRANSITIONS[transition].label,
+    });
+    return { workflow, orderSync };
+  }
+
+  /**
+   * Ausdrueckliche Kundenbenachrichtigung zu einem Auftrag (In-App + E-Mail, forceEmail wie eine
+   * Mitarbeiter-Chatnachricht). Der Text ist ausschliesslich der Kundentext - nie interne Notizen.
+   * Rueckgabe { status: 'sent'|'failed'|'skipped'|'duplicate', inApp, email, reason?, error?, message, at }.
+   */
+  // emailOnly (nur Wiederholung): die In-App-Zeile des ersten Versuchs existiert bereits, nur die
+  // E-Mail war gescheitert -> nur die E-Mail erneut senden (keine zweite In-App-Zeile).
+  async _notifyOrderCustomer(orderId, { title, message, dedupeKey, event, workflowId, emailOnly = false }) {
+    const at = new Date();
+    const base = { message, at };
+    try {
+      const order = await Order.findById(orderId)
+        .setOptions({ skipAutoPopulate: true })
+        .select('_id orderNumber customerId status guestInfo guestTrackingToken')
+        .lean();
+      if (!order) return { ...base, status: 'failed', inApp: false, email: 'skipped', error: 'Auftrag nicht gefunden.' };
+      // Stornierter Auftrag: keine Reparatur-Nachrichten mehr an den Kunden (HIST-14).
+      if (order.status === 'cancelled') {
+        return { ...base, status: 'skipped', inApp: false, email: 'skipped', reason: 'order_cancelled' };
+      }
+      const customerId = toIdString(order.customerId);
+      if (!customerId) {
+        return await this._notifyGuestCustomer(order, { title, message, dedupeKey, base });
+      }
+      const result = await getNotificationService().createNotification({
+        userId: customerId,
+        type: 'order_update',
+        title,
+        message,
+        orderId: String(order._id),
+        actionUrl: `/orders/${order._id}`,
+        dedupeKey,
+        metadata: {
+          orderId: String(order._id),
+          repairWorkflowId: workflowId ? String(workflowId) : null,
+          event,
+        },
+      }, { forceEmail: true, returnResult: true, ...(emailOnly ? { sendInApp: false } : {}) });
+      if (result?.deduplicated) return { ...base, status: 'duplicate', inApp: false, email: 'skipped' };
+      const inApp = Boolean(result?.notification) || Boolean(emailOnly);
+      const email = result?.emailDelivery?.status || 'skipped';
+      if (email === 'failed') {
+        return { ...base, status: 'failed', inApp, email, error: result?.emailDelivery?.error || 'E-Mail konnte nicht gesendet werden.' };
+      }
+      if (inApp || email === 'sent') return { ...base, status: 'sent', inApp, email };
+      return { ...base, status: 'skipped', inApp, email, reason: result?.emailDelivery?.reason || 'preferences' };
+    } catch (error) {
+      console.error('RepairWorkflowService: customer notification failed:', error);
+      return { ...base, status: 'failed', inApp: false, email: 'skipped', error: error?.message || String(error) };
+    }
+  }
+
+  /**
+   * Gastauftrag (kein Kundenkonto): E-Mail an guestInfo.email ueber denselben Weg wie die
+   * Gast-Nachrichten-Mail (Trigger system_notification, Gast-Tracking-Link). Keine In-App-Zeile.
+   * Doppelversand wird ueber einen Dedupe-Anspruch (NotificationDedupeClaim, userId = Auftrags-ID,
+   * channel 'guest_email') atomar verhindert. Ohne E-Mail-Adresse: ehrlich 'skipped'/'no_contact'.
+   */
+  async _notifyGuestCustomer(order, { title, message, dedupeKey, base }) {
+    const guestEmail = String(order?.guestInfo?.email || '').trim();
+    if (!guestEmail) {
+      return { ...base, status: 'skipped', inApp: false, email: 'skipped', reason: 'no_contact' };
+    }
+    const { NotificationDedupeClaim } = require('../models/Notification'); // eslint-disable-line global-require
+    if (dedupeKey && NotificationDedupeClaim) {
+      try {
+        await NotificationDedupeClaim.create({ userId: order._id, dedupeKey, channel: 'guest_email' });
+      } catch (claimError) {
+        if (claimError && claimError.code === 11000) {
+          return { ...base, status: 'duplicate', inApp: false, email: 'skipped' };
+        }
+        throw claimError;
+      }
+    }
+    const guestName = `${order?.guestInfo?.firstName || ''} ${order?.guestInfo?.lastName || ''}`.trim() || guestEmail;
+    const now = new Date();
+    const result = await EmailService.sendTriggerEmail('system_notification', guestEmail, {
+      companyName: process.env.COMPANY_NAME || 'McRepair.de',
+      customerName: guestName,
+      notificationTitle: title,
+      notificationPreview: title,
+      notificationTopic: order?.orderNumber ? `Auftrag ${order.orderNumber}` : 'Ihr Auftrag',
+      notificationBody: message,
+      notificationDate: now.toLocaleString('de-DE'),
+      effectiveDate: now.toLocaleDateString('de-DE'),
+      ctaLabel: 'Auftrag ansehen',
+      ctaUrl: guestTrackingPath(order, guestEmail),
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@mcrepair.de',
+      supportPhone: process.env.SUPPORT_PHONE || '+49 (0) 123/456789',
+    });
+    if (result?.success) {
+      return { ...base, status: 'sent', inApp: false, email: 'sent', guest: true };
+    }
+    return {
+      ...base,
+      status: 'failed',
+      inApp: false,
+      email: 'failed',
+      guest: true,
+      error: 'E-Mail an den Gastkunden konnte nicht gesendet werden.',
+    };
+  }
+
   async initializeRepairWorkflow(orderId, customerId, technicianId, inspectionId) {
     try {
       let workflow = await RepairWorkflow.findOne({ orderId });
@@ -105,6 +467,8 @@ class RepairWorkflowService {
       if (workflow) {
         return workflow;
       }
+      // Kein neuer Reparatur-Workflow fuer einen stornierten/abgeschlossenen Auftrag (409).
+      await assertOrderOpenForRepair(orderId, 'init');
 
       workflow = new RepairWorkflow({
         orderId,
@@ -122,7 +486,7 @@ class RepairWorkflowService {
     }
   }
 
-  async approveRepairStart(orderId, internalNotes, orderChanges, notifyCustomer, technicianId, technicianName) {
+  async approveRepairStart(orderId, internalNotes, orderChanges, notifyCustomer, technicianId, technicianName, options = {}) {
     try {
       const workflow = await RepairWorkflow.findOne({ orderId });
       if (!workflow) {
@@ -135,13 +499,17 @@ class RepairWorkflowService {
       if (workflow.status !== 'pending-confirmation') {
         throw invalidTransition('freigegeben', workflow.status);
       }
+      await assertOrderOpenForRepair(orderId, 'approve');
 
+      const shouldNotify = notifyCustomer === true;
+      const customerMessage = cleanCustomerMessage(options.customerMessage);
       const now = new Date();
       workflow.status = 'in-progress';
       workflow.approvalData = {
         internalNotes,
         orderChanges,
-        notifyCustomer,
+        notifyCustomer: shouldNotify,
+        customerMessage: shouldNotify ? customerMessage : undefined,
         approvedAt: now,
         approvedByTechnicianId: technicianId,
         approvedByTechnicianName: technicianName,
@@ -158,30 +526,28 @@ class RepairWorkflowService {
       // kein zweites Zuruecksetzen der Zeiterfassung).
       await saveTransition(workflow, { status: 'pending-confirmation' }, (status) => invalidTransition('freigegeben', status));
 
-      const order = await Order.findById(orderId);
-      if (order) {
-        if (notifyCustomer) {
-          const customer = order.customerId;
-          const email = order.customerEmail || (typeof order.customerId === 'object' && order.customerId.email);
+      const actor = { id: technicianId, name: technicianName };
+      workflow.$locals.orderSync = await this.syncOrderFromRepairWorkflow(workflow, 'approve', {
+        actor, at: now, description: 'Reparatur gestartet',
+      });
 
-          if (email) {
-            try {
-              await EmailService.sendTriggerEmail(
-                'repair_workflow_started',
-                email,
-                {
-                  orderNumber: order.orderNumber,
-                  deviceBrand: order.deviceBrand,
-                  deviceModel: order.deviceModel,
-                  internalNotes,
-                  technicianName,
-                },
-              );
-            } catch (emailError) {
-              console.error('Error sending repair workflow started email:', emailError);
-            }
-          }
-        }
+      // Kunde benachrichtigen: AN -> In-App + E-Mail an den Kunden des Auftrags mit einem
+      // kundentauglichen Text (nie internalNotes, COMMS-16); AUS -> es verlaesst nichts das Team.
+      if (shouldNotify) {
+        const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true })
+          .select('orderNumber deviceBrand deviceModel').lean();
+        const message = customerMessage || defaultCustomerMessage('approve', order);
+        const customerNotification = await this._notifyOrderCustomer(orderId, {
+          title: CUSTOMER_TITLES.approve,
+          message,
+          dedupeKey: `repairwf:${workflow._id}:approve:notify`,
+          event: 'repair_workflow_started',
+          workflowId: workflow._id,
+        });
+        await this._storeNotificationResult(workflow, 'approvalData.customerNotification', customerNotification);
+        workflow.$locals.customerNotification = customerNotification;
+      } else {
+        workflow.$locals.customerNotification = { status: 'skipped', reason: 'not_requested' };
       }
 
       return workflow;
@@ -189,6 +555,28 @@ class RepairWorkflowService {
       console.error('Error approving repair start:', error);
       throw error;
     }
+  }
+
+  // Ergebnis einer Benachrichtigung gezielt speichern (ueberschreibt keinen parallelen Zustandswechsel).
+  async _storeNotificationResult(workflow, path, notification, extraFilter = {}, extraSet = {}) {
+    const value = {
+      status: notification.status,
+      reason: notification.reason || undefined,
+      error: notification.error || undefined,
+      message: notification.message || undefined,
+      inApp: Boolean(notification.inApp),
+      email: notification.email || undefined,
+      at: notification.at || new Date(),
+    };
+    try {
+      await RepairWorkflow.updateOne({ _id: workflow._id, ...extraFilter }, { $set: { [path]: value, ...extraSet } });
+    } catch (error) {
+      console.error('RepairWorkflowService: could not store notification result:', error.message);
+    }
+    // Auch im zurueckgegebenen Dokument sichtbar machen.
+    const segments = path.replace('.$.', '.').split('.');
+    if (segments[0] === 'approvalData' && workflow.approvalData) workflow.approvalData.customerNotification = value;
+    if (segments[0] === 'completionNotification') workflow.completionNotification = value;
   }
 
   async getActiveWorkflow(orderId) {
@@ -240,26 +628,14 @@ class RepairWorkflowService {
         ? new RepairWorkflowError('Der Reparatur-Workflow ist bereits pausiert.', 409, 'REPAIR_WORKFLOW_ALREADY_PAUSED')
         : invalidTransition('pausiert', status)));
 
-      const order = await Order.findById(orderId);
-      if (order && workflow.approvalData?.notifyCustomer) {
-        const email = order.customerEmail || (typeof order.customerId === 'object' && order.customerId.email);
-        if (email) {
-          try {
-            await EmailService.sendTriggerEmail(
-              'repair_workflow_paused',
-              email,
-              {
-                orderNumber: order.orderNumber,
-                deviceBrand: order.deviceBrand,
-                deviceModel: order.deviceModel,
-                pauseReason,
-              },
-            );
-          } catch (emailError) {
-            console.error('Error sending pause email:', emailError);
-          }
-        }
-      }
+      // Kein automatischer Kundenkontakt beim Pausieren: der Pausengrund ist intern (K04).
+      workflow.$locals.orderSync = await this.syncOrderFromRepairWorkflow(workflow, 'pause', {
+        actor: { id: technicianId, name: technicianName },
+        at: now,
+        reason: pauseReason,
+        description: 'Reparatur pausiert',
+      });
+      workflow.$locals.customerNotification = { status: 'skipped', reason: 'not_requested' };
 
       return workflow;
     } catch (error) {
@@ -278,6 +654,8 @@ class RepairWorkflowService {
       if (workflow.status !== 'paused' && workflow.status !== 'incident') {
         throw invalidTransition('fortgesetzt', workflow.status);
       }
+      // Storno pausiert die Reparatur; die Zeiterfassung darf danach nicht wieder anlaufen.
+      await assertOrderOpenForRepair(orderId, 'resume');
 
       const now = new Date();
       const expectedStatus = workflow.status;
@@ -294,6 +672,11 @@ class RepairWorkflowService {
 
       // Atomar: zwei parallele "Fortsetzen" tragen die Pause nicht doppelt ein.
       await saveTransition(workflow, { status: expectedStatus }, (status) => invalidTransition('fortgesetzt', status));
+      workflow.$locals.orderSync = await this.syncOrderFromRepairWorkflow(workflow, 'resume', {
+        actor: { id: technicianId, name: technicianName },
+        at: now,
+        description: expectedStatus === 'incident' ? 'Reparatur nach Zwischenfall fortgesetzt' : 'Reparatur fortgesetzt',
+      });
       return workflow;
     } catch (error) {
       console.error('Error resuming repair:', error);
@@ -301,7 +684,7 @@ class RepairWorkflowService {
     }
   }
 
-  async completeRepair(orderId, technicianId, technicianName) {
+  async completeRepair(orderId, technicianId, technicianName, options = {}) {
     try {
       const workflow = await RepairWorkflow.findOne({ orderId });
       if (!workflow) {
@@ -311,6 +694,7 @@ class RepairWorkflowService {
       if (workflow.status === 'completed' || workflow.status === 'pending-confirmation') {
         throw invalidTransition('abgeschlossen', workflow.status);
       }
+      await assertOrderOpenForRepair(orderId, 'complete');
 
       const now = new Date();
       const expectedStatus = workflow.status;
@@ -336,6 +720,32 @@ class RepairWorkflowService {
       };
 
       await saveTransition(workflow, { status: expectedStatus }, (status) => invalidTransition('abgeschlossen', status));
+
+      // Reparatur fertig => Auftrag 'ready-for-pickup' ("Reparatur abgeschlossen"), nie automatisch
+      // 'completed'/versendet (HIST-17). Danach ist "An Kunden versenden" nach der bestehenden Regel moeglich.
+      workflow.$locals.orderSync = await this.syncOrderFromRepairWorkflow(workflow, 'complete', {
+        actor: { id: technicianId, name: technicianName },
+        at: now,
+        description: `Reparatur abgeschlossen (Arbeitszeit ${formatWorkTime(elapsedTimeMs)})`,
+      });
+
+      if (options.notifyCustomer === true) {
+        const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true })
+          .select('orderNumber deviceBrand deviceModel').lean();
+        const message = cleanCustomerMessage(options.customerMessage)
+          || defaultCustomerMessage('complete', order, null, await ReturnMethod.resolveReturnMethodForOrder(orderId));
+        const customerNotification = await this._notifyOrderCustomer(orderId, {
+          title: CUSTOMER_TITLES.complete,
+          message,
+          dedupeKey: `repairwf:${workflow._id}:complete:${now.getTime()}:notify`,
+          event: 'repair_workflow_completed',
+          workflowId: workflow._id,
+        });
+        await this._storeNotificationResult(workflow, 'completionNotification', customerNotification);
+        workflow.$locals.customerNotification = customerNotification;
+      } else {
+        workflow.$locals.customerNotification = { status: 'skipped', reason: 'not_requested' };
+      }
       return workflow;
     } catch (error) {
       console.error('Error completing repair:', error);
@@ -343,7 +753,7 @@ class RepairWorkflowService {
     }
   }
 
-  async reportIncident(orderId, incidentType, reason, additionalData, technicianId, technicianName) {
+  async reportIncident(orderId, incidentType, reason, additionalData, technicianId, technicianName, options = {}) {
     try {
       const workflow = await RepairWorkflow.findOne({ orderId });
       if (!workflow) {
@@ -358,15 +768,24 @@ class RepairWorkflowService {
         );
       }
 
+      if (!INCIDENT_TYPE_LABELS[incidentType]) {
+        throw new RepairWorkflowError('Unbekannte Art des Zwischenfalls.', 400, 'REPAIR_INCIDENT_INVALID_TYPE');
+      }
+      await assertOrderOpenForRepair(orderId, 'incident');
+      // Der Kundentext gehoert nicht in die internen Zusatzdaten.
+      const { customerMessage: additionalCustomerMessage, ...storedAdditionalData } = (additionalData && typeof additionalData === 'object') ? additionalData : {};
+      const shouldNotify = options.notifyCustomer === true || additionalData?.notifyCustomer === true;
+      const customerMessage = cleanCustomerMessage(options.customerMessage || additionalCustomerMessage);
+      const now = new Date();
       const incidentData = {
         type: incidentType,
         status: 'reported',
         reason,
         notes: additionalData?.notes || '',
-        additionalData,
+        additionalData: storedAdditionalData,
         reportedByTechnicianId: technicianId,
         reportedByTechnicianName: technicianName,
-        timestamp: new Date(),
+        timestamp: now,
       };
 
       workflow.incidents.push(incidentData);
@@ -374,7 +793,6 @@ class RepairWorkflowService {
       // gespeicherten Unterdokument erfolgen, nicht am Ausgangsobjekt.
       const storedIncident = workflow.incidents[workflow.incidents.length - 1];
       const expectedStatus = workflow.status;
-      const now = new Date();
       // Eine bereits laufende Pause (manuell oder ein frueherer Zwischenfall) wird mit IHREM
       // Grund und IHRER Person abgeschlossen; der Zwischenfall schliesst nahtlos an. So geht
       // weder Pausenzeit noch die Angabe verloren, wer warum pausiert hat.
@@ -394,52 +812,40 @@ class RepairWorkflowService {
         'REPAIR_WORKFLOW_INVALID_TRANSITION'
       ));
 
-      const order = await Order.findById(orderId);
-      if (order && additionalData?.notifyCustomer) {
-        const email = order.customerEmail || (typeof order.customerId === 'object' && order.customerId.email);
-        if (email) {
-          try {
-            const triggerMap = {
-              defective_part: 'repair_incident_defective_part',
-              spare_part_needed: 'repair_incident_spare_part',
-              customer_info: 'repair_incident_customer_info',
-              other_repair: 'repair_incident_other_repair',
-              technician_handover: 'repair_incident_technician_handover',
-              needs_time: 'repair_incident_needs_time',
-            };
+      workflow.$locals.orderSync = await this.syncOrderFromRepairWorkflow(workflow, 'incident', {
+        actor: { id: technicianId, name: technicianName },
+        at: now,
+        reason,
+        description: `Zwischenfall gemeldet: ${INCIDENT_TYPE_LABELS[incidentType]}`,
+      });
 
-            const trigger = triggerMap[incidentType];
-            const emailResult = await EmailService.sendTriggerEmail(
-              trigger,
-              email,
-              {
-                orderNumber: order.orderNumber,
-                deviceBrand: order.deviceBrand,
-                deviceModel: order.deviceModel,
-                reason,
-                additionalData,
-                technicianName,
-              },
-            );
-
-            // Nur eine nachweislich zugestellte Benachrichtigung zaehlt als "Kunde wurde
-            // gefragt". sendTriggerEmail wirft bei fehlender Vorlage nicht, sondern
-            // liefert success:false - das darf nicht als versendet gespeichert werden.
-            if (emailResult && emailResult.success) {
-              storedIncident.emailSentAt = new Date();
-              // Gezielt nur dieses Feld dieses Zwischenfalls - ueberschreibt keinen
-              // inzwischen gespeicherten Zustandswechsel.
-              await RepairWorkflow.updateOne(
-                { _id: workflow._id, 'incidents._id': storedIncident._id },
-                { $set: { 'incidents.$.emailSentAt': storedIncident.emailSentAt } }
-              );
-            } else {
-              console.warn(`RepairWorkflowService: incident email for ${incidentType} not delivered:`, emailResult?.error || 'unknown');
-            }
-          } catch (emailError) {
-            console.error(`Error sending incident email for ${incidentType}:`, emailError);
-          }
-        }
+      // Kunde informieren: AN -> In-App + E-Mail mit kundentauglichem Text (nie Grund/Notizen des
+      // Teams); AUS -> nichts verlaesst das Team. "Warten auf Kundenrückmeldung" (customer_info)
+      // beginnt erst mit einer nachweislich erstellten Benachrichtigung (emailSentAt).
+      if (shouldNotify) {
+        const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true })
+          .select('orderNumber deviceBrand deviceModel').lean();
+        const message = customerMessage || defaultCustomerMessage('incident', order, incidentType);
+        const customerNotification = await this._notifyOrderCustomer(orderId, {
+          title: incidentType === 'customer_info' ? CUSTOMER_TITLES.customer_info : CUSTOMER_TITLES.incident,
+          message,
+          dedupeKey: `repairwf:${workflow._id}:incident:${storedIncident._id}:notify`,
+          event: `repair_incident_${incidentType}`,
+          workflowId: workflow._id,
+        });
+        const sentAt = customerNotification.status === 'sent' ? customerNotification.at : null;
+        await this._storeNotificationResult(
+          workflow,
+          'incidents.$.customerNotification',
+          customerNotification,
+          { 'incidents._id': storedIncident._id },
+          sentAt ? { 'incidents.$.emailSentAt': sentAt } : {}
+        );
+        storedIncident.customerNotification = customerNotification;
+        if (sentAt) storedIncident.emailSentAt = sentAt;
+        workflow.$locals.customerNotification = customerNotification;
+      } else {
+        workflow.$locals.customerNotification = { status: 'skipped', reason: 'not_requested' };
       }
 
       return workflow;
@@ -477,11 +883,215 @@ class RepairWorkflowService {
       incident.resolutionNote = resolutionNote ? String(resolutionNote).trim() : undefined;
 
       await workflow.save();
+      workflow.$locals.orderSync = await this.syncOrderFromRepairWorkflow(workflow, 'incident-resolved', {
+        actor: { id: technicianId, name: technicianName },
+        at: incident.resolvedAt,
+        reason: incident.resolutionNote,
+        description: `Zwischenfall erledigt: ${INCIDENT_TYPE_LABELS[incident.type] || 'Zwischenfall'}`,
+      });
       return workflow;
     } catch (error) {
       console.error('Error resolving repair incident:', error);
       throw error;
     }
+  }
+
+  /**
+   * Ist die Auslieferung an den Kunden bereits angestossen (Versandlabel/Tracking vorhanden oder
+   * Label-Erstellung laeuft/unklar)? Dieselbe Lesesicht wie die Auftragsansicht (DHLService).
+   * Kann der Zustand nicht gelesen werden, gilt "ja" (sichere Richtung: keine Wiederaufnahme).
+   */
+  async isOutboundShippingStarted(orderId) {
+    try {
+      const state = await getDHLService().getOrderShipmentState(orderId);
+      const outbound = state?.shipments?.outbound || {};
+      return Boolean(outbound.hasLabel || outbound.trackingNumber || outbound.inProgress || outbound.reconciliationRequired);
+    } catch (error) {
+      console.error('RepairWorkflowService: outbound shipment state could not be read:', error.message);
+      return true;
+    }
+  }
+
+  /**
+   * Abgeschlossene Reparatur wieder aufnehmen (HIST-11). Nur mit Grund, nur solange der Auftrag
+   * nicht abgeschlossen/storniert ist und noch kein Versandlabel an den Kunden existiert. Die Zeit
+   * zwischen Abschluss und Wiederaufnahme zaehlt als Pause, nicht als Arbeitszeit. Keine
+   * Schein-Pause/-Fortsetzung noetig.
+   */
+  async reopenRepair(orderId, reason, technicianId, technicianName) {
+    const trimmedReason = String(reason || '').trim().slice(0, 2000);
+    if (!trimmedReason) {
+      throw new RepairWorkflowError('Bitte einen Grund für die Wiederaufnahme angeben.', 400, 'REPAIR_REOPEN_REASON_REQUIRED');
+    }
+    const workflow = await RepairWorkflow.findOne({ orderId });
+    if (!workflow) throw notFound();
+    if (workflow.status !== 'completed') {
+      throw invalidTransition('wieder aufgenommen', workflow.status);
+    }
+    const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true }).select('status').lean();
+    if (!order) {
+      throw new RepairWorkflowError('Auftrag wurde nicht gefunden.', 404, 'ORDER_NOT_FOUND');
+    }
+    if (order.status === 'completed' || order.status === 'cancelled') {
+      throw new RepairWorkflowError(
+        `Der Auftrag ist ${order.status === 'completed' ? 'bereits abgeschlossen' : 'storniert'} – die Reparatur kann nicht wieder aufgenommen werden.`,
+        409,
+        'REPAIR_REOPEN_ORDER_CLOSED'
+      );
+    }
+    if (await this.isOutboundShippingStarted(orderId)) {
+      throw new RepairWorkflowError(
+        'Das Gerät ist bereits für den Versand vorbereitet (Versandlabel an den Kunden vorhanden) – Wiederaufnahme nicht möglich.',
+        409,
+        'REPAIR_REOPEN_OUTBOUND_EXISTS'
+      );
+    }
+
+    const now = new Date();
+    const previousCompletedAt = workflow.timerData?.completedAt ? new Date(workflow.timerData.completedAt) : null;
+    const gapMs = previousCompletedAt ? Math.max(0, now.getTime() - previousCompletedAt.getTime()) : 0;
+    workflow.status = 'in-progress';
+    workflow.timerData.totalPausedMs = Number(workflow.timerData.totalPausedMs || 0) + gapMs;
+    workflow.timerData.completedAt = undefined;
+    workflow.timerData.resumedAt = now;
+    workflow.reopenHistory.push({
+      reopenedAt: now,
+      previousCompletedAt: previousCompletedAt || undefined,
+      gapMs,
+      reason: trimmedReason,
+      technicianId: technicianId || undefined,
+      technicianName: technicianName || undefined,
+    });
+    workflow.lastStatusChangeAt = now;
+    await saveTransition(workflow, { status: 'completed' }, (status) => invalidTransition('wieder aufgenommen', status));
+
+    workflow.$locals.orderSync = await this.syncOrderFromRepairWorkflow(workflow, 'reopen', {
+      actor: { id: technicianId, name: technicianName },
+      at: now,
+      reason: trimmedReason,
+      description: 'Reparatur wieder aufgenommen',
+    });
+    return workflow;
+  }
+
+  /**
+   * Fehlgeschlagene/uebersprungene Kundenbenachrichtigung erneut senden (ohne den Zustand erneut
+   * zu speichern). target: 'approval' | 'completion' | 'incident' (+ incidentId). Bereits
+   * gesendete Benachrichtigungen werden nicht wiederholt ({ status: 'duplicate' }).
+   */
+  async retryCustomerNotification(orderId, { target, incidentId, customerMessage } = {}) {
+    const workflow = await RepairWorkflow.findOne({ orderId });
+    if (!workflow) throw notFound();
+    const order = await Order.findById(orderId).setOptions({ skipAutoPopulate: true })
+      .select('orderNumber deviceBrand deviceModel').lean();
+    let previous;
+    let path;
+    let filter = {};
+    let title;
+    let defaultText;
+    let event;
+    let incident = null;
+    if (target === 'approval') {
+      if (!workflow.approvalData?.approvedAt) {
+        throw new RepairWorkflowError('Die Reparatur wurde noch nicht gestartet.', 409, 'REPAIR_WORKFLOW_INVALID_TRANSITION');
+      }
+      previous = workflow.approvalData.customerNotification;
+      path = 'approvalData.customerNotification';
+      title = CUSTOMER_TITLES.approve;
+      defaultText = workflow.approvalData.customerMessage || defaultCustomerMessage('approve', order);
+      event = 'repair_workflow_started';
+    } else if (target === 'completion') {
+      if (workflow.status !== 'completed') {
+        throw new RepairWorkflowError('Die Reparatur ist nicht abgeschlossen.', 409, 'REPAIR_WORKFLOW_INVALID_TRANSITION');
+      }
+      previous = workflow.completionNotification;
+      path = 'completionNotification';
+      title = CUSTOMER_TITLES.complete;
+      defaultText = defaultCustomerMessage('complete', order, null, await ReturnMethod.resolveReturnMethodForOrder(orderId));
+      event = 'repair_workflow_completed';
+    } else if (target === 'incident') {
+      incident = mongoose.Types.ObjectId.isValid(String(incidentId || '')) ? workflow.incidents.id(incidentId) : null;
+      if (!incident) throw new RepairWorkflowError('Zwischenfall nicht gefunden.', 404, 'REPAIR_INCIDENT_NOT_FOUND');
+      previous = incident.customerNotification;
+      path = 'incidents.$.customerNotification';
+      filter = { 'incidents._id': incident._id };
+      title = incident.type === 'customer_info' ? CUSTOMER_TITLES.customer_info : CUSTOMER_TITLES.incident;
+      defaultText = defaultCustomerMessage('incident', order, incident.type);
+      event = `repair_incident_${incident.type}`;
+    } else {
+      throw new RepairWorkflowError('Unbekanntes Ziel der Benachrichtigung.', 400, 'REPAIR_NOTIFY_INVALID_TARGET');
+    }
+    if (previous?.status === 'sent' || (incident && incident.emailSentAt)) {
+      return { workflow, customerNotification: { status: 'duplicate', reason: 'already_sent', at: previous?.at || incident?.emailSentAt } };
+    }
+    const message = cleanCustomerMessage(customerMessage) || previous?.message || defaultText;
+    // Schluessel je Wiederholung aus dem zuletzt gespeicherten Versuch abgeleitet: der erste Versuch
+    // kann eine In-App-Zeile ohne E-Mail hinterlassen haben, deshalb nicht der Erstschluessel. Zwei
+    // parallele Wiederholungen (Doppelklick, zwei Mitarbeiter) lesen denselben Stand, bekommen
+    // denselben Schluessel und kollidieren am eindeutigen Dedupe-Index -> genau ein Versand.
+    // Nach einem gescheiterten Versuch aendert sich previous.at, die naechste Wiederholung sendet erneut.
+    const previousAt = previous?.at ? new Date(previous.at).getTime() : 0;
+    // In-App-Zeile kam beim letzten Versuch an, nur die E-Mail scheiterte (gleicher Text):
+    // nur die E-Mail wiederholen, sonst laege dieselbe Nachricht zweimal in der Glocke.
+    const emailOnly = previous?.inApp === true && previous?.email === 'failed' && message === previous?.message;
+    const customerNotification = await this._notifyOrderCustomer(orderId, {
+      title,
+      message,
+      dedupeKey: `repairwf:${workflow._id}:${target}:${incident ? incident._id : 'main'}:retry:${previousAt || 'initial'}`,
+      event,
+      workflowId: workflow._id,
+      emailOnly,
+    });
+    if (customerNotification.status === 'duplicate') {
+      // Die parallele Wiederholung speichert ihr eigenes Ergebnis - hier nichts ueberschreiben.
+      return { workflow, customerNotification: { ...customerNotification, reason: 'already_sent' } };
+    }
+    const sentAt = incident && customerNotification.status === 'sent' ? customerNotification.at : null;
+    await this._storeNotificationResult(workflow, path, customerNotification, filter, sentAt ? { 'incidents.$.emailSentAt': sentAt } : {});
+    if (incident) {
+      incident.customerNotification = customerNotification;
+      if (sentAt) incident.emailSentAt = sentAt;
+    }
+    return { workflow, customerNotification };
+  }
+
+  /**
+   * Auftrag storniert (HIST-14): eine laufende Reparatur wird pausiert (Zeiterfassung stoppt),
+   * nicht abgeschlossen oder geloescht. Kein Kundenkontakt, keine Rechnungs-/Zahlungsaenderung.
+   * Rueckgabe { paused: boolean }.
+   */
+  async pauseForOrderCancellation(orderId, actor = null) {
+    const workflow = await RepairWorkflow.findOne({ orderId });
+    if (!workflow || workflow.status !== 'in-progress') return { paused: false };
+    const actorInfo = OrderHistory.normalizeActor(actor);
+    const now = new Date();
+    workflow.status = 'paused';
+    workflow.timerData.pausedAt = now;
+    workflow.timerData.currentPauseReason = 'Auftrag storniert';
+    workflow.timerData.currentPausedByTechnicianId = actorInfo.id !== 'system' && mongoose.Types.ObjectId.isValid(actorInfo.id) ? actorInfo.id : undefined;
+    workflow.timerData.currentPausedByTechnicianName = actorInfo.name;
+    workflow.lastStatusChangeAt = now;
+    try {
+      await saveTransition(workflow, { status: 'in-progress' }, (status) => invalidTransition('pausiert', status));
+    } catch (error) {
+      if (error && error.statusCode === 409) return { paused: false };
+      throw error;
+    }
+    // eventKey im Format der Leseprojektion ('pause' + pausedAt), damit kein Doppeleintrag entsteht.
+    const historyEntry = OrderHistory.entry({
+      key: TRANSITIONS['cancel-pause'].key,
+      type: 'workflow',
+      description: TRANSITIONS['cancel-pause'].label,
+      actor: actorInfo,
+      source: 'Reparatur-Workflow',
+      reason: 'Auftrag storniert',
+      refs: { repairWorkflowId: workflow._id },
+      eventKey: OrderHistory.repairWorkflowEventKey(workflow._id, 'pause', now),
+      at: now,
+    });
+    const { filter, update } = OrderHistory.updateFor(historyEntry, { _id: workflow.orderId });
+    await Order.updateOne(filter, update);
+    return { paused: true };
   }
 
   /**
@@ -671,11 +1281,12 @@ class RepairWorkflowService {
         status: { $in: ['in-progress', 'paused'] },
         lastStatusChangeAt: { $lt: thresholdTime },
       })
-        .populate('orderId', 'orderNumber customerId')
+        .populate('orderId', 'orderNumber customerId status')
         .populate('technicianId', 'name email')
         .sort({ lastStatusChangeAt: 1 });
 
-      return inactiveWorkflows;
+      // Stornierte Auftraege sind keine liegengebliebene Arbeit (HIST-14).
+      return inactiveWorkflows.filter((workflow) => workflow?.orderId?.status !== 'cancelled');
     } catch (error) {
       console.error('Error getting inactive workflows:', error);
       throw error;
@@ -734,3 +1345,5 @@ class RepairWorkflowService {
 
 module.exports = new RepairWorkflowService();
 module.exports.RepairWorkflowError = RepairWorkflowError;
+module.exports.defaultCustomerMessage = defaultCustomerMessage;
+module.exports.INCIDENT_TYPE_LABELS = INCIDENT_TYPE_LABELS;

@@ -531,6 +531,12 @@ const systemConfigurationSchema = new mongoose.Schema({
         type: Number,
         default: 0.015
       },
+      // Feste Gebuehr je Zahlung (EUR). Fehlte im Schema - der Wert wurde beim
+      // Speichern still verworfen (FIN-8/SET-2).
+      paymentFeeFixedAmount: {
+        type: Number,
+        default: 0
+      },
       flatShippingCostPerBooking: {
         type: Number,
         default: 6.9
@@ -552,6 +558,19 @@ const systemConfigurationSchema = new mongoose.Schema({
       flaggedLabel: {
         type: String,
         default: 'Nacharbeit / Gewaehrleistung'
+      }
+    },
+    // Auswertungsparameter (nur Analysen/Controlling). Fehlten im Schema und wurden
+    // deshalb nie gespeichert (FIN-8/SET-2). Die Umsatzsteuer ist bewusst KEIN eigenes
+    // Feld: sie kommt aus financialSettings.defaults.taxRate (eine Steuer-Einstellung).
+    accounting: {
+      targetGrossMarginRate: {
+        type: Number,
+        default: 0.3
+      },
+      defaultProjectionWorkdays: {
+        type: Number,
+        default: 22
       }
     },
     formula: {

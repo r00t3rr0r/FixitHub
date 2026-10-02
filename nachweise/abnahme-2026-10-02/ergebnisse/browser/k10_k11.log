@@ -1,0 +1,19 @@
+   Testkonfiguration: DHL-Buchungslabel-Modus = live (ohne Zugangsdaten, externe Verbindungen blockiert)
+   [shot] 01_checkout_dialog_rechnung.png
+   [shot] 02_bestellung_erfolgreich_labelfehler.png
+  PASS Erfolgsseite nennt die Buchungsnummer :: BKG-2026-0014
+  PASS Erfolgsseite: Abschnitt "Gerät an McRepair senden" sichtbar (ohne Menue-Suche) 
+  PASS Labelfehler: Schaltflaeche "DHL-Einsendelabel erstellen" (erneut versuchen) wird angeboten 
+   Erfolgsseite Text (Auszug): McRepair.de bietet professionelle Reparaturservice mit transparenten Preisen und klaren Prozessen. Express-Service mit Garantie: Reparaturen werden schnell, sicher und nachvollziehbar umgesetzt. Digitale Geraetereparatur mit transparenten Prozessen. Online-Kundenservice fuer Reparaturauftraege. Informationsseiten zu Serviceablauf, Versand und Support. Defekt melden oder Auftrag starten. Geraet einsenden oder vor Ort abgeben. Reparaturstatus verfolgen und Ergebnis erhalten. "Wir reparieren Geraete so, wie wir unsere eigenen reparieren lassen wollen: transparent, fair und verlaesslich." McRepair
+  PASS nach Fehlschlag ist KEIN Label gespeichert :: {"t":null,"r":null}
+   Testkonfiguration: DHL-Buchungslabel-Modus = dummy
+   [shot] 03_label_nach_erneutem_versuch.png
+  PASS erneuter Versuch erzeugt genau ein Testlabel :: DHL-DUMMY-KG20260014-520753
+  PASS Hauptaktion jetzt "…label herunterladen" 
+  PASS Download liefert eine PDF-Datei :: DHL-Testlabel_BKG-2026-0014.pdf %PDF-
+  PASS nach Reload (sessionStorage geleert) ist dasselbe Label erreichbar 
+   [shot] 04_erfolgsseite_nach_reload.png
+  PASS "Erneut herunterladen" erzeugt KEIN neues Label (Sendungsnummer unveraendert) :: DHL-DUMMY-KG20260014-520753
+  PASS parallele Erstellungsversuche (/api/bookings/6abf81dc2a854d3cec742d3c/inbound-label) erzeugen kein zweites Label :: 200,200,200,200 -> DHL-DUMMY-KG20260014-520753
+  PASS fremder Kunde: kein Zugriff auf das Label :: 403
+==== k10_k11: 11 bestanden, 0 fehlgeschlagen ====

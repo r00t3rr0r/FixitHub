@@ -45,6 +45,11 @@ import {
   rejectComplaintOffer,
 } from "@/api/complaints"
 import { buildOrderDetailsState, getOrderDetailsPath } from "@/lib/orderDetailsNavigation"
+import { ComplaintLabelDownloadButton } from "@/components/complaints/ComplaintLabelDownloadButton"
+
+// Die API liefert das Label nie als Daten, sondern nur ob eines vorliegt (+ Sendungsnummer);
+// das PDF kommt ueber GET /api/complaints/:id/shipping-label.
+type ComplaintWithLabel = Complaint & { hasShippingLabel?: boolean; shippingTrackingNumber?: string | null }
 
 /* ────────────────────────────────────────────────
    Status metadata
@@ -177,6 +182,7 @@ export function CustomerComplaints() {
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [filtered, setFiltered] = useState<Complaint[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
@@ -214,8 +220,9 @@ export function CustomerComplaints() {
       const list: Complaint[] = data.complaints ?? []
       setComplaints(list)
       setFiltered(list)
+      setLoadError(null)
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Fehler", description: err.message })
+      setLoadError(err?.message || "Ihre Reklamationen konnten nicht geladen werden.")
     } finally {
       setLoading(false)
     }
@@ -257,10 +264,24 @@ export function CustomerComplaints() {
 
   useEffect(() => {
     // Handle URL parameter (direct link)
-    if (complaintId && complaints.length > 0) {
+    if (complaintId && !loading) {
       const complaintToOpen = complaints.find((complaint) => complaint._id === complaintId)
       if (complaintToOpen) {
         openDetail(complaintToOpen)
+        return
+      }
+      // Direktlink (z. B. aus einer Benachrichtigung) auf eine Reklamation, die nicht in der
+      // geladenen Liste steht: direkt laden; der Server prueft den Zugriff.
+      if (!showDetail) {
+        setShowDetail(true)
+        setDetailLoading(true)
+        getComplaint(complaintId)
+          .then((data) => setSelected(data.complaint))
+          .catch((err: any) => {
+            setShowDetail(false)
+            toast({ variant: "destructive", title: "Reklamation nicht verfügbar", description: err?.message || "Die Reklamation konnte nicht geladen werden." })
+          })
+          .finally(() => setDetailLoading(false))
         return
       }
     }
@@ -275,7 +296,8 @@ export function CustomerComplaints() {
     if (complaintToOpen) {
       openDetail(complaintToOpen)
     }
-  }, [complaintId, location.state, complaints])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [complaintId, location.state, complaints, loading])
 
   /* ── Send message ── */
   async function handleSend() {
@@ -387,7 +409,7 @@ export function CustomerComplaints() {
           <FileText className="h-12 w-12 flex-shrink-0 text-[#f5b800] max-sm:h-[34px] max-sm:w-[34px]" />
           <div>
             <h1 className="m-0 text-[2rem] font-extrabold leading-[1.2] tracking-[-0.5px] max-[480px]:text-[1rem] max-[480px]:leading-[1.25] max-[360px]:text-[0.92rem]">Meine Reklamationen</h1>
-            <p className="mt-1 text-[0.95rem] leading-[1.35] text-[rgba(255,255,255,0.85)] opacity-90 max-[480px]:text-[0.76rem] max-[360px]:text-[0.72rem]">Verfolge und verwalte deine Reklamationen</p>
+            <p className="mt-1 text-[0.95rem] leading-[1.35] text-[rgba(255,255,255,0.85)] opacity-90 max-[480px]:text-[0.76rem] max-[360px]:text-[0.72rem]">Verfolgen und verwalten Sie Ihre Reklamationen</p>
           </div>
         </div>
       </div>
@@ -435,15 +457,27 @@ export function CustomerComplaints() {
         </div>
       )}
 
+      {/* ── Fehler ── */}
+      {!loading && loadError && (
+        <div className="cc-empty" role="alert">
+          <AlertTriangle size={48} />
+          <h3>Reklamationen konnten nicht geladen werden</h3>
+          <p>{loadError}</p>
+          <button className="cc-new-btn" onClick={() => loadComplaints()}>
+            Erneut versuchen
+          </button>
+        </div>
+      )}
+
       {/* ── Empty ── */}
-      {!loading && filtered.length === 0 && (
+      {!loading && !loadError && filtered.length === 0 && (
         <div className="cc-empty">
           <MessageSquare size={48} />
-          <h3>Keine Reklamationen gefunden</h3>
+          <h3>{complaints.length === 0 ? "Noch keine Reklamationen" : "Keine Treffer"}</h3>
           <p>
             {complaints.length === 0
               ? "Sie haben noch keine Reklamation eingereicht."
-              : "Keine Reklamationen entsprechen Ihrer Suche."}
+              : "Keine Reklamation entspricht Ihrer Suche oder dem gewählten Status."}
           </p>
           {complaints.length === 0 && (
             <button className="cc-new-btn" onClick={() => setShowCreate(true)}>
@@ -558,6 +592,35 @@ export function CustomerComplaints() {
           ) : selected ? (
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               <div className="cc-detail-dialog-body">
+                {(selected as ComplaintWithLabel).hasShippingLabel && (
+                  <div
+                    className="cc-detail-section"
+                    style={{ border: '2px solid #1a2a5e', background: '#eef3ff', borderRadius: 14 }}
+                    aria-label="Gerät an McRepair senden"
+                  >
+                    <p className="cc-detail-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Download size={14} />
+                      Gerät an McRepair senden
+                    </p>
+                    <p style={{ fontSize: '0.9rem', color: '#2d3748', margin: '0 0 0.75rem 0' }}>
+                      Ihre Reklamation wurde genehmigt. Bitte drucken Sie das DHL-Einsendelabel aus, kleben Sie es
+                      gut sichtbar auf das Paket und geben Sie das Paket bei DHL ab.
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
+                      <ComplaintLabelDownloadButton
+                        complaintId={selected._id}
+                        complaintNumber={selected.complaintNumber}
+                        label="Versandlabel herunterladen / drucken"
+                      />
+                      {(selected as ComplaintWithLabel).shippingTrackingNumber && (
+                        <span style={{ fontSize: '0.85rem', color: '#1a2a5e' }}>
+                          Sendungsnummer: <strong>{(selected as ComplaintWithLabel).shippingTrackingNumber}</strong>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="cc-detail-section cc-section-summary">
                   <p className="cc-detail-section-title">Übersicht</p>
                   <div className="cc-detail-grid">
@@ -609,22 +672,6 @@ export function CustomerComplaints() {
                             Auftrag öffnen
                           </button>
                         )}
-                      </div>
-                    )}
-                    {selected.shippingLabelUrl && (
-                      <div className="cc-detail-item">
-                        <label>Versandlabel</label>
-                        <span>Verfügbar</span>
-                        <a
-                          href={selected.shippingLabelUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="cc-detail-link cc-detail-link--primary"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Download size={12} />
-                          Label herunterladen
-                        </a>
                       </div>
                     )}
                   </div>

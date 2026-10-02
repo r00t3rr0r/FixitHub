@@ -1,0 +1,28 @@
+
+[D1] 200 + PDF
+  PASS Blob mit PDF-Signatur :: %PDF- application/pdf
+
+[D2] 404 + JSON-Fehler
+  PASS Deutsche Servermeldung statt TypeError :: LabelPdfError 404 Für diese Buchung ist kein Einsendelabel hinterlegt.
+
+[D3] 403 ohne Logout
+  PASS Deutsche 403-Meldung :: Sie haben keine Berechtigung für dieses Label.
+  PASS Kein Redirect auf /login, kein auth-logout :: http://app.test/orders/1 
+
+[D4] 200 ohne PDF
+  PASS JSON statt PDF wird erkannt :: Der Server hat kein gültiges PDF für das Einsendelabel geliefert.
+
+[D5] Gast: data:-URL
+  PASS data:-URL -> PDF-Blob :: 27
+  PASS Ungueltige data:-URL -> deutsche Meldung :: Für diesen Vorgang ist kein Einsendelabel hinterlegt.
+  PASS Einheitliche Dateinamen :: DHL-Einsendelabel_BKG-2026-0001.pdf
+
+[D6] Ursache belegt + statische Pruefung
+  PASS Altes Muster scheitert mit derselben axios-Version (TypeError) :: TypeError: Cannot read properties of undefined (reading 'url')
+  PASS Kein "transformResponse: undefined" mehr in client/src/api :: keine
+
+[D7] Exportierte Helfer fuer Welle 2
+  PASS bookings.ts exportiert die Einsendelabel-Helfer :: alle
+  PASS orders.ts exportiert die Label-Helfer :: alle
+
+Ergebnis: 12 bestanden, 0 fehlgeschlagen

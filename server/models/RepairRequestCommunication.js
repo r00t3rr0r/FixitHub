@@ -20,6 +20,20 @@ const feedbackRequestSchema = new mongoose.Schema({
   respondedBy: {
     type: String,
   },
+  // Wer geantwortet hat (Kunde mit Konto oder Gast über Tracking-Link). Additiv.
+  respondedById: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  responseChannel: {
+    type: String,
+    enum: ['customer', 'guest'],
+  },
+  // Fachliche Bindung der Rückfrage, z. B. { kind: 'quote', quoteVersion: 2 } für den
+  // Kostenvoranschlag. Ohne Angabe: freie Rückfrage.
+  metadata: {
+    type: mongoose.Schema.Types.Mixed,
+  },
   status: {
     type: String,
     enum: ['pending', 'responded', 'expired'],
@@ -78,6 +92,16 @@ const communicationMessageSchema = new mongoose.Schema({
     required: true,
   },
   senderRole: {
+    type: String,
+  },
+  // Benutzer-ID des Absenders (neue Nachrichten; Gäste haben keine). senderId oben ist
+  // historisch ein eingebettetes {name,email,avatar}-Objekt und bleibt unverändert.
+  senderUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  // Idempotenzschlüssel des Clients (Doppelklick/Enter-Wiederholung erzeugt keine zweite Nachricht).
+  clientMessageId: {
     type: String,
   },
   messageType: {

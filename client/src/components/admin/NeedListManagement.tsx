@@ -60,6 +60,9 @@ import {
   FileText,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
+import { DecimalInput } from '@/components/ui/decimal-input';
+import { formatEUR } from '@/lib/utils';
 
 interface NeedListManagementProps {
   onOrderCreated?: () => void;
@@ -108,6 +111,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
   const [statistics, setStatistics] = useState<NeedListStatistics | null>(null);
   const [loading, setLoading] = useState(true);
   const [referenceDataLoaded, setReferenceDataLoaded] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
@@ -120,6 +124,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showAddItemDialog, setShowAddItemDialog] = useState(false);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [convertingToOrder, setConvertingToOrder] = useState(false);
   const [showEditItemDialog, setShowEditItemDialog] = useState(false);
   const [selectedNeedList, setSelectedNeedList] = useState<NeedList | null>(null);
   const [editItemData, setEditItemData] = useState<{
@@ -178,7 +183,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
             : item
         ),
       });
-      toast({ title: 'Success', description: 'Item updated successfully' });
+      toast({ title: 'Gespeichert', description: 'Position aktualisiert.' });
       setShowEditItemDialog(false);
       setEditItemData({
         part: '',
@@ -192,7 +197,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       });
       loadData();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: 'Fehler', description: error.message, variant: 'destructive' });
     }
   };
 
@@ -248,6 +253,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
 
   const loadData = async (forceReferenceRefresh = false) => {
     setLoading(true);
+    setLoadError('');
     try {
       const [needListsData, statsData] = await Promise.all([
         getNeedLists({
@@ -274,11 +280,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       }
     } catch (error: any) {
       console.error('Error loading need list data:', error);
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+      setLoadError(error?.message || 'Unbekannter Fehler');
     } finally {
       setLoading(false);
     }
@@ -299,8 +301,8 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       const items = orderItems.filter((item) => item.part && item.quantity > 0);
       if (items.length === 0) {
         toast({
-          title: 'Error',
-          description: 'Please add at least one item to the need list',
+          title: 'Fehler',
+          description: 'Bitte mindestens eine Position hinzufügen.',
           variant: 'destructive',
         });
         return;
@@ -315,8 +317,8 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       });
 
       toast({
-        title: 'Success',
-        description: 'Need list created successfully',
+        title: 'Gespeichert',
+        description: 'Bedarfsliste angelegt.',
       });
 
       setShowCreateDialog(false);
@@ -325,7 +327,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
     } catch (error: any) {
       console.error('Error creating need list:', error);
       toast({
-        title: 'Error',
+        title: 'Fehler',
         description: error.message,
         variant: 'destructive',
       });
@@ -344,8 +346,8 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       });
 
       toast({
-        title: 'Success',
-        description: 'Need list updated successfully',
+        title: 'Gespeichert',
+        description: 'Bedarfsliste aktualisiert.',
       });
 
       setShowEditDialog(false);
@@ -355,7 +357,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
     } catch (error: any) {
       console.error('Error updating need list:', error);
       toast({
-        title: 'Error',
+        title: 'Fehler',
         description: error.message,
         variant: 'destructive',
       });
@@ -363,21 +365,21 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
   };
 
   const handleDeleteNeedList = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this need list?')) return;
+    if (!confirm('Bedarfsliste wirklich löschen? Dies kann nicht rückgängig gemacht werden.')) return;
 
     try {
       await deleteNeedList(id);
 
       toast({
-        title: 'Success',
-        description: 'Need list deleted successfully',
+        title: 'Gespeichert',
+        description: 'Bedarfsliste gelöscht.',
       });
 
       loadData();
     } catch (error: any) {
       console.error('Error deleting need list:', error);
       toast({
-        title: 'Error',
+        title: 'Fehler',
         description: error.message,
         variant: 'destructive',
       });
@@ -391,8 +393,8 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       await addItemToNeedList(selectedNeedList._id, addItemData);
 
       toast({
-        title: 'Success',
-        description: 'Item added successfully',
+        title: 'Gespeichert',
+        description: 'Position hinzugefügt.',
       });
 
       setShowAddItemDialog(false);
@@ -411,7 +413,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
     } catch (error: any) {
       console.error('Error adding item:', error);
       toast({
-        title: 'Error',
+        title: 'Fehler',
         description: error.message,
         variant: 'destructive',
       });
@@ -419,14 +421,14 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
   };
 
   const handleRemoveItem = async (needListId: string, itemId: string) => {
-    if (!confirm('Remove this item from the need list?')) return;
+    if (!confirm('Position aus der Bedarfsliste entfernen?')) return;
 
     try {
       await removeItemFromNeedList(needListId, itemId);
 
       toast({
-        title: 'Success',
-        description: 'Item removed successfully',
+        title: 'Gespeichert',
+        description: 'Position entfernt.',
       });
 
       loadData();
@@ -437,7 +439,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
     } catch (error: any) {
       console.error('Error removing item:', error);
       toast({
-        title: 'Error',
+        title: 'Fehler',
         description: error.message,
         variant: 'destructive',
       });
@@ -445,18 +447,20 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
   };
 
   const handleConvertToOrder = async () => {
-    if (!selectedNeedList) return;
+    // Doppelklick-Schutz: der Server prueft zusaetzlich atomar (409).
+    if (!selectedNeedList || convertingToOrder) return;
 
     const invalidItem = convertData.itemConfigurations.find((config) => !config.supplier);
     if (invalidItem) {
       toast({
-        title: 'Missing Supplier',
-        description: 'Please select a supplier for every item before converting.',
+        title: 'Lieferant fehlt',
+        description: 'Bitte für jede Position einen Lieferanten auswählen.',
         variant: 'destructive',
       });
       return;
     }
 
+    setConvertingToOrder(true);
     try {
       const result = await convertNeedListToOrder(selectedNeedList._id, {
         supplier: convertData.supplier || undefined,
@@ -471,8 +475,8 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       });
 
       toast({
-        title: 'Success',
-        description: `Order ${result.order.orderNumber} created successfully`,
+        title: `Bestellung ${result.order.orderNumber} angelegt`,
+        description: 'Die Bestellung finden Sie im Reiter „Bestellungen“.',
       });
 
       setShowConvertDialog(false);
@@ -487,10 +491,14 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
     } catch (error: any) {
       console.error('Error converting to order:', error);
       toast({
-        title: 'Error',
+        title: 'Bestellung konnte nicht angelegt werden',
         description: error.message,
         variant: 'destructive',
       });
+      // Bei 409 (bereits umgewandelt) Liste aktualisieren, damit der Status stimmt.
+      loadData();
+    } finally {
+      setConvertingToOrder(false);
     }
   };
 
@@ -501,7 +509,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       priority: 'medium',
       tags: '',
     });
-    setOrderItems([{ part: '', quantity: 1, notes: '' }]);
+    setOrderItems([{ part: '', quantity: 1, notes: '', supplier: '' }]);
   };
 
   const openEditDialog = (needList: NeedList) => {
@@ -670,7 +678,8 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       ordered: 'secondary',
       archived: 'destructive',
     };
-    return <Badge variant={variants[status] || 'outline'}>{status}</Badge>;
+    const labels: Record<string, string> = { draft: 'Entwurf', ready: 'Bereit', ordered: 'Bestellt', archived: 'Archiviert' };
+    return <Badge variant={variants[status] || 'outline'}>{labels[status] || status}</Badge>;
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -680,12 +689,13 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       high: 'default',
       urgent: 'destructive',
     };
-    return <Badge variant={variants[priority] || 'secondary'}>{priority}</Badge>;
+    const labels: Record<string, string> = { low: 'Niedrig', medium: 'Mittel', high: 'Hoch', urgent: 'Dringend' };
+    return <Badge variant={variants[priority] || 'secondary'}>{labels[priority] || priority}</Badge>;
   };
 
   const getPartName = (partId: string) => {
     const part = parts.find((p) => p._id === partId);
-    return part ? `${part.partNumber} - ${part.name}` : 'Unknown Part';
+    return part ? `${part.partNumber} - ${part.name}` : 'Unbekanntes Teil';
   };
 
   const toNet = (amount: number, priceType: 'net' | 'gross') => {
@@ -724,8 +734,8 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
     )
     : { net: 0, gross: 0 };
 
-  if (loading) {
-    return <div className="flex justify-center items-center p-8">Loading...</div>;
+  if (loading && needLists.length === 0 && !loadError) {
+    return <div className="flex justify-center items-center p-8 text-muted-foreground">Bedarfslisten werden geladen …</div>;
   }
 
   return (
@@ -733,12 +743,12 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Need Lists</h2>
-          <p className="text-muted-foreground">Plan and organize parts before creating orders</p>
+          <h2 className="text-3xl font-bold tracking-tight">Bedarfslisten</h2>
+          <p className="text-muted-foreground">Ersatzteile planen, bevor Bestellungen angelegt werden</p>
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Create Need List
+          Bedarfsliste anlegen
         </Button>
       </div>
 
@@ -747,7 +757,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Lists</CardTitle>
+              <CardTitle className="text-sm font-medium">Bedarfslisten gesamt</CardTitle>
               <ClipboardList className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -757,7 +767,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Draft</CardTitle>
+              <CardTitle className="text-sm font-medium">Entwurf</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -767,7 +777,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ready</CardTitle>
+              <CardTitle className="text-sm font-medium">Bereit</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -777,7 +787,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Urgent</CardTitle>
+              <CardTitle className="text-sm font-medium">Dringend</CardTitle>
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -790,16 +800,16 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle>Filter</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label>Search</Label>
+              <Label>Suche</Label>
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search need lists..."
+                  placeholder="Bedarfslisten durchsuchen …"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-8"
@@ -811,30 +821,30 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
               <Label>Status</Label>
               <Select value={statusFilter || 'all'} onValueChange={(value) => setStatusFilter(value === 'all' ? '' : value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All Statuses" />
+                  <SelectValue placeholder="Alle Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="ready">Ready</SelectItem>
-                  <SelectItem value="ordered">Ordered</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
+                  <SelectItem value="all">Alle Status</SelectItem>
+                  <SelectItem value="draft">Entwurf</SelectItem>
+                  <SelectItem value="ready">Bereit</SelectItem>
+                  <SelectItem value="ordered">Bestellt</SelectItem>
+                  <SelectItem value="archived">Archiviert</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label>Priority</Label>
+              <Label>Priorität</Label>
               <Select value={priorityFilter || 'all'} onValueChange={(value) => setPriorityFilter(value === 'all' ? '' : value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All Priorities" />
+                  <SelectValue placeholder="Alle Prioritäten" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="all">Alle Prioritäten</SelectItem>
+                  <SelectItem value="low">Niedrig</SelectItem>
+                  <SelectItem value="medium">Mittel</SelectItem>
+                  <SelectItem value="high">Hoch</SelectItem>
+                  <SelectItem value="urgent">Dringend</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -848,7 +858,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                   setSearchQuery('');
                 }}
               >
-                Clear Filters
+                Filter zurücksetzen
               </Button>
             </div>
           </div>
@@ -858,27 +868,36 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       {/* Need Lists Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Need Lists</CardTitle>
-          <CardDescription>View and manage all need lists</CardDescription>
+          <CardTitle>Bedarfslisten</CardTitle>
+          <CardDescription>Alle Bedarfslisten ansehen und bearbeiten</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Items</TableHead>
+                <TableHead>Positionen</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Created By</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead>Priorität</TableHead>
+                <TableHead>Erstellt</TableHead>
+                <TableHead>Erstellt von</TableHead>
+                <TableHead>Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {needLists.length === 0 ? (
+              {loadError ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
-                    No need lists found
+                  <TableCell colSpan={7} className="h-20 text-center text-red-700">
+                    Bedarfslisten konnten nicht geladen werden ({loadError}).{' '}
+                    <Button variant="outline" size="sm" onClick={() => loadData()}>Erneut versuchen</Button>
+                  </TableCell>
+                </TableRow>
+              ) : needLists.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-20 text-center text-muted-foreground">
+                    {statusFilter || priorityFilter || searchQuery
+                      ? 'Keine Bedarfslisten für diese Filter.'
+                      : 'Noch keine Bedarfslisten. Über „Bedarfsliste anlegen“ erstellen.'}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -892,21 +911,22 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                     <TableCell>{needList.items.length}</TableCell>
                     <TableCell>{getStatusBadge(needList.status)}</TableCell>
                     <TableCell>{getPriorityBadge(needList.priority)}</TableCell>
-                    <TableCell>{format(new Date(needList.createdAt), 'MMM dd, yyyy')}</TableCell>
+                    <TableCell>{format(new Date(needList.createdAt), 'dd.MM.yyyy', { locale: de })}</TableCell>
                     <TableCell>
                       {needList.createdBy
                         ? `${needList.createdBy.firstName} ${needList.createdBy.lastName}`
-                        : 'Unknown User'
+                        : 'Unbekannt'
                       }
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => openViewDialog(needList)}
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="mr-1 h-4 w-4" aria-hidden="true" />
+                          Details
                         </Button>
                         {needList.status !== 'ordered' && (
                           <>
@@ -915,22 +935,28 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                               size="sm"
                               onClick={() => openEditDialog(needList)}
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="mr-1 h-4 w-4" aria-hidden="true" />
+                              Bearbeiten
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => openConvertDialog(needList)}
                               disabled={needList.items.length === 0}
+                              title={needList.items.length === 0 ? 'Erst Positionen hinzufügen' : undefined}
                             >
-                              <ShoppingCart className="h-4 w-4" />
+                              <ShoppingCart className="mr-1 h-4 w-4" aria-hidden="true" />
+                              Bestellen
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleDeleteNeedList(needList._id)}
+                              aria-label={`Bedarfsliste ${needList.name} löschen`}
+                              className="text-red-700"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />
+                              Löschen
                             </Button>
                           </>
                         )}
@@ -948,8 +974,8 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create Need List</DialogTitle>
-            <DialogDescription>Create a new need list for planning part orders</DialogDescription>
+            <DialogTitle>Bedarfsliste anlegen</DialogTitle>
+            <DialogDescription>Neue Bedarfsliste zur Planung von Ersatzteilbestellungen</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -959,57 +985,57 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., iPhone 12 Screen Replacement Parts"
+                placeholder="z. B. Displays iPhone 12"
               />
             </div>
 
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Beschreibung</Label>
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Optional description..."
+                placeholder="Optionale Beschreibung …"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="priority">Priority</Label>
+                <Label htmlFor="priority">Priorität</Label>
                 <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="low">Niedrig</SelectItem>
+                    <SelectItem value="medium">Mittel</SelectItem>
+                    <SelectItem value="high">Hoch</SelectItem>
+                    <SelectItem value="urgent">Dringend</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="tags">Tags (comma-separated)</Label>
+                <Label htmlFor="tags">Schlagwörter (durch Komma getrennt)</Label>
                 <Input
                   id="tags"
                   value={formData.tags}
                   onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  placeholder="e.g., screens, batteries"
+                  placeholder="z. B. Displays, Akkus"
                 />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <Label>Items *</Label>
+                <Label>Positionen *</Label>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setOrderItems([...orderItems, { part: '', quantity: 1, notes: '' }])}
+                  onClick={() => setOrderItems([...orderItems, { part: '', quantity: 1, notes: '', supplier: '' }])}
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  Add Item
+                  Position hinzufügen
                 </Button>
               </div>
 
@@ -1025,7 +1051,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select part" />
+                        <SelectValue placeholder="Ersatzteil auswählen" />
                       </SelectTrigger>
                       <SelectContent>
                         {parts.map((part) => (
@@ -1047,7 +1073,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                         newItems[index].quantity = parseInt(e.target.value) || 1;
                         setOrderItems(newItems);
                       }}
-                      placeholder="Qty"
+                      placeholder="Menge"
                     />
                   </div>
 
@@ -1059,7 +1085,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                         newItems[index].notes = e.target.value;
                         setOrderItems(newItems);
                       }}
-                      placeholder="Notes"
+                      placeholder="Notiz"
                     />
                   </div>
 
@@ -1069,7 +1095,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                       size="sm"
                       onClick={() => {
                         const newItems = orderItems.filter((_, i) => i !== index);
-                        setOrderItems(newItems.length > 0 ? newItems : [{ part: '', quantity: 1, notes: '' }]);
+                        setOrderItems(newItems.length > 0 ? newItems : [{ part: '', quantity: 1, notes: '', supplier: '' }]);
                       }}
                     >
                       <X className="h-4 w-4" />
@@ -1085,10 +1111,10 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
               setShowCreateDialog(false);
               resetForm();
             }}>
-              Cancel
+              Abbrechen
             </Button>
             <Button onClick={handleCreateNeedList} disabled={!formData.name}>
-              Create Need List
+              Bedarfsliste anlegen
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1098,8 +1124,8 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Need List</DialogTitle>
-            <DialogDescription>Update the details of this need list</DialogDescription>
+            <DialogTitle>Bedarfsliste bearbeiten</DialogTitle>
+            <DialogDescription>Angaben dieser Bedarfsliste ändern</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -1113,7 +1139,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
             </div>
 
             <div>
-              <Label htmlFor="edit-description">Description</Label>
+              <Label htmlFor="edit-description">Beschreibung</Label>
               <Textarea
                 id="edit-description"
                 value={formData.description}
@@ -1123,22 +1149,22 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="edit-priority">Priority</Label>
+                <Label htmlFor="edit-priority">Priorität</Label>
                 <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="low">Niedrig</SelectItem>
+                    <SelectItem value="medium">Mittel</SelectItem>
+                    <SelectItem value="high">Hoch</SelectItem>
+                    <SelectItem value="urgent">Dringend</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="edit-tags">Tags (comma-separated)</Label>
+                <Label htmlFor="edit-tags">Schlagwörter (durch Komma getrennt)</Label>
                 <Input
                   id="edit-tags"
                   value={formData.tags}
@@ -1154,9 +1180,9 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
               setSelectedNeedList(null);
               resetForm();
             }}>
-              Cancel
+              Abbrechen
             </Button>
-            <Button onClick={handleUpdateNeedList}>Update</Button>
+            <Button onClick={handleUpdateNeedList}>Speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1167,12 +1193,12 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
           <DialogHeader className="space-y-1 border-b border-slate-800 bg-[#1a2a5e] px-4 py-3 text-left">
             <DialogTitle className="text-base font-semibold !text-yellow-300">{selectedNeedList?.name}</DialogTitle>
             <DialogDescription className="text-xs text-slate-200">
-              {selectedNeedList?.description || 'No description'}
+              {selectedNeedList?.description || 'Keine Beschreibung'}
             </DialogDescription>
           </DialogHeader>
 
           {selectedNeedList && (
-            <div className="space-y-4 overflow-y-auto p-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
               {/* Info Grid */}
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
@@ -1180,29 +1206,29 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                   {getStatusBadge(selectedNeedList.status)}
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-1">Priority</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-1">Priorität</p>
                   {getPriorityBadge(selectedNeedList.priority)}
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-1">Created By</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-1">Erstellt von</p>
                   <p className="text-xs">
                     {selectedNeedList.createdBy
                       ? `${selectedNeedList.createdBy.firstName} ${selectedNeedList.createdBy.lastName}`
-                      : 'Unknown User'
+                      : 'Unbekannt'
                     }
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-1">Created At</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-1">Erstellt am</p>
                   <p className="text-xs">
-                    {format(new Date(selectedNeedList.createdAt), 'MMM dd, yyyy HH:mm')}
+                    {format(new Date(selectedNeedList.createdAt), 'dd.MM.yyyy HH:mm', { locale: de })}
                   </p>
                 </div>
               </div>
 
               {selectedNeedList.tags && selectedNeedList.tags.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2">Tags</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2">Schlagwörter</p>
                   <div className="flex gap-2 flex-wrap">
                     {selectedNeedList.tags.map((tag, index) => (
                       <Badge key={index} variant="outline" className="text-xs">
@@ -1215,7 +1241,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
 
               {selectedNeedList.convertedToOrder && (
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-md text-xs">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-1">Converted to Order</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-1">Umgewandelt in Bestellung</p>
                   <p>
                     Order #{selectedNeedList.convertedToOrder.orderNumber} -{' '}
                     {selectedNeedList.convertedToOrder.status}
@@ -1237,19 +1263,19 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                       }}
                     >
                       <Plus className="h-3 w-3 mr-1" />
-                      Add Item
+                      Position hinzufügen
                     </Button>
                   )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                   <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Total Net</p>
-                    <p className="text-base font-semibold text-slate-900">{selectedNeedListTotals.net.toFixed(2)}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Summe netto</p>
+                    <p className="text-base font-semibold text-slate-900">{formatEUR(selectedNeedListTotals.net)}</p>
                   </div>
                   <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Total Gross</p>
-                    <p className="text-base font-semibold text-slate-900">{selectedNeedListTotals.gross.toFixed(2)}</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Summe brutto</p>
+                    <p className="text-base font-semibold text-slate-900">{formatEUR(selectedNeedListTotals.gross)}</p>
                   </div>
                 </div>
 
@@ -1257,19 +1283,19 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                   <Table className="w-full table-fixed">
                     <TableHeader>
                       <TableRow className="bg-slate-50">
-                        <TableHead className="w-[10%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Part #</TableHead>
-                        <TableHead className="w-[13%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Part Name</TableHead>
-                        <TableHead className="w-[10%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Supplier</TableHead>
-                        <TableHead className="w-[5%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Qty</TableHead>
-                        <TableHead className="w-[6%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Stock</TableHead>
-                        <TableHead className="w-[6%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Price Type</TableHead>
-                        <TableHead className="w-[7%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Unit Price</TableHead>
-                        <TableHead className="w-[7%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Shipping</TableHead>
-                        <TableHead className="w-[7%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Additional</TableHead>
-                        <TableHead className="w-[8%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Line Net</TableHead>
-                        <TableHead className="w-[8%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Line Gross</TableHead>
-                        <TableHead className="w-[8%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Notes</TableHead>
-                        {selectedNeedList.status !== 'ordered' && <TableHead className="w-[5%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Actions</TableHead>}
+                        <TableHead className="w-[10%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Teilenr.</TableHead>
+                        <TableHead className="w-[13%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Ersatzteil</TableHead>
+                        <TableHead className="w-[10%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Lieferant</TableHead>
+                        <TableHead className="w-[5%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Menge</TableHead>
+                        <TableHead className="w-[6%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Bestand</TableHead>
+                        <TableHead className="w-[6%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Preisart</TableHead>
+                        <TableHead className="w-[7%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Einzelpreis (€)</TableHead>
+                        <TableHead className="w-[7%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Versand</TableHead>
+                        <TableHead className="w-[7%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Zusatz</TableHead>
+                        <TableHead className="w-[8%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Netto</TableHead>
+                        <TableHead className="w-[8%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Brutto</TableHead>
+                        <TableHead className="w-[8%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Notiz</TableHead>
+                        {selectedNeedList.status !== 'ordered' && <TableHead className="w-[5%] h-8 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Aktionen</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1294,11 +1320,11 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                               </Badge>
                             </TableCell>
                             <TableCell className="px-2 py-1 text-xs uppercase">{priceType}</TableCell>
-                            <TableCell className="px-2 py-1 text-xs">{unitPrice.toFixed(2)}</TableCell>
-                            <TableCell className="px-2 py-1 text-xs">{shippingCost.toFixed(2)}</TableCell>
-                            <TableCell className="px-2 py-1 text-xs">{additionalCost.toFixed(2)}</TableCell>
-                            <TableCell className="px-2 py-1 text-xs">{lineNet.toFixed(2)}</TableCell>
-                            <TableCell className="px-2 py-1 text-xs">{lineGross.toFixed(2)}</TableCell>
+                            <TableCell className="px-2 py-1 text-xs">{formatEUR(unitPrice)}</TableCell>
+                            <TableCell className="px-2 py-1 text-xs">{formatEUR(shippingCost)}</TableCell>
+                            <TableCell className="px-2 py-1 text-xs">{formatEUR(additionalCost)}</TableCell>
+                            <TableCell className="px-2 py-1 text-xs">{formatEUR(lineNet)}</TableCell>
+                            <TableCell className="px-2 py-1 text-xs">{formatEUR(lineGross)}</TableCell>
                             <TableCell className="px-2 py-1 text-xs break-words">{renderNotesWithLinks(item.notes)}</TableCell>
                             {selectedNeedList.status !== 'ordered' && (
                               <TableCell className="px-2 py-1 text-xs">
@@ -1308,6 +1334,8 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                                     size="sm"
                                     className="h-6 w-6 p-0"
                                     onClick={() => handleEditItem(item)}
+                                    aria-label={`Position ${item.partName} bearbeiten`}
+                                    title="Position bearbeiten"
                                   >
                                     <Edit className="h-3 w-3" />
                                   </Button>
@@ -1316,124 +1344,14 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                                     size="sm"
                                     className="h-6 w-6 p-0"
                                     onClick={() => handleRemoveItem(selectedNeedList._id, item._id!)}
+                                    aria-label={`Position ${item.partName} entfernen`}
+                                    title="Position entfernen"
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </div>
                               </TableCell>
                             )}
-                              {/* Edit Item Dialog */}
-                              <Dialog open={showEditItemDialog} onOpenChange={setShowEditItemDialog}>
-                                <DialogContent className="max-h-[88vh] overflow-hidden gap-0 border-slate-200 p-0 shadow-xl">
-                                  <DialogHeader className="space-y-1 border-b border-slate-800 bg-[#1a2a5e] px-4 py-3 text-left">
-                                    <DialogTitle className="text-base font-semibold text-white">Edit Item</DialogTitle>
-                                    <DialogDescription className="text-xs text-slate-200">Menge, Supplier und Notizen anpassen</DialogDescription>
-                                  </DialogHeader>
-                                  <div className="space-y-3 p-4">
-                                    <div>
-                                      <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Supplier</Label>
-                                      <Select value={editItemData.supplier} onValueChange={(value) => setEditItemData({ ...editItemData, supplier: value })}>
-                                        <SelectTrigger className="h-8 text-xs">
-                                          <SelectValue placeholder="Select supplier" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {suppliers.map((supplier) => (
-                                            <SelectItem key={supplier._id} value={supplier._id}>
-                                              {supplier.name}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    <div>
-                                      <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Quantity</Label>
-                                      <Input
-                                        type="number"
-                                        min="1"
-                                        className="h-8 text-xs"
-                                        value={editItemData.quantity}
-                                        onChange={(e) => setEditItemData({ ...editItemData, quantity: parseInt(e.target.value) || 1 })}
-                                      />
-                                    </div>
-                                    <div>
-                                      <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Price Type</Label>
-                                      <Select
-                                        value={editItemData.priceType}
-                                        onValueChange={(value: 'net' | 'gross') => setEditItemData({ ...editItemData, priceType: value })}
-                                      >
-                                        <SelectTrigger className="h-8 text-xs">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="net">Net</SelectItem>
-                                          <SelectItem value="gross">Gross</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    <div>
-                                      <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Order Price</Label>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        className="h-8 text-xs"
-                                        value={editItemData.unitPrice === 0 ? '' : editItemData.unitPrice}
-                                        onChange={(e) => setEditItemData({ ...editItemData, unitPrice: parseFloat(e.target.value) || 0 })}
-                                        placeholder="0.00"
-                                      />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                      <div>
-                                        <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Shipping Cost</Label>
-                                        <Input
-                                          type="number"
-                                          min="0"
-                                          step="0.01"
-                                          className="h-8 text-xs"
-                                          value={editItemData.shippingCost === 0 ? '' : editItemData.shippingCost}
-                                          onChange={(e) => setEditItemData({ ...editItemData, shippingCost: Math.max(0, parseFloat(e.target.value) || 0) })}
-                                          placeholder="0.00"
-                                        />
-                                      </div>
-                                      <div>
-                                        <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Additional Cost</Label>
-                                        <Input
-                                          type="number"
-                                          min="0"
-                                          step="0.01"
-                                          className="h-8 text-xs"
-                                          value={editItemData.additionalCost === 0 ? '' : editItemData.additionalCost}
-                                          onChange={(e) => setEditItemData({ ...editItemData, additionalCost: Math.max(0, parseFloat(e.target.value) || 0) })}
-                                          placeholder="0.00"
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Estimated Line Total</p>
-                                      <p className="text-base font-semibold text-slate-900">
-                                        {((editItemData.unitPrice * editItemData.quantity) + editItemData.shippingCost + editItemData.additionalCost).toFixed(2)}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Notes</Label>
-                                      <Textarea
-                                        className="min-h-[88px] text-xs"
-                                        value={editItemData.notes}
-                                        onChange={(e) => setEditItemData({ ...editItemData, notes: e.target.value })}
-                                        placeholder="Optional notes..."
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 flex justify-end gap-2">
-                                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setShowEditItemDialog(false)}>
-                                      Cancel
-                                    </Button>
-                                    <Button size="sm" className="h-8 text-xs" onClick={handleUpdateItem}>
-                                      Save
-                                    </Button>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
                         </TableRow>
                       );
                     })}
@@ -1444,7 +1362,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
             </div>
           )}
 
-          <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 flex justify-end gap-2">
+          <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 flex flex-wrap justify-end gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -1454,7 +1372,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                 setSelectedNeedList(null);
               }}
             >
-              Close
+              Schließen
             </Button>
             {selectedNeedList && selectedNeedList.status !== 'ordered' && (
               <Button
@@ -1467,9 +1385,119 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                 disabled={selectedNeedList.items.length === 0}
               >
                 <ShoppingCart className="h-3 w-3 mr-1" />
-                Convert to Order
+                In Bestellung umwandeln
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Item Dialog (einmal gerendert, nicht je Tabellenzeile) */}
+      <Dialog open={showEditItemDialog} onOpenChange={setShowEditItemDialog}>
+        <DialogContent className="max-h-[88vh] overflow-hidden gap-0 border-slate-200 p-0 shadow-xl">
+          <DialogHeader className="space-y-1 border-b border-slate-800 bg-[#1a2a5e] px-4 py-3 text-left">
+            <DialogTitle className="text-base font-semibold text-white">Position bearbeiten</DialogTitle>
+            <DialogDescription className="text-xs text-slate-200">Menge, Lieferant und Notiz anpassen</DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+            <div>
+              <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Lieferant</Label>
+              <Select value={editItemData.supplier} onValueChange={(value) => setEditItemData({ ...editItemData, supplier: value })}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Lieferant auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier._id} value={supplier._id}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Menge</Label>
+              <Input
+                type="number"
+                min="1"
+                className="h-8 text-xs"
+                value={editItemData.quantity}
+                onChange={(e) => setEditItemData({ ...editItemData, quantity: parseInt(e.target.value) || 1 })}
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Preisart</Label>
+              <Select
+                value={editItemData.priceType}
+                onValueChange={(value: 'net' | 'gross') => setEditItemData({ ...editItemData, priceType: value })}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="net">Netto</SelectItem>
+                  <SelectItem value="gross">Brutto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Bestellpreis (€)</Label>
+              <DecimalInput
+                min={0}
+                emptyValue={0}
+                className="h-8 text-xs"
+                value={editItemData.unitPrice}
+                onValueChange={(v) => setEditItemData({ ...editItemData, unitPrice: (v ?? 0) })}
+                placeholder="0,00"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Versandkosten (€)</Label>
+                <DecimalInput
+                  min={0}
+                  emptyValue={0}
+                  className="h-8 text-xs"
+                  value={editItemData.shippingCost}
+                  onValueChange={(v) => setEditItemData({ ...editItemData, shippingCost: (v ?? 0) })}
+                  placeholder="0,00"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Zusatzkosten (€)</Label>
+                <DecimalInput
+                  min={0}
+                  emptyValue={0}
+                  className="h-8 text-xs"
+                  value={editItemData.additionalCost}
+                  onValueChange={(v) => setEditItemData({ ...editItemData, additionalCost: (v ?? 0) })}
+                  placeholder="0,00"
+                />
+              </div>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Voraussichtliche Positionssumme</p>
+              <p className="text-base font-semibold text-slate-900">
+                {formatEUR((editItemData.unitPrice * editItemData.quantity) + editItemData.shippingCost + editItemData.additionalCost)}
+              </p>
+            </div>
+            <div>
+              <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Notiz</Label>
+              <Textarea
+                className="min-h-[88px] text-xs"
+                value={editItemData.notes}
+                onChange={(e) => setEditItemData({ ...editItemData, notes: e.target.value })}
+                placeholder="Optionale Notiz …"
+              />
+            </div>
+          </div>
+          <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 flex flex-wrap justify-end gap-2">
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setShowEditItemDialog(false)}>
+              Abbrechen
+            </Button>
+            <Button size="sm" className="h-8 text-xs" onClick={handleUpdateItem}>
+              Speichern
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1478,14 +1506,14 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       <Dialog open={showAddItemDialog} onOpenChange={setShowAddItemDialog}>
         <DialogContent className="max-h-[88vh] overflow-hidden gap-0 border-slate-200 p-0 shadow-xl">
           <DialogHeader className="space-y-1 border-b border-slate-800 bg-[#1a2a5e] px-4 py-3 text-left">
-            <DialogTitle className="text-base font-semibold !text-yellow-300">Add Item to Need List</DialogTitle>
-            <DialogDescription className="text-xs text-slate-200">Select part, supplier and costs in one compact step.</DialogDescription>
+            <DialogTitle className="text-base font-semibold !text-yellow-300">Position zur Bedarfsliste hinzufügen</DialogTitle>
+            <DialogDescription className="text-xs text-slate-200">Ersatzteil, Lieferant und Kosten in einem Schritt erfassen.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block" htmlFor="add-part-search">Search Part</Label>
+                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block" htmlFor="add-part-search">Ersatzteil suchen</Label>
                 <div className="relative">
                   <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
                   <Input
@@ -1493,15 +1521,15 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                     className="h-8 pl-7 text-xs"
                     value={addItemPartSearch}
                     onChange={(e) => setAddItemPartSearch(e.target.value)}
-                    placeholder="Search by part number or name"
+                    placeholder="Nach Teilenummer oder Name suchen"
                   />
                 </div>
               </div>
               <div>
-                <Label htmlFor="add-part" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Part</Label>
+                <Label htmlFor="add-part" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Ersatzteil</Label>
                 <Select value={addItemData.part} onValueChange={(value) => setAddItemData({ ...addItemData, part: value })}>
                   <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Select part" />
+                    <SelectValue placeholder="Ersatzteil auswählen" />
                   </SelectTrigger>
                   <SelectContent>
                     {filteredAddItemParts.map((part) => (
@@ -1516,10 +1544,10 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="add-supplier" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Supplier</Label>
+                <Label htmlFor="add-supplier" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Lieferant</Label>
                 <Select value={addItemData.supplier} onValueChange={(value) => setAddItemData({ ...addItemData, supplier: value })}>
                   <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Select supplier" />
+                    <SelectValue placeholder="Lieferant auswählen" />
                   </SelectTrigger>
                   <SelectContent>
                     {suppliers.map((supplier) => (
@@ -1531,7 +1559,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                 </Select>
               </div>
               <div>
-                <Label htmlFor="add-quantity" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Quantity</Label>
+                <Label htmlFor="add-quantity" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Menge</Label>
                 <Input
                   id="add-quantity"
                   type="number"
@@ -1545,7 +1573,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Price Type</Label>
+                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Preisart</Label>
                 <Select
                   value={addItemData.priceType}
                   onValueChange={(value: 'net' | 'gross') => setAddItemData({ ...addItemData, priceType: value })}
@@ -1554,72 +1582,69 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="net">Net</SelectItem>
-                    <SelectItem value="gross">Gross</SelectItem>
+                    <SelectItem value="net">Netto</SelectItem>
+                    <SelectItem value="gross">Brutto</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Unit Price</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Einzelpreis (€)</Label>
+                <DecimalInput
+                  min={0}
+                  emptyValue={0}
                   className="h-8 text-xs"
-                  value={addItemData.unitPrice === 0 ? '' : addItemData.unitPrice}
-                  onChange={(e) => setAddItemData({ ...addItemData, unitPrice: Math.max(0, parseFloat(e.target.value) || 0) })}
-                  placeholder="0.00"
+                  value={addItemData.unitPrice}
+                  onValueChange={(v) => setAddItemData({ ...addItemData, unitPrice: (v ?? 0) })}
+                  placeholder="0,00"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Shipping Cost</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Versandkosten (€)</Label>
+                <DecimalInput
+                  min={0}
+                  emptyValue={0}
                   className="h-8 text-xs"
-                  value={addItemData.shippingCost === 0 ? '' : addItemData.shippingCost}
-                  onChange={(e) => setAddItemData({ ...addItemData, shippingCost: Math.max(0, parseFloat(e.target.value) || 0) })}
-                  placeholder="0.00"
+                  value={addItemData.shippingCost}
+                  onValueChange={(v) => setAddItemData({ ...addItemData, shippingCost: (v ?? 0) })}
+                  placeholder="0,00"
                 />
               </div>
               <div>
-                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Additional Cost</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Zusatzkosten (€)</Label>
+                <DecimalInput
+                  min={0}
+                  emptyValue={0}
                   className="h-8 text-xs"
-                  value={addItemData.additionalCost === 0 ? '' : addItemData.additionalCost}
-                  onChange={(e) => setAddItemData({ ...addItemData, additionalCost: Math.max(0, parseFloat(e.target.value) || 0) })}
-                  placeholder="0.00"
+                  value={addItemData.additionalCost}
+                  onValueChange={(v) => setAddItemData({ ...addItemData, additionalCost: (v ?? 0) })}
+                  placeholder="0,00"
                 />
               </div>
             </div>
 
             <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Estimated Line Total</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Voraussichtliche Positionssumme</p>
               <p className="text-base font-semibold text-slate-900">
-                {((addItemData.unitPrice * addItemData.quantity) + addItemData.shippingCost + addItemData.additionalCost).toFixed(2)}
+                {formatEUR((addItemData.unitPrice * addItemData.quantity) + addItemData.shippingCost + addItemData.additionalCost)}
               </p>
             </div>
 
             <div>
-              <Label htmlFor="add-notes" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Notes</Label>
+              <Label htmlFor="add-notes" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Notiz</Label>
               <Textarea
                 id="add-notes"
                 className="min-h-[88px] text-xs"
                 value={addItemData.notes}
                 onChange={(e) => setAddItemData({ ...addItemData, notes: e.target.value })}
-                placeholder="Optional notes..."
+                placeholder="Optionale Notiz …"
               />
             </div>
           </div>
 
-          <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 flex justify-end gap-2">
+          <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 flex flex-wrap justify-end gap-2">
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => {
               setShowAddItemDialog(false);
               setAddItemData({
@@ -1634,10 +1659,10 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
               });
               setAddItemPartSearch('');
             }}>
-              Cancel
+              Abbrechen
             </Button>
             <Button size="sm" className="h-8 text-xs" onClick={handleAddItem} disabled={!addItemData.part}>
-              Add Item
+              Position hinzufügen
             </Button>
           </div>
         </DialogContent>
@@ -1647,16 +1672,16 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
       <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
         <DialogContent className="w-[96vw] max-w-7xl max-h-[90vh] overflow-hidden gap-0 border-slate-200 p-0 shadow-xl">
           <DialogHeader className="space-y-1 border-b border-slate-800 bg-[#1a2a5e] px-4 py-3 text-left">
-            <DialogTitle className="text-base font-semibold !text-yellow-300">Convert Need List to Order</DialogTitle>
+            <DialogTitle className="text-base font-semibold !text-yellow-300">Bedarfsliste in Bestellung umwandeln</DialogTitle>
             <DialogDescription className="text-xs text-slate-200">
-              Configure supplier and costs per item, then set shipping total per supplier.
+              Lieferant und Kosten je Position festlegen, danach die Versandkosten je Lieferant.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Default Supplier (Optional)</Label>
+                <Label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Standard-Lieferant (optional)</Label>
                 <Select
                   value={convertData.supplier}
                   onValueChange={(value) => {
@@ -1671,7 +1696,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                   }}
                 >
                   <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Apply supplier to all empty items" />
+                    <SelectValue placeholder="Für alle Positionen ohne Lieferant übernehmen" />
                   </SelectTrigger>
                   <SelectContent>
                     {suppliers.map((supplier) => (
@@ -1683,20 +1708,20 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                 </Select>
               </div>
               <div>
-                <Label htmlFor="convert-notes" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Order Notes</Label>
+                <Label htmlFor="convert-notes" className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 mb-2 block">Notiz zur Bestellung</Label>
                 <Textarea
                   id="convert-notes"
                   className="min-h-[70px] text-xs"
                   value={convertData.notes}
                   onChange={(e) => setConvertData({ ...convertData, notes: e.target.value })}
-                  placeholder="Optional notes for the supplier order..."
+                  placeholder="Optionale Notiz zur Lieferantenbestellung …"
                 />
               </div>
             </div>
 
             {selectedSuppliersForConvert.length > 0 && (
               <div className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Shipping per Supplier</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Versandkosten je Lieferant</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {selectedSuppliersForConvert.map((supplierId) => {
                     const supplierName = suppliers.find((supplier) => supplier._id === supplierId)?.name || supplierId;
@@ -1705,14 +1730,13 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                     return (
                       <div key={supplierId}>
                         <Label className="text-[11px] font-semibold text-slate-600 mb-1 block">{supplierName}</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
+                        <DecimalInput
+                          min={0}
+                          emptyValue={0}
                           className="h-8 text-xs bg-white"
-                          value={shippingValue === 0 ? '' : shippingValue}
-                          onChange={(e) => {
-                            const nextValue = Math.max(0, parseFloat(e.target.value) || 0);
+                          value={shippingValue}
+                          onValueChange={(v) => {
+                            const nextValue = Math.max(0, v ?? 0);
                             setConvertData((prev) => ({
                               ...prev,
                               supplierShippingCosts: {
@@ -1721,7 +1745,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                               },
                             }));
                           }}
-                          placeholder="0.00"
+                          placeholder="0,00"
                         />
                       </div>
                     );
@@ -1734,14 +1758,14 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
               <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow className="bg-slate-50">
-                    <TableHead className="w-[18%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Item</TableHead>
-                    <TableHead className="w-[16%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Supplier</TableHead>
-                    <TableHead className="w-[10%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Price Type</TableHead>
-                    <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Unit Price</TableHead>
-                    <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Shipping Share</TableHead>
-                    <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Additional</TableHead>
-                    <TableHead className="w-[8%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 text-center">Qty</TableHead>
-                    <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 text-right">Line Total</TableHead>
+                    <TableHead className="w-[18%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Position</TableHead>
+                    <TableHead className="w-[16%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Lieferant</TableHead>
+                    <TableHead className="w-[10%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Preisart</TableHead>
+                    <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Einzelpreis (€)</TableHead>
+                    <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Versandanteil</TableHead>
+                    <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Zusatz</TableHead>
+                    <TableHead className="w-[8%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 text-center">Menge</TableHead>
+                    <TableHead className="w-[12%] h-9 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 text-right">Positionssumme</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1769,7 +1793,7 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                             onValueChange={(value) => updateConvertItemConfig(itemId, { supplier: value })}
                           >
                             <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="Select" />
+                              <SelectValue placeholder="Auswählen" />
                             </SelectTrigger>
                             <SelectContent>
                               {suppliers.map((supplier) => (
@@ -1789,43 +1813,41 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="net">Net</SelectItem>
-                              <SelectItem value="gross">Gross</SelectItem>
+                              <SelectItem value="net">Netto</SelectItem>
+                              <SelectItem value="gross">Brutto</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
                         <TableCell className="px-2 py-2 align-top">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
+                          <DecimalInput
+                            min={0}
+                            emptyValue={0}
                             className="h-8 text-xs"
-                            value={itemConfig.price === 0 ? '' : itemConfig.price}
-                            onChange={(e) => updateConvertItemConfig(itemId, { price: Math.max(0, parseFloat(e.target.value) || 0) })}
-                            placeholder="0.00"
+                            value={itemConfig.price}
+                            onValueChange={(v) => updateConvertItemConfig(itemId, { price: (v ?? 0) })}
+                            placeholder="0,00"
                           />
                         </TableCell>
                         <TableCell className="px-2 py-2 align-top">
                           <Input
-                            type="number"
                             className="h-8 text-xs bg-slate-100"
-                            value={shippingSharePerItem.toFixed(2)}
+                            value={formatEUR(shippingSharePerItem)}
                             readOnly
+                            aria-label="Versandanteil je Stück"
                           />
                         </TableCell>
                         <TableCell className="px-2 py-2 align-top">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
+                          <DecimalInput
+                            min={0}
+                            emptyValue={0}
                             className="h-8 text-xs"
-                            value={itemConfig.additionalCost === 0 ? '' : itemConfig.additionalCost}
-                            onChange={(e) => updateConvertItemConfig(itemId, { additionalCost: Math.max(0, parseFloat(e.target.value) || 0) })}
-                            placeholder="0.00"
+                            value={itemConfig.additionalCost}
+                            onValueChange={(v) => updateConvertItemConfig(itemId, { additionalCost: (v ?? 0) })}
+                            placeholder="0,00"
                           />
                         </TableCell>
                         <TableCell className="px-2 py-2 text-xs text-center align-top">{item.quantity}</TableCell>
-                        <TableCell className="px-2 py-2 text-xs text-right font-semibold align-top">{lineTotal.toFixed(2)}</TableCell>
+                        <TableCell className="px-2 py-2 text-xs text-right font-semibold align-top">{formatEUR(lineTotal)}</TableCell>
                       </TableRow>
                     );
                   })}
@@ -1835,30 +1857,30 @@ export default function NeedListManagement({ onOrderCreated }: NeedListManagemen
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Subtotal</p>
-                <p className="text-lg font-bold text-slate-900">{convertSummary.subtotal.toFixed(2)}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Zwischensumme</p>
+                <p className="text-lg font-bold text-slate-900">{formatEUR(convertSummary.subtotal)}</p>
               </div>
               <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Shipping</p>
-                <p className="text-lg font-bold text-slate-900">{convertSummary.shipping.toFixed(2)}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Versand</p>
+                <p className="text-lg font-bold text-slate-900">{formatEUR(convertSummary.shipping)}</p>
               </div>
               <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Estimated Total</p>
-                <p className="text-lg font-bold text-slate-900">{convertSummary.total.toFixed(2)}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Voraussichtlich gesamt</p>
+                <p className="text-lg font-bold text-slate-900">{formatEUR(convertSummary.total)}</p>
               </div>
             </div>
           </div>
 
-          <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 flex justify-end gap-2">
+          <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 flex flex-wrap justify-end gap-2">
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => {
               setShowConvertDialog(false);
               setConvertData({ supplier: '', notes: '', itemConfigurations: [], supplierShippingCosts: {} });
               setSelectedNeedList(null);
             }}>
-              Cancel
+              Abbrechen
             </Button>
-            <Button size="sm" className="h-8 text-xs" onClick={handleConvertToOrder}>
-              Create Order
+            <Button size="sm" className="h-8 text-xs" onClick={handleConvertToOrder} disabled={convertingToOrder}>
+              {convertingToOrder ? 'Bestellung wird angelegt …' : 'Bestellung anlegen'}
             </Button>
           </div>
         </DialogContent>

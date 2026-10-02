@@ -1,0 +1,48 @@
+
+[G] Buchungs-Storno: Grund Pflicht, offene Auftraege blockieren, Rollen
+  PASS DELETE ohne Grund -> 400 deutsch, Buchung unveraendert :: 400 Bitte einen Grund für die Stornierung angeben.
+  PASS Statusauswahl "Storniert" ohne Grund (Staff) -> 400, Buchung unveraendert :: 400 Bitte einen Grund für die Stornierung angeben.
+  PASS offene Auftraege -> 409 mit beiden Auftragsnummern (deutsch) :: 409 Die Buchung hat noch offene Aufträge (ORD-W3C-001, ORD-W3C-002). Bitte zuerst jeden Auftrag mit Grund stornieren („Auftrag stornieren“) – laufende Reparaturen werden dabei angehalten.
+  PASS Statusauswahl "Storniert" mit Grund, Auftraege offen -> 409; Buchung + Auftraege unveraendert, keine E-Mail :: 409 mails=0
+  PASS Staff-DELETE (nur Admin) / Kunde / fremder Kunde -> 403, Buchung unveraendert :: 403 403 403 403
+  PASS Auftrag ORD-W3C-001 mit Grund storniert :: 200
+  PASS Auftrag ORD-W3C-002 mit Grund storniert :: 200
+  PASS alle Auftraege storniert -> Buchung storniert, Grund + Person im internen Verlauf :: 200 cancelled Buchung storniert – Grund (intern): INTERN-GRUND-XYZ Kunde zieht zurück
+  PASS genau eine Storno-E-Mail an den Kunden, ohne den internen Grund :: 1 Durch Service-Team storniert
+  PASS kein Status-Mail-Weg mit dem Grund (Statusauswahl nutzt dieselbe Storno-Regel) :: ok
+  PASS Kundensicht der Buchung: storniert, interner Grund nicht enthalten :: 200
+  PASS erneuter Storno -> 200 unveraendert, keine zweite E-Mail, kein zweiter Verlaufseintrag :: 200 mails=1
+  PASS ohne offene Auftraege: Admin-DELETE mit Grund -> 200 storniert :: 200
+  PASS unbekannte Buchung -> 404 deutsch :: 404 Buchung wurde nicht gefunden.
+
+[H] Abschlussmeldung aus der Oberflaeche: Text nach Rueckgabeweg
+  PASS Dialog-Vorschlag (lib/returnMethod) == Servertext fuer shipping :: Die Reparatur Ihres Geräts (Apple iPhone 15) zu Auftrag ORD-X ist abge
+  PASS Dialog-Vorschlag (lib/returnMethod) == Servertext fuer pickup :: Die Reparatur Ihres Geräts (Apple iPhone 15) zu Auftrag ORD-X ist abge
+  PASS Dialog-Vorschlag (lib/returnMethod) == Servertext fuer unknown :: Die Reparatur Ihres Geräts (Apple iPhone 15) zu Auftrag ORD-X ist abge
+  PASS Dialog bestimmt aus dem Versandstand: Versand :: 200 shipping
+  PASS Abschluss mit Dialog-Payload: Kunde erhaelt genau den angezeigten Versandtext :: Die Reparatur Ihres Geräts (Apple iPhone 15) zu Auftrag ORD-W3C-004 ist abgeschlossen. Wir bereiten den Rückversand an Sie vor und informieren Sie, sobald das Paket an DHL übergeben ist.
+  PASS geaenderter Text -> woertlich :: Ihr Gerät ist fertig. Bitte rufen Sie uns vor der Abholung kurz an.
+  PASS nachtraegliche Benachrichtigung (unveraendert) -> Versandtext :: 200 Die Reparatur Ihres Geräts (Apple iPhone 15) zu Auftrag ORD-W3C-006 ist abgeschlossen. Wir bereiten den Rückversand an Sie vor und informieren Sie, sobald das Paket an DHL übergeben ist.
+  PASS Kunde darf keine Benachrichtigung ausloesen -> 403 :: 403
+  PASS Client: OrderDetails gibt shipments weiter; Abschluss und Retry senden nur geaenderte Texte :: ok
+
+[I] Storno zwischen Lesen und Speichern eines Template-Schritts
+  PASS Storno dazwischen -> 409 WORKFLOW_ORDER_CLOSED, Schritt offen, Auftrag bleibt storniert :: 409 WORKFLOW_ORDER_CLOSED cancelled
+  PASS Kontrolle: offener Auftrag -> Schritt gespeichert :: ready-for-pickup
+  PASS Schritt parallel erledigt -> weiterhin WORKFLOW_STEP_ALREADY_DONE :: WORKFLOW_STEP_ALREADY_DONE
+
+[J] Dashboard-Kacheln Reklamationen / EPart / Finanzen == gefilterte Liste
+  PASS Reklamationen offen: 28 == Liste status=offen (alte Zaehlung: max. 20) :: 28 vs 28
+  PASS Reklamationen Freigaben: 2 == Liste status=pending_approval :: 2 vs 2
+  PASS Reklamationen dringend (offen + hoch/dringend): 4 == Liste, geschlossene nicht :: 4 vs 4
+  PASS EPart aktiv: 26 == Liste status=aktiv (alte Zaehlung: max. 20) :: 26 vs 26
+  PASS EPart ausstehend: 23 == Liste status=ausstehend :: 23 vs 23
+  PASS EPart verzoegert: 2 == Liste status=verzoegert (erhalten/storniert nicht) :: 2 vs 2
+  PASS offene Rechnungen: 6 == Belegliste receivable=offen (bezahlt/Entwurf/Gutschrift/voll zugeordnet nicht) :: 6 vs 6
+  PASS ueberfaellige Rechnungen: 3 == Belegliste receivable=ueberfaellig :: 3 vs 3
+  PASS Zahlungen in Pruefung: 4 == Zahlungsliste review=pruefung (alter processing-Eintrag nicht) :: 4 vs 4
+  PASS Finanzbericht nutzt dieselbe Regel (gleiche Zahlen) :: 200 6/3/4
+  PASS Einzelstatus wie bisher; status[$ne] wirkt nicht als Operator :: 23 200 31
+  PASS Rollen: Reklamationsliste (Admin), EPart (Staff/Admin), Finanzlisten (Admin) -> 403 fuer andere :: 403 403 403 403
+
+Ergebnis: 38 bestanden, 0 fehlgeschlagen

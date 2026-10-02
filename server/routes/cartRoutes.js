@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { requireUser, optionalAuth } = require('./middleware/auth');
 const CartService = require('../services/cartService');
+// Gutscheinpruefung ohne Anmeldung: Durchprobieren von Codes je Client-IP begrenzt.
+const { guestPromoLimit } = require('./middleware/guestAccess');
 
 // Get user's cart
 router.get('/', requireUser, async (req, res) => {
@@ -106,7 +108,7 @@ router.delete('/remove/:itemId', requireUser, async (req, res) => {
 // Apply promo code (works for both authenticated and guest users)
 // For authenticated users, applies to their saved cart
 // For guest users, just validates and returns discount info
-router.post('/promo', optionalAuth, async (req, res) => {
+router.post('/promo', optionalAuth, guestPromoLimit, async (req, res) => {
   try {
     console.log('CartRoutes: Applying promo code:', req.body);
     const { promoCode } = req.body;
@@ -226,8 +228,10 @@ router.post('/add-repair-order', requireUser, async (req, res) => {
     });
   } catch (error) {
     console.error('CartRoutes: Error adding repair order to cart:', error);
-    res.status(500).json({
+    // Katalogfehler (unbekannte Leistung/Zusatzleistung) sind Eingabefehler -> 400.
+    res.status(error.status === 400 ? 400 : 500).json({
       success: false,
+      ...(error.code ? { code: error.code } : {}),
       error: error.message
     });
   }

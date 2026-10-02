@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/useToast"
 import { createOrderComplaint, getOrders, Order } from "@/api/orders"
 import { searchDevices, SearchResult } from "@/api/devices"
-import { formatPrice } from "@/lib/utils"
+import { formatEUR } from "@/lib/utils"
+import { READY_NEUTRAL_LABEL } from "@/lib/returnMethod"
 import {
   Package,
   Search,
@@ -18,7 +19,7 @@ import {
   CheckCircle,
   AlertCircle,
   Calendar,
-  DollarSign,
+  Euro,
   Eye,
   Filter,
   Plus,
@@ -371,15 +372,16 @@ export function OrderTracking() {
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter by status" />
+                  <SelectValue placeholder="Nach Status filtern" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="quality-check">Quality Check</SelectItem>
-                  <SelectItem value="ready-for-pickup">Ready for Pickup</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="all">Alle Status</SelectItem>
+                  <SelectItem value="pending">Ausstehend</SelectItem>
+                  <SelectItem value="in-progress">In Bearbeitung</SelectItem>
+                  <SelectItem value="quality-check">Qualitätsprüfung</SelectItem>
+                  {/* Neutral (lib/returnMethod): ohne Versanddaten weder "abholbereit" noch "versendet". */}
+                  <SelectItem value="ready-for-pickup">{READY_NEUTRAL_LABEL}</SelectItem>
+                  <SelectItem value="completed">Abgeschlossen</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -441,8 +443,8 @@ export function OrderTracking() {
                         {new Date(order.createdAt).toLocaleDateString()}
                       </span>
                       <span className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4" />
-                        ${formatPrice(order.totalCost)}
+                        <Euro className="h-4 w-4" />
+                        {formatEUR(order.totalCost)}
                       </span>
                     </CardDescription>
                   </div>
@@ -478,7 +480,7 @@ export function OrderTracking() {
                     <div className="flex flex-wrap gap-2">
                       {order.addOns.map((addOn) => (
                         <Badge key={addOn._id} variant="secondary">
-                          {addOn.name} (+${formatPrice(addOn.price)})
+                          {addOn.name} (+{formatEUR(addOn.price)})
                         </Badge>
                       ))}
                     </div>

@@ -1,72 +1,62 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import "./RepairRequestsManagement.css"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/useToast"
 import {
   getRepairRequests,
+  getRepairRequestById,
   getRepairRequestStatistics,
   updateRepairRequestStatus,
   updateRepairRequestPriority,
-  updateRepairRequestEstimatedCost,
   assignStaffToRepairRequest,
-  addRepairRequestMessage,
   addAdminNote,
   convertRepairRequestToOrder,
   deleteRepairRequest,
+  saveRepairRequestQuoteDraft,
+  sendRepairRequestQuote,
+  updateRepairRequestDevice,
   RepairRequest,
-  RepairRequestStats
+  RepairRequestQuote,
+  RepairRequestStats,
 } from "@/api/repairRequests"
 import { getStaffMembers, StaffMember } from "@/api/staff"
 import { getRepairServices, RepairService } from "@/api/services"
-import { getUnreadMessageCount } from "@/api/repairRequestCommunication"
+import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
+import { ContactMessagesPanel } from "@/components/admin/ContactMessagesPanel"
+import { CatalogDevicePicker, PickedCatalogDevice } from "@/components/repair-request/CatalogDevicePicker"
 import {
-  FileText,
-  Search,
-  Filter,
-  Eye,
-  MessageSquare,
-  UserPlus,
-  DollarSign,
-  Trash2,
-  Clock,
-  CheckCircle,
+  formatDateDe,
+  formatDeviceLabel,
+  formatMoney,
+  QUOTE_STATUS_LABELS,
+  statusLabel,
+} from "@/components/repair-request/repairRequestFormat"
+import { parseDecimalInput } from "@/lib/parseDecimalInput"
+import {
+  AlertCircle,
   AlertTriangle,
-  Package,
-  ArrowUpCircle,
+  CheckCircle,
+  Clock,
+  Eye,
+  FileText,
+  Filter,
+  Loader2,
+  Lock,
+  MessageSquare,
+  MoreHorizontal,
+  RefreshCw,
+  Search,
   Send,
   ShoppingCart,
+  Trash2,
+  Truck,
+  UserPlus,
   X,
-  Loader2,
-  User,
-  Phone,
-  Calendar,
-  FileCheck,
-  AlertCircle,
-  Info,
 } from "lucide-react"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import {
   Dialog,
   DialogClose,
@@ -93,10 +83,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
-import { CommunicationPanel } from "@/components/inspection/CommunicationPanel"
-import { ContactMessagesPanel } from "@/components/admin/ContactMessagesPanel"
 
 type RepairRequestsManagementView = "repair-requests" | "contact-messages"
 
@@ -104,1326 +91,1062 @@ interface RepairRequestsManagementProps {
   view?: RepairRequestsManagementView
 }
 
+const PAGE_SIZE = 25
+const PRIORITY_LABELS: Record<string, string> = { low: "Niedrig", medium: "Mittel", high: "Hoch", urgent: "Dringend" }
+
+const staffName = (member: StaffMember | any) =>
+  `${member?.firstName || ""} ${member?.lastName || ""}`.trim() || member?.name || member?.email || "Mitarbeiter"
+
+const statusChipClass = (status: string) => {
+  switch (status) {
+    case "pending": return "bg-amber-100 text-amber-900 ring-amber-200"
+    case "reviewing": return "bg-sky-100 text-sky-900 ring-sky-200"
+    case "approved": return "bg-emerald-100 text-emerald-900 ring-emerald-200"
+    case "rejected": return "bg-red-100 text-red-800 ring-red-200"
+    case "converted": return "bg-purple-100 text-purple-900 ring-purple-200"
+    default: return "bg-slate-100 text-slate-700 ring-slate-200"
+  }
+}
+
+const quoteChipClass = (status?: string) => {
+  switch (status) {
+    case "draft": return "bg-slate-100 text-slate-700 ring-slate-300"
+    case "sent": return "bg-amber-100 text-amber-900 ring-amber-200"
+    case "accepted": return "bg-emerald-100 text-emerald-900 ring-emerald-200"
+    case "declined": return "bg-red-100 text-red-800 ring-red-200"
+    default: return "bg-white text-slate-500 ring-slate-200"
+  }
+}
+
+const QUOTE_SHORT: Record<string, string> = { draft: "Entwurf", sent: "Gesendet", accepted: "Angenommen", declined: "Abgelehnt" }
+
+const chip = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1"
+
+const effectiveQuoteOf = (request: RepairRequest | null): RepairRequestQuote | null =>
+  (request?.effectiveQuote as RepairRequestQuote | null) ?? null
+
 export function RepairRequestsManagement({ view = "repair-requests" }: RepairRequestsManagementProps) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { toast } = useToast()
 
+  // ── Liste (serverseitig: Suche, Filter, Seiten; Filter stehen in der URL) ──
   const [requests, setRequests] = useState<RepairRequest[]>([])
-  const [filteredRequests, setFilteredRequests] = useState<RepairRequest[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [listState, setListState] = useState<"loading" | "ready" | "error">("loading")
+  const [listError, setListError] = useState("")
+  const [loadingMore, setLoadingMore] = useState(false)
   const [statistics, setStatistics] = useState<RepairRequestStats | null>(null)
   const [staff, setStaff] = useState<StaffMember[]>([])
-  const [services, setServices] = useState<RepairService[]>([])
-  const [loading, setLoading] = useState(view === "repair-requests")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [priorityFilter, setPriorityFilter] = useState("all")
-  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
 
-  // Dialog states
-  const [selectedRequest, setSelectedRequest] = useState<RepairRequest | null>(null)
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false)
-  const [showMessageDialog, setShowMessageDialog] = useState(false)
-  const [showAssignDialog, setShowAssignDialog] = useState(false)
-  const [showConvertDialog, setShowConvertDialog] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const searchQuery = searchParams.get("q") || ""
+  const statusFilter = searchParams.get("status") || "all"
+  const priorityFilter = searchParams.get("priority") || "all"
+  const quoteFilter = searchParams.get("quote") || "all"
+  const [searchInput, setSearchInput] = useState(searchQuery)
 
-  // Form states
-  const [newMessage, setNewMessage] = useState("")
+  // ── Details ──
+  const [detail, setDetail] = useState<RepairRequest | null>(null)
+  const [detailState, setDetailState] = useState<"idle" | "loading" | "ready" | "error">("idle")
+  const [detailError, setDetailError] = useState("")
+  const selectedId = searchParams.get("requestId")
+
+  const [quoteAmount, setQuoteAmount] = useState("")
+  const [quoteDescription, setQuoteDescription] = useState("")
+  const [savingQuote, setSavingQuote] = useState(false)
+  const [sendingQuote, setSendingQuote] = useState(false)
+  const [confirmSendOpen, setConfirmSendOpen] = useState(false)
   const [selectedStaffId, setSelectedStaffId] = useState("")
+  const [internalNote, setInternalNote] = useState("")
+  const [savingNote, setSavingNote] = useState(false)
+  const [busyField, setBusyField] = useState<string | null>(null)
+  const [showDevicePicker, setShowDevicePicker] = useState(false)
+  const [savingDevice, setSavingDevice] = useState(false)
+
+  // ── Umwandeln / Löschen ──
+  const [convertTarget, setConvertTarget] = useState<RepairRequest | null>(null)
+  const [services, setServices] = useState<RepairService[]>([])
+  const [servicesState, setServicesState] = useState<"idle" | "loading" | "ready" | "error">("idle")
+  const [serviceSearch, setServiceSearch] = useState("")
   const [selectedServices, setSelectedServices] = useState<string[]>([])
-  const [estimatedCost, setEstimatedCost] = useState("")
-  const [adminNote, setAdminNote] = useState("")
-  const [actionLoading, setActionLoading] = useState(false)
-  const detailsDialogHeaderClass = "relative -mx-6 -mt-6 mb-2 rounded-t-lg bg-[#1a2a5e] px-6 py-3 text-white"
-  const isDetailsDialogClosingRef = useRef(false)
+  const [shippingMode, setShippingMode] = useState<"none" | "inbound_label">("none")
+  const [confirmDifference, setConfirmDifference] = useState(false)
+  const [converting, setConverting] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<RepairRequest | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const quoteSectionRef = useRef<HTMLDivElement>(null)
+  const quoteAmountRef = useRef<HTMLInputElement>(null)
+  const assignRef = useRef<HTMLSelectElement>(null)
+  const commRef = useRef<HTMLDivElement>(null)
+
+  const updateParams = useCallback((patch: Record<string, string | null>) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      Object.entries(patch).forEach(([key, value]) => {
+        if (value === null || value === "" || value === "all") next.delete(key)
+        else next.set(key, value)
+      })
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
+  const fetchList = useCallback(async (targetPage = 1, append = false) => {
+    if (append) setLoadingMore(true)
+    else { setListState("loading"); setListError("") }
+    try {
+      const response: any = await getRepairRequests({
+        page: targetPage,
+        limit: PAGE_SIZE,
+        search: searchQuery || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        priority: priorityFilter !== "all" ? priorityFilter : undefined,
+        quoteStatus: quoteFilter !== "all" ? quoteFilter : undefined,
+      })
+      const items: RepairRequest[] = response?.requests || []
+      setRequests((prev) => (append ? [...prev, ...items.filter((i) => !prev.some((p) => p._id === i._id))] : items))
+      setTotal(response?.pagination?.total ?? items.length)
+      setPage(targetPage)
+      setListState("ready")
+    } catch (error: any) {
+      if (append) toast({ title: "Fehler", description: error?.message || "Weitere Anfragen konnten nicht geladen werden.", variant: "destructive" })
+      else { setListState("error"); setListError(error?.message || "") }
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [searchQuery, statusFilter, priorityFilter, quoteFilter, toast])
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const response: any = await getRepairRequestStatistics()
+      setStatistics(response?.statistics || null)
+    } catch {
+      setStatistics(null)
+    }
+  }, [])
 
   useEffect(() => {
     if (view !== "repair-requests") return
-    fetchData()
-  }, [view])
+    fetchList(1, false)
+  }, [view, fetchList])
 
   useEffect(() => {
     if (view !== "repair-requests") return
-    filterRequests()
-  }, [requests, searchTerm, statusFilter, priorityFilter, view])
+    fetchStats()
+    getStaffMembers({}).then((res: any) => setStaff(res?.staff || [])).catch(() => setStaff([]))
+  }, [view, fetchStats])
 
+  // Suche entprellt in die URL übernehmen
   useEffect(() => {
-    if (!selectedRequest) return
-    setSelectedStaffId(selectedRequest.assignedStaffId?._id || "")
-    setEstimatedCost(
-      typeof selectedRequest.estimatedCost === "number" && selectedRequest.estimatedCost > 0
-        ? String(selectedRequest.estimatedCost)
-        : ""
-    )
-  }, [selectedRequest?._id])
+    const handle = setTimeout(() => {
+      if (searchInput.trim() !== searchQuery) updateParams({ q: searchInput.trim() || null })
+    }, 350)
+    return () => clearTimeout(handle)
+  }, [searchInput, searchQuery, updateParams])
 
-  useEffect(() => {
-    const requestId = searchParams.get("requestId")
-    if (!requestId || requests.length === 0) return
-    if (isDetailsDialogClosingRef.current) return
-
-    const request = requests.find((req) => req._id === requestId)
-    if (!request) return
-    if (showDetailsDialog && selectedRequest?._id === requestId) return
-
-    setSelectedRequest(request)
-    setShowDetailsDialog(true)
-  }, [searchParams, requests, selectedRequest?._id, showDetailsDialog])
-
-  useEffect(() => {
-    const requestId = searchParams.get("requestId")
-    if (!requestId) {
-      isDetailsDialogClosingRef.current = false
-    }
-  }, [searchParams])
-
-  const fetchData = async () => {
+  // Details laden (Deep-Link ?requestId= oder "Öffnen")
+  const loadDetail = useCallback(async (id: string) => {
+    setDetailState("loading")
+    setDetailError("")
     try {
-      setLoading(true)
-      console.log("Fetching repair requests data...")
+      const response: any = await getRepairRequestById(id)
+      const request: RepairRequest = response?.request
+      setDetail(request)
+      const quote = effectiveQuoteOf(request)
+      setQuoteAmount(quote ? String(quote.amount ?? 0).replace(".", ",") : "")
+      setQuoteDescription(quote?.description || "")
+      setSelectedStaffId((request?.assignedStaffId as any)?._id || "")
+      setShowDevicePicker(false)
+      setDetailState("ready")
+    } catch (error: any) {
+      setDetailState("error")
+      setDetailError(error?.message || "")
+    }
+  }, [])
 
-      const [requestsResponse, statsResponse, staffResponse, servicesResponse] = await Promise.all([
-        getRepairRequests(),
-        getRepairRequestStatistics(),
-        getStaffMembers({}),
-        getRepairServices()
-      ])
+  useEffect(() => {
+    if (view !== "repair-requests") return
+    if (selectedId) loadDetail(selectedId)
+    else { setDetail(null); setDetailState("idle") }
+  }, [selectedId, view, loadDetail])
 
-      const requestsData = (requestsResponse as any).requests || []
-      setRequests(requestsData)
-      setStatistics((statsResponse as any).statistics || null)
-      setStaff((staffResponse as any).staff || [])
-      setServices((servicesResponse as any).services || [])
+  const openDetail = (request: RepairRequest, focus?: "communication" | "quote" | "assign") => {
+    updateParams({ requestId: request._id })
+    if (focus) {
+      setTimeout(() => {
+        const target = focus === "communication" ? commRef.current : focus === "quote" ? quoteSectionRef.current : assignRef.current
+        target?.scrollIntoView({ behavior: "smooth", block: "start" })
+        if (focus === "quote") quoteAmountRef.current?.focus()
+        if (focus === "assign") assignRef.current?.focus()
+      }, 450)
+    }
+  }
 
-      // Fetch unread counts for all requests
-      const counts: Record<string, number> = {}
-      for (const request of requestsData) {
-        try {
-          const count = await getUnreadMessageCount(request._id)
-          counts[request._id] = count
-        } catch (error) {
-          console.error(`Error fetching unread count for request ${request._id}:`, error)
-          counts[request._id] = 0
-        }
+  const closeDetail = () => {
+    updateParams({ requestId: null })
+    fetchList(1, false)
+    fetchStats()
+  }
+
+  const applyUpdatedRequest = (updated: RepairRequest | undefined) => {
+    if (!updated) return
+    setDetail((prev) => (prev && prev._id === updated._id ? { ...prev, ...updated } : prev))
+    setRequests((prev) => prev.map((r) => (r._id === updated._id ? { ...r, ...updated, communicationSummary: r.communicationSummary } : r)))
+  }
+
+  // ── Aktionen im Detail ──
+  // Gemeinsame Dezimalregel: "49,90" und "49.90" => 49,9; "1.234,50" => 1234,5.
+  const parseAmount = (): number | null => {
+    const value = parseDecimalInput(quoteAmount)
+    return value !== null && value >= 0 ? Math.round(value * 100) / 100 : null
+  }
+
+  const handleSaveDraft = async () => {
+    if (!detail) return
+    const amount = parseAmount()
+    if (amount === null) {
+      toast({ title: "Betrag fehlt", description: "Bitte einen Betrag ab 0,00 € eingeben.", variant: "destructive" })
+      return
+    }
+    try {
+      setSavingQuote(true)
+      const response: any = await saveRepairRequestQuoteDraft(detail._id, { amount, description: quoteDescription })
+      applyUpdatedRequest(response?.request)
+      toast({ title: "Entwurf gespeichert", description: "Der Kunde sieht den Entwurf noch nicht." })
+    } catch (error: any) {
+      toast({ title: "Fehler beim Speichern", description: error?.message, variant: "destructive" })
+    } finally {
+      setSavingQuote(false)
+    }
+  }
+
+  const handleSendQuote = async () => {
+    if (!detail || sendingQuote) return
+    const amount = parseAmount()
+    if (amount === null) {
+      toast({ title: "Betrag fehlt", description: "Bitte einen Betrag ab 0,00 € eingeben.", variant: "destructive" })
+      return
+    }
+    try {
+      setSendingQuote(true)
+      const result = await sendRepairRequestQuote(detail._id, { amount, description: quoteDescription })
+      applyUpdatedRequest(result.request)
+      if (result.alreadySent) {
+        toast({ title: "Bereits gesendet", description: result.message })
+      } else if (result.email?.status === "failed") {
+        toast({ title: "Kostenvoranschlag veröffentlicht – E-Mail fehlgeschlagen", description: result.email.error || "Der Kunde sieht ihn im Kundenkonto bzw. über den Tracking-Link.", variant: "destructive" })
+      } else {
+        toast({ title: "Kostenvoranschlag gesendet", description: "Die E-Mail wurde vom Mailserver angenommen." })
       }
-      setUnreadCounts(counts)
-
-      console.log("Data loaded successfully")
-    } catch (error) {
-      console.error("Error fetching data:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load repair requests",
-        variant: "destructive"
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filterRequests = () => {
-    let filtered = requests
-
-    if (searchTerm) {
-      filtered = filtered.filter(req =>
-        req.requestNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        req.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        req.customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        req.deviceBrand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        req.deviceModel.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(req => req.status === statusFilter)
-    }
-
-    if (priorityFilter !== "all") {
-      filtered = filtered.filter(req => req.priority === priorityFilter)
-    }
-
-    setFilteredRequests(filtered)
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-500 text-white'
-      case 'reviewing':
-        return 'bg-blue-500 text-white'
-      case 'approved':
-        return 'bg-green-500 text-white'
-      case 'rejected':
-        return 'bg-red-500 text-white'
-      case 'converted':
-        return 'bg-purple-500 text-white'
-      default:
-        return 'bg-gray-500 text-white'
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
-        return 'bg-red-600 text-white'
-      case 'high':
-        return 'bg-orange-500 text-white'
-      case 'medium':
-        return 'bg-yellow-500 text-white'
-      case 'low':
-        return 'bg-gray-500 text-white'
-      default:
-        return 'bg-gray-500 text-white'
-    }
-  }
-
-  const getStatusLabel = (status: RepairRequest["status"]) => {
-    switch (status) {
-      case "pending":
-        return "Ausstehend"
-      case "reviewing":
-        return "In Prüfung"
-      case "approved":
-        return "Genehmigt"
-      case "rejected":
-        return "Abgelehnt"
-      case "converted":
-        return "Umgewandelt"
-      default:
-        return status
-    }
-  }
-
-  const getPriorityLabel = (priority: RepairRequest["priority"]) => {
-    switch (priority) {
-      case "urgent":
-        return "Dringend"
-      case "high":
-        return "Hoch"
-      case "medium":
-        return "Mittel"
-      case "low":
-        return "Niedrig"
-      default:
-        return priority
-    }
-  }
-
-  const updateRequestInState = (requestId: string, updater: (request: RepairRequest) => RepairRequest) => {
-    setRequests((prev) => prev.map((request) => (request._id === requestId ? updater(request) : request)))
-    setSelectedRequest((prev) => {
-      if (!prev || prev._id !== requestId) return prev
-      return updater(prev)
-    })
-  }
-
-  const handleStatusUpdate = async (requestId: string, newStatus: string) => {
-    try {
-      setActionLoading(true)
-      await updateRepairRequestStatus(requestId, newStatus)
-
-      updateRequestInState(requestId, (request) => ({ ...request, status: newStatus as any }))
-
-      toast({
-        title: "Success",
-        description: "Status updated successfully"
-      })
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update status",
-        variant: "destructive"
-      })
+      toast({ title: "Nicht gesendet", description: error?.message, variant: "destructive" })
     } finally {
-      setActionLoading(false)
+      setSendingQuote(false)
+      setConfirmSendOpen(false)
     }
   }
 
-  const handlePriorityUpdate = async (requestId: string, newPriority: string) => {
+  const handleStatusChange = async (status: string) => {
+    if (!detail || status === detail.status) return
     try {
-      setActionLoading(true)
-      await updateRepairRequestPriority(requestId, newPriority)
-
-      updateRequestInState(requestId, (request) => ({ ...request, priority: newPriority as any }))
-
-      toast({
-        title: "Success",
-        description: "Priority updated successfully"
-      })
+      setBusyField("status")
+      const response: any = await updateRepairRequestStatus(detail._id, status)
+      applyUpdatedRequest(response?.request)
+      toast({ title: "Gespeichert", description: `Status: ${statusLabel(status)}` })
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update priority",
-        variant: "destructive"
-      })
+      toast({ title: "Fehler beim Speichern", description: error?.message, variant: "destructive" })
     } finally {
-      setActionLoading(false)
+      setBusyField(null)
     }
   }
 
-  const handleCostUpdate = async () => {
-    if (!selectedRequest || !estimatedCost) return
-
+  const handlePriorityChange = async (priority: string) => {
+    if (!detail || priority === detail.priority) return
     try {
-      setActionLoading(true)
-      const cost = parseFloat(estimatedCost)
-
-      if (isNaN(cost) || cost < 0) {
-        throw new Error("Invalid cost amount")
-      }
-
-      await updateRepairRequestEstimatedCost(selectedRequest._id, cost)
-
-      updateRequestInState(selectedRequest._id, (request) => ({ ...request, estimatedCost: cost }))
-
-      toast({
-        title: "Success",
-        description: "Estimated cost updated successfully"
-      })
-
-      setEstimatedCost(String(cost))
+      setBusyField("priority")
+      const response: any = await updateRepairRequestPriority(detail._id, priority)
+      applyUpdatedRequest(response?.request)
+      toast({ title: "Gespeichert", description: `Priorität: ${PRIORITY_LABELS[priority]}` })
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update cost",
-        variant: "destructive"
-      })
+      toast({ title: "Fehler beim Speichern", description: error?.message, variant: "destructive" })
     } finally {
-      setActionLoading(false)
+      setBusyField(null)
     }
   }
 
-  const handleAssignStaff = async () => {
-    if (!selectedRequest || !selectedStaffId) return
-
+  const handleAssign = async () => {
+    if (!detail || !selectedStaffId) return
     try {
-      setActionLoading(true)
-      await assignStaffToRepairRequest(selectedRequest._id, selectedStaffId)
-
-      const staffMember = staff.find(s => s._id === selectedStaffId)
-
-      updateRequestInState(selectedRequest._id, (request) => ({
-        ...request,
-        assignedStaffId: staffMember
-          ? {
-              _id: staffMember._id,
-              firstName: staffMember.firstName,
-              lastName: staffMember.lastName,
-              email: staffMember.email,
-            }
-          : undefined,
-        assignedStaffName: staffMember ? `${staffMember.firstName} ${staffMember.lastName}` : undefined,
-      }))
-
-      toast({
-        title: "Success",
-        description: "Staff assigned successfully"
-      })
-
-      setShowAssignDialog(false)
+      setBusyField("assign")
+      const response: any = await assignStaffToRepairRequest(detail._id, selectedStaffId)
+      applyUpdatedRequest(response?.request)
+      toast({ title: "Gespeichert", description: "Mitarbeiter zugewiesen." })
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to assign staff",
-        variant: "destructive"
-      })
+      toast({ title: "Fehler beim Speichern", description: error?.message, variant: "destructive" })
     } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const handleSendMessage = async () => {
-    if (!selectedRequest || !newMessage.trim()) return
-
-    try {
-      setActionLoading(true)
-      const response = await addRepairRequestMessage(selectedRequest._id, newMessage)
-
-      const updatedRequest = (response as any).request as RepairRequest
-      updateRequestInState(selectedRequest._id, () => updatedRequest)
-
-      toast({
-        title: "Success",
-        description: "Message sent successfully"
-      })
-
-      setNewMessage("")
-      setShowMessageDialog(false)
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send message",
-        variant: "destructive"
-      })
-    } finally {
-      setActionLoading(false)
+      setBusyField(null)
     }
   }
 
   const handleAddNote = async () => {
-    if (!selectedRequest || !adminNote.trim()) return
-
+    if (!detail || !internalNote.trim() || savingNote) return
     try {
-      setActionLoading(true)
-      const response = await addAdminNote(selectedRequest._id, adminNote)
-
-      const updatedRequest = (response as any).request as RepairRequest
-      updateRequestInState(selectedRequest._id, () => updatedRequest)
-
-      toast({
-        title: "Success",
-        description: "Admin note added successfully"
-      })
-
-      setAdminNote("")
+      setSavingNote(true)
+      const response: any = await addAdminNote(detail._id, internalNote.trim())
+      applyUpdatedRequest(response?.request)
+      setInternalNote("")
+      toast({ title: "Interne Notiz gespeichert", description: "Nur für das Team sichtbar. Der Kunde wird nicht benachrichtigt." })
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to add note",
-        variant: "destructive"
-      })
+      toast({ title: "Fehler beim Speichern", description: error?.message, variant: "destructive" })
     } finally {
-      setActionLoading(false)
+      setSavingNote(false)
     }
   }
 
-  const handleConvertToOrder = async () => {
-    if (!selectedRequest || selectedServices.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please select at least one service",
-        variant: "destructive"
+  const handleDeviceSelect = async (device: PickedCatalogDevice) => {
+    if (!detail) return
+    try {
+      setSavingDevice(true)
+      const response: any = await updateRepairRequestDevice(detail._id, { deviceModelId: device._id })
+      applyUpdatedRequest(response?.request)
+      setShowDevicePicker(false)
+      toast({ title: response?.changed ? "Gerät zugeordnet" : "Keine Änderung", description: `${device.manufacturer} ${device.name} (Katalog)` })
+    } catch (error: any) {
+      toast({ title: "Fehler beim Zuordnen", description: error?.message, variant: "destructive" })
+    } finally {
+      setSavingDevice(false)
+    }
+  }
+
+  // ── Umwandeln ──
+  const openConvert = async (request: RepairRequest) => {
+    setConvertTarget(request)
+    setSelectedServices([])
+    setServiceSearch("")
+    setShippingMode("none")
+    setConfirmDifference(false)
+    setServicesState("loading")
+    try {
+      const isCatalog = request.deviceSource === "catalog"
+      const response: any = await getRepairServices({
+        deviceType: request.deviceType || undefined,
+        ...(isCatalog ? { manufacturerPrecise: request.deviceBrand, modelPrecise: request.deviceModel } : {}),
+        limit: 100,
+        sortBy: "name",
+        sortOrder: "asc",
       })
+      setServices(response?.services || [])
+      setServicesState("ready")
+    } catch {
+      setServicesState("error")
+    }
+  }
+
+  const visibleServices = useMemo(() => {
+    const q = serviceSearch.trim().toLowerCase()
+    if (!q) return services
+    return services.filter((s) => `${s.name} ${s.description || ""}`.toLowerCase().includes(q))
+  }, [services, serviceSearch])
+
+  const selectedServicesTotal = services
+    .filter((s) => selectedServices.includes(s._id))
+    .reduce((sum, s) => sum + Number(s.price || 0), 0)
+  const convertQuote = effectiveQuoteOf(convertTarget)
+  const quoteDifference = convertQuote ? Math.round((selectedServicesTotal - Number(convertQuote.amount || 0)) * 100) / 100 : 0
+  const needsDifferenceConfirm = Boolean(convertQuote && convertQuote.status === "accepted" && selectedServices.length > 0 && quoteDifference !== 0)
+
+  const handleConvert = async () => {
+    if (!convertTarget || converting) return
+    if (selectedServices.length === 0) {
+      toast({ title: "Leistung fehlt", description: "Bitte mindestens eine Reparaturleistung auswählen.", variant: "destructive" })
       return
     }
-
-    try {
-      setActionLoading(true)
-      const response = await convertRepairRequestToOrder(selectedRequest._id, {
-        services: selectedServices,
-        totalCost: selectedRequest.estimatedCost
-      })
-
-      // Update the request status to converted
-      updateRequestInState(selectedRequest._id, (request) => ({
-        ...request,
-        status: 'converted',
-        convertedToOrderId: (response as any).order
-      }))
-
-      toast({
-        title: "Success",
-        description: "Repair request converted to order successfully"
-      })
-
-      setShowConvertDialog(false)
-      setSelectedServices([])
-
-      // Navigate to the order
-      if ((response as any).order?._id) {
-        navigate(`/admin/orders`)
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to convert to order",
-        variant: "destructive"
-      })
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const handleDeleteRequest = async () => {
-    if (!selectedRequest) return
-
-    try {
-      setActionLoading(true)
-      await deleteRepairRequest(selectedRequest._id)
-
-      setRequests(requests.filter(req => req._id !== selectedRequest._id))
-
-      toast({
-        title: "Success",
-        description: "Repair request deleted successfully"
-      })
-
-      setShowDeleteDialog(false)
-      setSelectedRequest(null)
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete request",
-        variant: "destructive"
-      })
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const openDetailsDialog = (request: RepairRequest) => {
-    setSelectedRequest(request)
-    setSelectedStaffId(request.assignedStaffId?._id || "")
-    setEstimatedCost(request.estimatedCost ? String(request.estimatedCost) : "")
-    setShowDetailsDialog(true)
-    setSearchParams((currentParams) => {
-      const nextParams = new URLSearchParams(currentParams)
-      nextParams.set("requestId", request._id)
-      return nextParams
-    }, { replace: true })
-  }
-
-  const handleDetailsDialogOpenChange = (open: boolean) => {
-    if (open) {
-      isDetailsDialogClosingRef.current = false
-      setShowDetailsDialog(true)
+    if (needsDifferenceConfirm && !confirmDifference) {
+      toast({ title: "Bitte bestätigen", description: "Der Auftragswert weicht vom angenommenen Kostenvoranschlag ab.", variant: "destructive" })
       return
     }
-
-    isDetailsDialogClosingRef.current = true
-    setShowDetailsDialog(open)
-
-    setSearchParams((currentParams) => {
-      const nextParams = new URLSearchParams(currentParams)
-      nextParams.delete("requestId")
-      return nextParams
-    }, { replace: true })
+    try {
+      setConverting(true)
+      const response: any = await convertRepairRequestToOrder(convertTarget._id, { services: selectedServices, shippingMode })
+      toast({ title: "Auftrag angelegt", description: response?.message || "Die Anfrage wurde umgewandelt." })
+      setConvertTarget(null)
+      if (response?.order?._id) navigate(`/orders/${response.order._id}`)
+      else fetchList(1, false)
+    } catch (error: any) {
+      toast({ title: "Umwandlung fehlgeschlagen", description: error?.message, variant: "destructive" })
+    } finally {
+      setConverting(false)
+    }
   }
 
-  const openMessageDialog = (request: RepairRequest) => {
-    setSelectedRequest(request)
-    setShowMessageDialog(true)
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      setDeleting(true)
+      await deleteRepairRequest(deleteTarget._id)
+      setRequests((prev) => prev.filter((r) => r._id !== deleteTarget._id))
+      setTotal((t) => Math.max(0, t - 1))
+      if (detail?._id === deleteTarget._id) updateParams({ requestId: null })
+      toast({ title: "Gelöscht", description: `Anfrage ${deleteTarget.requestNumber} wurde gelöscht.` })
+      setDeleteTarget(null)
+      fetchStats()
+    } catch (error: any) {
+      toast({ title: "Fehler beim Löschen", description: error?.message, variant: "destructive" })
+    } finally {
+      setDeleting(false)
+    }
   }
 
-  const openAssignDialog = (request: RepairRequest) => {
-    setSelectedRequest(request)
-    setShowAssignDialog(true)
-  }
-
-  const openConvertDialog = (request: RepairRequest) => {
-    setSelectedRequest(request)
-    setShowConvertDialog(true)
-  }
-
-  const openDeleteDialog = (request: RepairRequest) => {
-    setSelectedRequest(request)
-    setShowDeleteDialog(true)
-  }
-
-  if (loading) {
+  // ── Darstellung ──
+  const renderQuoteCell = (request: RepairRequest) => {
+    const quote = effectiveQuoteOf(request)
+    if (!quote) return <span className="text-xs text-slate-500">Noch keiner</span>
     return (
-      <div className="repair-requests-management">
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
-          <p style={{color: 'var(--gray-500)', fontSize: '1.1rem', fontWeight: 500}}>Lade Reparaturanfragen...</p>
-        </div>
+      <div className="space-y-0.5">
+        <span className={`${chip} ${quoteChipClass(quote.status)}`}>{quote.legacy && !request.quote ? "Altbestand" : QUOTE_SHORT[quote.status]}</span>
+        <div className="text-sm font-semibold text-slate-900">{formatMoney(quote.amount)}</div>
       </div>
     )
   }
 
+  const renderRowBadges = (request: RepairRequest) => {
+    const summary = request.communicationSummary
+    return (
+      <div className="mt-1 flex flex-wrap gap-1">
+        {summary?.awaitingReply && <span className={`${chip} bg-orange-100 text-orange-900 ring-orange-200`}><MessageSquare className="h-3 w-3" aria-hidden="true" /> Antwort ausstehend</span>}
+        {(summary?.unreadCount || 0) > 0 && <span className={`${chip} bg-red-600 text-white ring-red-600`}>{summary!.unreadCount} ungelesen</span>}
+        {effectiveQuoteOf(request)?.status === "accepted" && request.status !== "converted" && (
+          <span className={`${chip} bg-emerald-100 text-emerald-900 ring-emerald-200`}><CheckCircle className="h-3 w-3" aria-hidden="true" /> Bereit zur Umwandlung</span>
+        )}
+      </div>
+    )
+  }
+
+  const renderRowMenu = (request: RepairRequest) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon" className="h-9 w-9" aria-label={`Weitere Aktionen für ${request.requestNumber}`}>
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => openDetail(request, "communication")}>
+          <MessageSquare className="mr-2 h-4 w-4" /> Gespräch öffnen
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => openDetail(request, "quote")}>
+          <Send className="mr-2 h-4 w-4" /> Kostenvoranschlag bearbeiten
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => openDetail(request, "assign")}>
+          <UserPlus className="mr-2 h-4 w-4" /> Mitarbeiter zuweisen
+        </DropdownMenuItem>
+        {request.status !== "converted" && (
+          <DropdownMenuItem onClick={() => openConvert(request)}>
+            <ShoppingCart className="mr-2 h-4 w-4" /> In Auftrag umwandeln
+          </DropdownMenuItem>
+        )}
+        {request.status !== "converted" && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setDeleteTarget(request)} className="text-red-600">
+              <Trash2 className="mr-2 h-4 w-4" /> Löschen
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+
+  if (view === "contact-messages") {
+    return (
+      <div className="repair-requests-management">
+        <ContactMessagesPanel />
+      </div>
+    )
+  }
+
+  const filtersActive = Boolean(searchQuery) || statusFilter !== "all" || priorityFilter !== "all" || quoteFilter !== "all"
+  const detailQuote = effectiveQuoteOf(detail)
+  const reported = detail?.reportedDevice
+  const isConverted = detail?.status === "converted"
+  const deviceUnmatched = detail?.deviceSource === "manual"
+  const selectClass = "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-[#1a2a5e] focus:outline-none focus:ring-2 focus:ring-[#1a2a5e]/20 disabled:bg-slate-50"
+
   return (
     <div className="repair-requests-management">
-      {view === "contact-messages" ? (
-        <ContactMessagesPanel />
-      ) : (
-        <div className="space-y-4 mt-4">
-      {/* Header */}
-      <div className="repair-requests-header">
-        <h1>
-          <FileText className="h-6 w-6" />
-          Reparaturanfragen
-        </h1>
-        <p>
-          Kundenanfragen verwalten und in Aufträge umwandeln
-        </p>
-      </div>
-
-      {/* Statistics Cards */}
-      {statistics && (
-        <div className="stats-grid">
-          <div className="stat-card stat-total">
-            <div className="stat-card-header">
-              <div className="stat-card-title">Gesamt</div>
-              <div className="stat-card-icon">
-                <FileText className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="stat-card-value">{statistics.total}</div>
-          </div>
-
-          <div className="stat-card stat-pending">
-            <div className="stat-card-header">
-              <div className="stat-card-title">Ausstehend</div>
-              <div className="stat-card-icon">
-                <Clock className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="stat-card-value">{statistics.byStatus.pending}</div>
-          </div>
-
-          <div className="stat-card stat-reviewing">
-            <div className="stat-card-header">
-              <div className="stat-card-title">In Prüfung</div>
-              <div className="stat-card-icon">
-                <Eye className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="stat-card-value">{statistics.byStatus.reviewing}</div>
-          </div>
-
-          <div className="stat-card stat-converted">
-            <div className="stat-card-header">
-              <div className="stat-card-title">Umgewandelt</div>
-              <div className="stat-card-icon">
-                <CheckCircle className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="stat-card-value">{statistics.byStatus.converted}</div>
-          </div>
-
-          <div className="stat-card stat-priority">
-            <div className="stat-card-header">
-              <div className="stat-card-title">Hohe Priorität</div>
-              <div className="stat-card-icon">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="stat-card-value">{statistics.highPriority}</div>
-          </div>
+      <div className="mt-4 space-y-4">
+        <div className="repair-requests-header">
+          <h1><FileText className="h-6 w-6" /> Reparaturanfragen</h1>
+          <p>Anfragen prüfen, Kostenvoranschläge senden und in Reparaturaufträge umwandeln</p>
         </div>
-      )}
 
-      {/* Filters */}
-      <div className="filter-card">
-        <div className="filter-container">
-          <div className="search-wrapper">
-            <Search />
-            <input
-              type="text"
-              placeholder="Suche nach Anfragenummer, Kunde oder Gerät..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
+        {statistics && (
+          <div className="stats-grid">
+            <div className="stat-card stat-total"><div className="stat-card-header"><div className="stat-card-title">Gesamt</div><div className="stat-card-icon"><FileText className="h-5 w-5" /></div></div><div className="stat-card-value">{statistics.total}</div></div>
+            <div className="stat-card stat-pending"><div className="stat-card-header"><div className="stat-card-title">Ausstehend</div><div className="stat-card-icon"><Clock className="h-5 w-5" /></div></div><div className="stat-card-value">{statistics.byStatus.pending}</div></div>
+            <div className="stat-card stat-reviewing"><div className="stat-card-header"><div className="stat-card-title">In Prüfung</div><div className="stat-card-icon"><Eye className="h-5 w-5" /></div></div><div className="stat-card-value">{statistics.byStatus.reviewing}</div></div>
+            <div className="stat-card stat-converted"><div className="stat-card-header"><div className="stat-card-title">Kostenvoranschlag angenommen</div><div className="stat-card-icon"><CheckCircle className="h-5 w-5" /></div></div><div className="stat-card-value">{statistics.byStatus.approved}</div></div>
+            <div className="stat-card stat-priority"><div className="stat-card-header"><div className="stat-card-title">Hohe Priorität</div><div className="stat-card-icon"><AlertTriangle className="h-5 w-5" /></div></div><div className="stat-card-value">{statistics.highPriority}</div></div>
           </div>
-          <div className="filter-row">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle Status</SelectItem>
-                <SelectItem value="pending">Ausstehend</SelectItem>
-                <SelectItem value="reviewing">In Prüfung</SelectItem>
-                <SelectItem value="approved">Genehmigt</SelectItem>
-                <SelectItem value="rejected">Abgelehnt</SelectItem>
-                <SelectItem value="converted">Umgewandelt</SelectItem>
-              </SelectContent>
-            </Select>
+        )}
 
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Priorität" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle Prioritäten</SelectItem>
-                <SelectItem value="low">Niedrig</SelectItem>
-                <SelectItem value="medium">Mittel</SelectItem>
-                <SelectItem value="high">Hoch</SelectItem>
-                <SelectItem value="urgent">Dringend</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-
-      {/* Requests Table */}
-      <div className="requests-table-card">
-        <div className="requests-table-header">
-          <h2 className="requests-table-title">Reparaturanfragen ({filteredRequests.length})</h2>
-          <p className="requests-table-description">
-            Alle Reparaturanfragen von Kunden
-          </p>
-        </div>
-        <div className="requests-table-content">
-          <div className="requests-table-wrapper">
-            <table className="requests-table">
-              <thead>
-                <tr>
-                  <th>Anfrage #</th>
-                  <th>Kunde</th>
-                  <th>Gerät</th>
-                  <th>Problem</th>
-                  <th>Status</th>
-                  <th>Priorität</th>
-                  <th>Zugewiesen an</th>
-                  <th>Gesch. Kosten</th>
-                  <th>Datum</th>
-                  <th style={{textAlign: 'right'}}>Aktionen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRequests.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="empty-state">
-                      <FileText />
-                      <p>Keine Reparaturanfragen gefunden</p>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRequests.map((request) => (
-                    <tr
-                      key={request._id}
-                      onClick={() => openDetailsDialog(request)}
-                      style={{cursor: 'pointer'}}
-                    >
-                      <td>
-                        <div className="request-number">
-                          <span>{request.requestNumber}</span>
-                          {unreadCounts[request._id] > 0 && (
-                            <span className="unread-badge">
-                              {unreadCounts[request._id]}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="customer-info">
-                          <div className="customer-avatar">
-                            {request.customerName.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="customer-details">
-                            <div className="customer-name">{request.customerName}</div>
-                            <div className="customer-email">{request.customerEmail}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="device-info">
-                          <div className="device-brand">{request.deviceBrand}</div>
-                          <div className="device-model">{request.deviceModel}</div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="issue-description">{request.issueDescription}</div>
-                      </td>
-                      <td>
-                        <span className={`status-badge status-${request.status}`}>
-                          {request.status === 'pending' ? 'Ausstehend' :
-                           request.status === 'reviewing' ? 'In Prüfung' :
-                           request.status === 'approved' ? 'Genehmigt' :
-                           request.status === 'rejected' ? 'Abgelehnt' :
-                           request.status === 'converted' ? 'Umgewandelt' : request.status}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`priority-badge priority-${request.priority}`}>
-                          {request.priority === 'urgent' ? 'Dringend' :
-                           request.priority === 'high' ? 'Hoch' :
-                           request.priority === 'medium' ? 'Mittel' :
-                           request.priority === 'low' ? 'Niedrig' : request.priority}
-                        </span>
-                      </td>
-                      <td>
-                        {request.assignedStaffName ? (
-                          <span className="assigned-staff">{request.assignedStaffName}</span>
-                        ) : (
-                          <span className="unassigned">Nicht zugewiesen</span>
-                        )}
-                      </td>
-                      <td>
-                        {request.estimatedCost > 0 ? (
-                          <span className="estimated-cost">€{request.estimatedCost}</span>
-                        ) : (
-                          <span className="cost-not-set">Nicht festgelegt</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className="request-date">
-                          {new Date(request.createdAt).toLocaleDateString('de-DE')}
-                        </span>
-                      </td>
-                      <td style={{textAlign: 'right'}}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="actions-button">
-                              Aktionen
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDetailsDialog(request); }}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Details anzeigen
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openMessageDialog(request); }}>
-                              <MessageSquare className="mr-2 h-4 w-4" />
-                              Nachricht senden
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openAssignDialog(request); }}>
-                              <UserPlus className="mr-2 h-4 w-4" />
-                              Mitarbeiter zuweisen
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {request.status !== 'converted' && (
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openConvertDialog(request); }}>
-                                <ShoppingCart className="mr-2 h-4 w-4" />
-                                In Auftrag umwandeln
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                              onClick={(e) => { e.stopPropagation(); openDeleteDialog(request); }}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Löschen
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Details Dialog */}
-      <Dialog open={showDetailsDialog} onOpenChange={handleDetailsDialogOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto text-sm [&>button]:hidden">
-          <DialogHeader className={detailsDialogHeaderClass}>
-            <DialogTitle className="text-base font-semibold" style={{ color: "#f5b800" }}>
-              Anfrage Details – {selectedRequest?.requestNumber}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-white/80">
-              Vollständige Informationen zu dieser Reparaturanfrage
-            </DialogDescription>
-            <DialogClose asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-3 top-2.5 h-6 w-6 text-[#f5b800] hover:bg-white/10 hover:text-[#ffd54f]"
-                aria-label="Dialog schließen"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogClose>
-          </DialogHeader>
-
-          {selectedRequest && (
-            <div className="space-y-4 py-3 [&_label]:text-xs">
-              <div className="flex flex-wrap items-center justify-between gap-3 border rounded-md p-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs flex-1">
-                  <div>
-                    <Label className="text-muted-foreground">Kunde</Label>
-                    <p className="text-sm font-medium">{selectedRequest.customerName}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Gerät</Label>
-                    <p className="text-sm font-medium">{selectedRequest.deviceBrand} {selectedRequest.deviceModel}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Erstellt am</Label>
-                    <p className="text-sm font-medium">{new Date(selectedRequest.createdAt).toLocaleDateString('de-DE')}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge className={`status-badge status-${selectedRequest.status}`}>
-                    {getStatusLabel(selectedRequest.status)}
-                  </Badge>
-                  <Badge className={`priority-badge priority-${selectedRequest.priority}`}>
-                    {getPriorityLabel(selectedRequest.priority)}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Kundendaten</Label>
-                  <div className="border rounded-md p-3 space-y-2 text-sm">
-                    <p><span className="text-muted-foreground">Name:</span> {selectedRequest.customerName}</p>
-                    <p><span className="text-muted-foreground">E-Mail:</span> {selectedRequest.customerEmail}</p>
-                    <p><span className="text-muted-foreground">Telefon:</span> {selectedRequest.customerPhone || 'Nicht angegeben'}</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Geräteinformationen</Label>
-                  <div className="border rounded-md p-3 space-y-2 text-sm">
-                    <p><span className="text-muted-foreground">Typ:</span> {selectedRequest.deviceType}</p>
-                    <p><span className="text-muted-foreground">Marke:</span> {selectedRequest.deviceBrand}</p>
-                    <p><span className="text-muted-foreground">Modell:</span> {selectedRequest.deviceModel}</p>
-                    {selectedRequest.modelNumber && (
-                      <p><span className="text-muted-foreground">Modellnummer:</span> {selectedRequest.modelNumber}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Problembeschreibung</Label>
-                <div className="border rounded-md p-3 space-y-3 text-sm">
-                  <div>
-                    <Label className="text-muted-foreground">Beschreibung</Label>
-                    <p className="mt-1 whitespace-pre-wrap">{selectedRequest.issueDescription}</p>
-                  </div>
-                  {selectedRequest.issueOccurredDate && (
-                    <div>
-                      <Label className="text-muted-foreground">Zeitpunkt</Label>
-                      <p className="mt-1">{selectedRequest.issueOccurredDate}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {(selectedRequest.waterDamage || selectedRequest.previousRepairDetails || selectedRequest.itemCondition) && (
-                <div className="space-y-2">
-                  <Label>Erweiterte Angaben</Label>
-                  <div className="border rounded-md p-3 space-y-3 text-sm">
-                    <div className="flex flex-wrap gap-3">
-                      {selectedRequest.waterDamage && (
-                        <div className="space-y-1">
-                          <Label className="text-muted-foreground">Wasserschaden</Label>
-                          <div>
-                            <Badge variant={selectedRequest.waterDamage === 'yes' ? 'destructive' : 'secondary'}>
-                              {selectedRequest.waterDamage === 'yes' ? 'Ja' : selectedRequest.waterDamage === 'no' ? 'Nein' : 'Nicht sicher'}
-                            </Badge>
-                          </div>
-                        </div>
-                      )}
-                      {selectedRequest.itemCondition && (
-                        <div className="space-y-1">
-                          <Label className="text-muted-foreground">Gerätezustand</Label>
-                          <div>
-                            <Badge variant="outline">
-                              {selectedRequest.itemCondition === 'original' ? 'Original' : selectedRequest.itemCondition === 'refurbished' ? 'Generalüberholt' : 'Nicht sicher'}
-                            </Badge>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {selectedRequest.previousRepairDetails && (
-                      <div>
-                        <Label className="text-muted-foreground">Vorherige Reparaturversuche</Label>
-                        <p className="mt-1 whitespace-pre-wrap">{selectedRequest.previousRepairDetails}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label>Schnell bearbeiten</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border rounded-md p-3">
-                  <div className="space-y-1.5">
-                    <Label>Status</Label>
-                    <Select
-                      value={selectedRequest.status}
-                      onValueChange={(value) => handleStatusUpdate(selectedRequest._id, value)}
-                      disabled={actionLoading}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Ausstehend</SelectItem>
-                        <SelectItem value="reviewing">In Prüfung</SelectItem>
-                        <SelectItem value="approved">Genehmigt</SelectItem>
-                        <SelectItem value="rejected">Abgelehnt</SelectItem>
-                        <SelectItem value="converted">Umgewandelt</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label>Priorität</Label>
-                    <Select
-                      value={selectedRequest.priority}
-                      onValueChange={(value) => handlePriorityUpdate(selectedRequest._id, value)}
-                      disabled={actionLoading}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Niedrig</SelectItem>
-                        <SelectItem value="medium">Mittel</SelectItem>
-                        <SelectItem value="high">Hoch</SelectItem>
-                        <SelectItem value="urgent">Dringend</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label>Mitarbeiter</Label>
-                    <div className="flex gap-2">
-                      <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
-                        <SelectTrigger className="h-8 text-xs flex-1">
-                          <SelectValue placeholder="Techniker wählen" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {staff.map((member) => (
-                            <SelectItem key={member._id} value={member._id}>
-                              {member.firstName} {member.lastName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        size="sm"
-                        onClick={handleAssignStaff}
-                        disabled={actionLoading || !selectedStaffId}
-                        className="h-8 px-2.5 text-xs"
-                      >
-                        {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Zuweisen"}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label>Geschätzte Kosten (EUR)</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Betrag"
-                        value={estimatedCost}
-                        onChange={(e) => setEstimatedCost(e.target.value)}
-                        className="h-8 text-xs"
-                      />
-                      <Button size="sm" onClick={handleCostUpdate} disabled={actionLoading || !estimatedCost} className="h-8 px-2.5 text-xs">
-                        {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Speichern"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {selectedRequest.images && selectedRequest.images.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Gerätebilder</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {selectedRequest.images.map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img}
-                        alt={`Gerät ${idx + 1}`}
-                        className="w-full h-24 object-cover rounded border"
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label>Kommunikation</Label>
-                <div className="border rounded-md p-3">
-                  <CommunicationPanel
-                    orderId={selectedRequest._id}
-                    entityType="repair-request"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Interne Notizen</Label>
-                <div className="border rounded-md p-3 space-y-3">
-                  <Textarea
-                    placeholder="Interne Notiz hinzufügen..."
-                    value={adminNote}
-                    onChange={(e) => setAdminNote(e.target.value)}
-                    rows={2}
-                    className="text-xs"
-                  />
-                  <Button size="sm" className="h-8 px-2.5 text-xs" onClick={handleAddNote} disabled={actionLoading || !adminNote.trim()}>
-                    Notiz speichern
-                  </Button>
-
-                  {selectedRequest.adminNotes && selectedRequest.adminNotes.length > 0 ? (
-                    <div className="space-y-2.5">
-                      {selectedRequest.adminNotes.map((note, idx) => (
-                        <div key={idx} className="rounded-md border p-2">
-                          <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{note.staffName}</span>
-                            <span>{new Date(note.createdAt).toLocaleString('de-DE')}</span>
-                          </div>
-                          <p className="text-xs">{note.note}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Noch keine internen Notizen vorhanden.</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Vorgangsübersicht</Label>
-                <div className="border rounded-md p-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                  <p><span className="text-muted-foreground">Anfrage erstellt:</span> {new Date(selectedRequest.createdAt).toLocaleString('de-DE')}</p>
-                  <p><span className="text-muted-foreground">Zuletzt aktualisiert:</span> {new Date(selectedRequest.updatedAt).toLocaleString('de-DE')}</p>
-                  {selectedRequest.reviewDeadline && (
-                    <p><span className="text-muted-foreground">Review-Deadline:</span> {new Date(selectedRequest.reviewDeadline).toLocaleString('de-DE')}</p>
-                  )}
-                  {selectedRequest.convertedAt && (
-                    <p><span className="text-muted-foreground">Umgewandelt am:</span> {new Date(selectedRequest.convertedAt).toLocaleString('de-DE')}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Message Dialog */}
-      <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
-        <DialogContent className="overflow-hidden">
-          <DialogHeader className="mcrepair-dialog-header">
-            <DialogTitle className="mcrepair-dialog-title">Nachricht senden</DialogTitle>
-            <DialogDescription className="mcrepair-dialog-description">
-              Kommunikation mit {selectedRequest?.customerName}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 pt-2">
-            {/* Previous Messages */}
-            {selectedRequest && selectedRequest.messages && selectedRequest.messages.length > 0 && (
-              <ScrollArea className="h-[180px] border rounded-lg p-3">
-                <div className="space-y-2">
-                  {selectedRequest.messages.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-2 rounded-lg ${
-                        msg.senderRole === 'customer'
-                          ? 'bg-white border border-gray-200 shadow-sm'
-                          : 'bg-gray-50 dark:bg-gray-900/20'
-                      }`}
-                    >
-                      <div className="flex justify-between mb-0.5 text-xs">
-                        <span className="font-medium">{msg.senderName}</span>
-                        <span className="text-muted-foreground">
-                          {new Date(msg.sentAt).toLocaleString()}
-                        </span>
-                      </div>
-                      <p className="text-xs">{msg.message}</p>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-
-            <div className="space-y-1">
-              <Label className="text-xs">Ihre Nachricht</Label>
-              <Textarea
-                placeholder="Nachricht eingeben..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                rows={4}
-                className="text-xs"
+        {/* Filter (in der URL) */}
+        <div className="filter-card">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+              <Input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Suche nach Anfragenummer, Kunde, E-Mail oder Gerät …"
+                aria-label="Reparaturanfragen durchsuchen"
+                className="h-10 pl-9"
               />
             </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowMessageDialog(false)}>
-              Abbrechen
-            </Button>
-            <Button onClick={handleSendMessage} disabled={actionLoading || !newMessage.trim()}>
-              {actionLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Senden...
-                </>
-              ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Senden
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Assign Staff Dialog */}
-      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent className="overflow-hidden">
-          <DialogHeader className="mcrepair-dialog-header">
-            <DialogTitle className="mcrepair-dialog-title">Mitarbeiter zuweisen</DialogTitle>
-            <DialogDescription className="mcrepair-dialog-description">
-              Techniker für diese Reparaturanfrage bestimmen
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 pt-2">
-            <div className="space-y-1">
-              <Label className="text-xs">Mitarbeiter auswählen</Label>
-              <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Mitarbeiter wählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {staff.map((member) => (
-                    <SelectItem key={member._id} value={member._id}>
-                      {member.firstName} {member.lastName} – {member.role}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:flex">
+              <select aria-label="Status filtern" className={`${selectClass} lg:w-44`} value={statusFilter} onChange={(e) => updateParams({ status: e.target.value })}>
+                <option value="all">Alle Status</option>
+                <option value="pending">Ausstehend</option>
+                <option value="reviewing">In Prüfung</option>
+                <option value="approved">Kostenvoranschlag angenommen</option>
+                <option value="rejected">Abgelehnt</option>
+                <option value="converted">In Auftrag umgewandelt</option>
+              </select>
+              <select aria-label="Kostenvoranschlag filtern" className={`${selectClass} lg:w-48`} value={quoteFilter} onChange={(e) => updateParams({ quote: e.target.value })}>
+                <option value="all">Alle Kostenvoranschläge</option>
+                <option value="none">Noch keiner</option>
+                <option value="draft">Entwurf</option>
+                <option value="sent">Gesendet (Antwort ausstehend)</option>
+                <option value="accepted">Angenommen</option>
+                <option value="declined">Abgelehnt</option>
+              </select>
+              <select aria-label="Priorität filtern" className={`${selectClass} lg:w-40`} value={priorityFilter} onChange={(e) => updateParams({ priority: e.target.value })}>
+                <option value="all">Alle Prioritäten</option>
+                <option value="low">Niedrig</option>
+                <option value="medium">Mittel</option>
+                <option value="high">Hoch</option>
+                <option value="urgent">Dringend</option>
+              </select>
             </div>
+          </div>
+        </div>
 
-            {selectedRequest?.assignedStaffName && (
-              <p className="text-xs text-muted-foreground">
-                Aktuell zugewiesen: {selectedRequest.assignedStaffName}
-              </p>
-            )}
+        {/* Liste */}
+        <div className="requests-table-card">
+          <div className="requests-table-header">
+            <h2 className="requests-table-title"><Filter className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" /> Reparaturanfragen{listState === "ready" ? ` (${total})` : ""}</h2>
+            <p className="requests-table-description">„Öffnen“ zeigt Details, Kostenvoranschlag und Kommunikation.</p>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
-              Abbrechen
-            </Button>
-            <Button onClick={handleAssignStaff} disabled={actionLoading || !selectedStaffId}>
-              {actionLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Zuweisen...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Zuweisen
-                </>
+          {listState === "loading" ? (
+            <div className="flex items-center justify-center gap-2 py-14 text-slate-600"><Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Wird geladen …</div>
+          ) : listState === "error" ? (
+            <div className="py-12 text-center">
+              <AlertCircle className="mx-auto mb-2 h-8 w-8 text-red-500" aria-hidden="true" />
+              <p className="font-semibold text-slate-800">Reparaturanfragen konnten nicht geladen werden.</p>
+              {listError && <p className="text-sm text-slate-500">{listError}</p>}
+              <Button variant="outline" className="mt-3" onClick={() => fetchList(1, false)}><RefreshCw className="mr-2 h-4 w-4" /> Erneut versuchen</Button>
+            </div>
+          ) : requests.length === 0 ? (
+            <div className="py-12 text-center">
+              <FileText className="mx-auto mb-2 h-8 w-8 text-slate-400" aria-hidden="true" />
+              <p className="font-semibold text-slate-700">{filtersActive ? "Keine Anfragen für diesen Filter." : "Noch keine Reparaturanfragen."}</p>
+              {filtersActive && (
+                <Button variant="outline" className="mt-3" onClick={() => { setSearchInput(""); updateParams({ q: null, status: null, priority: null, quote: null }) }}>
+                  Filter zurücksetzen
+                </Button>
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </div>
+          ) : (
+            <>
+              {/* Tabelle ab md – passt ohne horizontales Scrollen auf 1366 px */}
+              <table className="hidden w-full table-fixed border-collapse text-sm md:table">
+                <thead className="border-b-2 border-slate-100 bg-white text-left text-[11px] uppercase tracking-wide text-[#1a2a5e]">
+                  <tr>
+                    <th className="w-[19%] px-3 py-2">Anfrage</th>
+                    <th className="w-[20%] px-3 py-2">Kunde</th>
+                    <th className="w-[20%] px-3 py-2">Gerät</th>
+                    <th className="w-[15%] px-3 py-2">Status</th>
+                    <th className="w-[13%] px-3 py-2">Kostenvoranschlag</th>
+                    <th className="w-[13%] px-3 py-2 text-right">Aktion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {requests.map((request) => (
+                    <tr key={request._id} className={`border-b border-slate-100 align-top hover:bg-slate-50 ${selectedId === request._id ? "bg-blue-50/60" : ""}`}>
+                      <td className="px-3 py-2.5">
+                        <div className="truncate font-semibold text-slate-900">{request.requestNumber}</div>
+                        <div className="text-xs text-slate-500">{formatDateDe(request.createdAt)}</div>
+                        {renderRowBadges(request)}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate font-medium text-slate-900">{request.customerName}</span>
+                          {request.isGuest && <span className={`${chip} bg-slate-100 text-slate-700 ring-slate-300`}>Gast</span>}
+                        </div>
+                        <div className="truncate text-xs text-slate-500">{request.customerEmail}</div>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <div className="truncate font-medium text-slate-900">{request.deviceLabel || formatDeviceLabel(request.deviceBrand, request.deviceModel)}</div>
+                        <div className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
+                          <span>{request.deviceType}</span>
+                          {request.deviceSource === "manual" && <span className={`${chip} bg-amber-50 text-amber-900 ring-amber-200`}>manuell</span>}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className={`${chip} ${statusChipClass(request.status)}`}>{request.statusLabel || statusLabel(request.status)}</span>
+                        <div className="mt-1 text-xs text-slate-500">Priorität: {PRIORITY_LABELS[request.priority || "medium"]}</div>
+                        <div className="truncate text-xs text-slate-500">{request.assignedStaffName ? `Zuständig: ${request.assignedStaffName}` : "Nicht zugewiesen"}</div>
+                      </td>
+                      <td className="px-3 py-2.5">{renderQuoteCell(request)}</td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button size="sm" className="h-9 bg-[#1a2a5e] text-white hover:bg-[#0f1d45]" onClick={() => openDetail(request)}>
+                            <Eye className="mr-1.5 h-4 w-4" aria-hidden="true" /> Öffnen
+                          </Button>
+                          {renderRowMenu(request)}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-      {/* Convert to Order Dialog */}
-      <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
-        <DialogContent className="max-w-2xl overflow-hidden">
-          <DialogHeader className="mcrepair-dialog-header">
-            <DialogTitle className="mcrepair-dialog-title">In Auftrag umwandeln</DialogTitle>
-            <DialogDescription className="mcrepair-dialog-description">
-              Dienste auswählen und Auftrag aus dieser Anfrage erstellen
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <Alert className="border-gray-200 bg-white shadow-sm">
-              <Info className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-sm">
-                Ein neuer Reparaturauftrag wird erstellt und die Anfrage als konvertiert markiert.
-              </AlertDescription>
-            </Alert>
-
-            <div className="space-y-2">
-              <Label className="text-xs">Dienste auswählen</Label>
-              <ScrollArea className="h-[260px] border rounded-lg p-3">
-                <div className="space-y-1">
-                  {services.map((service) => (
-                    <div key={service._id} className="flex items-start space-x-2 p-2 hover:bg-muted rounded-md">
-                      <Checkbox
-                        id={service._id}
-                        checked={selectedServices.includes(service._id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedServices([...selectedServices, service._id])
-                          } else {
-                            setSelectedServices(selectedServices.filter(id => id !== service._id))
-                          }
-                        }}
-                      />
-                      <div className="flex-1">
-                        <label htmlFor={service._id} className="text-xs font-medium cursor-pointer">
-                          {service.name}
-                        </label>
-                        <p className="text-xs text-muted-foreground">{service.description}</p>
-                        <p className="text-xs font-semibold mt-0.5">€{service.price}</p>
+              {/* Karten auf schmalen Bildschirmen */}
+              <ul className="divide-y divide-slate-100 md:hidden">
+                {requests.map((request) => (
+                  <li key={request._id} className="space-y-2 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-900">{request.requestNumber}</div>
+                        <div className="text-xs text-slate-500">{formatDateDe(request.createdAt)} · {request.customerName}{request.isGuest ? " (Gast)" : ""}</div>
+                      </div>
+                      <span className={`${chip} ${statusChipClass(request.status)}`}>{request.statusLabel || statusLabel(request.status)}</span>
+                    </div>
+                    <div className="text-sm text-slate-800">
+                      {request.deviceLabel || formatDeviceLabel(request.deviceBrand, request.deviceModel)}
+                      {request.deviceSource === "manual" && <span className={`${chip} ml-1 bg-amber-50 text-amber-900 ring-amber-200`}>manuell</span>}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      {renderQuoteCell(request)}
+                      <div className="flex items-center gap-1.5">
+                        <Button size="sm" className="h-9 bg-[#1a2a5e] text-white" onClick={() => openDetail(request)}><Eye className="mr-1.5 h-4 w-4" /> Öffnen</Button>
+                        {renderRowMenu(request)}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </div>
+                    {renderRowBadges(request)}
+                  </li>
+                ))}
+              </ul>
 
-            {selectedServices.length > 0 && (
-              <div className="p-3 bg-muted rounded-lg">
-                <div className="flex justify-between text-xs">
-                  <span>Ausgewählte Dienste:</span>
-                  <span className="font-bold">{selectedServices.length}</span>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-3 py-3 text-sm text-slate-600">
+                <span>{requests.length} von {total} angezeigt</span>
+                {requests.length < total && (
+                  <Button variant="outline" onClick={() => fetchList(page + 1, true)} disabled={loadingMore}>
+                    {loadingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Weitere laden
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ─────────── Details ─────────── */}
+        <Dialog open={Boolean(selectedId)} onOpenChange={(open) => { if (!open) closeDetail() }}>
+          <DialogContent className="flex max-h-[94vh] w-[calc(100vw-1rem)] max-w-6xl flex-col gap-0 overflow-hidden p-0 [&>button]:hidden">
+            <DialogHeader className="flex-shrink-0 space-y-2 bg-[#1a2a5e] px-4 py-3 text-white sm:px-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <DialogTitle className="text-base font-semibold" style={{ color: "#f5b800" }}>
+                    Reparaturanfrage {detail?.requestNumber || ""}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-white/85">
+                    {detail ? `${detail.customerName}${detail.isGuest ? " (Gast)" : ""} · ${detail.deviceLabel || formatDeviceLabel(detail.deviceBrand, detail.deviceModel)}` : "Details"}
+                  </DialogDescription>
                 </div>
-                <div className="flex justify-between text-xs mt-1">
-                  <span>Gesch. Kosten:</span>
-                  <span className="font-bold">
-                    €{services
-                      .filter(s => selectedServices.includes(s._id))
-                      .reduce((sum, s) => sum + s.price, 0)
-                      .toFixed(2)}
-                  </span>
+                <DialogClose asChild>
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-[#f5b800] hover:bg-white/10" aria-label="Details schließen">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </DialogClose>
+              </div>
+              {detail && detailState === "ready" && (
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" className="h-9" disabled={isConverted} onClick={() => { quoteSectionRef.current?.scrollIntoView({ behavior: "smooth" }); quoteAmountRef.current?.focus() }}>
+                    <Send className="mr-1.5 h-4 w-4" /> Kostenvoranschlag senden
+                  </Button>
+                  <Button size="sm" className="h-9 bg-[#f5b800] text-[#1a2a5e] hover:bg-[#e5ab00]" disabled={isConverted} onClick={() => openConvert(detail)}>
+                    <ShoppingCart className="mr-1.5 h-4 w-4" /> In Auftrag umwandeln
+                  </Button>
+                  <Button size="sm" variant="secondary" className="h-9" onClick={() => { assignRef.current?.scrollIntoView({ behavior: "smooth" }); assignRef.current?.focus() }}>
+                    <UserPlus className="mr-1.5 h-4 w-4" /> Mitarbeiter zuweisen
+                  </Button>
                 </div>
+              )}
+            </DialogHeader>
+
+            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50">
+              {detailState === "loading" || (detailState === "idle" && selectedId) ? (
+                <div className="flex items-center justify-center gap-2 py-16 text-slate-600"><Loader2 className="h-5 w-5 animate-spin" /> Wird geladen …</div>
+              ) : detailState === "error" ? (
+                <div className="py-14 text-center">
+                  <p className="font-semibold text-slate-800">Die Anfrage konnte nicht geladen werden.</p>
+                  {detailError && <p className="text-sm text-slate-500">{detailError}</p>}
+                  {selectedId && <Button variant="outline" className="mt-3" onClick={() => loadDetail(selectedId)}><RefreshCw className="mr-2 h-4 w-4" /> Erneut versuchen</Button>}
+                </div>
+              ) : detail ? (
+                <div className="grid gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+                  {/* Linke Spalte */}
+                  <div className="space-y-4">
+                    {isConverted && (
+                      <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
+                        <p className="font-semibold">In Auftrag {detail.convertedToOrderId?.orderNumber || ""} umgewandelt{detail.convertedAt ? ` am ${formatDateDe(detail.convertedAt)}` : ""}.</p>
+                        {detail.convertedToOrderId?._id && (
+                          <Button size="sm" variant="outline" className="mt-2" onClick={() => navigate(`/orders/${detail.convertedToOrderId!._id}`)}>Auftrag öffnen</Button>
+                        )}
+                      </div>
+                    )}
+
+                    <section className="rounded-lg border bg-white p-4">
+                      <h3 className="mb-2 text-sm font-bold text-[#1a2a5e]">Kunde</h3>
+                      <div className="grid gap-1 text-sm sm:grid-cols-2">
+                        <p><span className="text-slate-500">Name:</span> {detail.customerName} {detail.isGuest && <span className={`${chip} ml-1 bg-slate-100 text-slate-700 ring-slate-300`}>Gast</span>}</p>
+                        <p className="break-all"><span className="text-slate-500">E-Mail:</span> {detail.customerEmail}</p>
+                        <p><span className="text-slate-500">Telefon:</span> {detail.customerPhone || "Nicht angegeben"}</p>
+                        <p><span className="text-slate-500">Eingegangen:</span> {formatDateDe(detail.createdAt, true)}</p>
+                      </div>
+                    </section>
+
+                    <section className="rounded-lg border bg-white p-4">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-sm font-bold text-[#1a2a5e]">Gerät</h3>
+                        {deviceUnmatched && !isConverted && <span className={`${chip} bg-amber-50 text-amber-900 ring-amber-200`}>Manuell angegeben – noch nicht zugeordnet</span>}
+                      </div>
+                      <dl className="grid gap-1.5 text-sm">
+                        <div className="flex flex-wrap gap-1"><dt className="text-slate-500">Kundenangabe:</dt><dd className="font-medium">{formatDeviceLabel(reported?.brand, reported?.model) || "–"} ({reported?.source === "catalog" ? "Katalog" : "manuell"}){reported?.modelNumber ? ` · Modellnr. ${reported.modelNumber}` : ""}</dd></div>
+                        <div className="flex flex-wrap gap-1"><dt className="text-slate-500">Zugeordnet:</dt><dd className="font-medium">{detail.deviceSource === "catalog" ? `${formatDeviceLabel(detail.deviceBrand, detail.deviceModel)} – Katalog` : "–"}</dd></div>
+                        <div className="flex flex-wrap gap-1"><dt className="text-slate-500">Gerätetyp:</dt><dd>{detail.deviceType || "–"}</dd></div>
+                      </dl>
+                      {isConverted ? (
+                        <p className="mt-2 text-xs text-slate-500">Nach der Umwandlung bitte das Gerät im Auftrag korrigieren.</p>
+                      ) : showDevicePicker ? (
+                        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                          <div className="mb-2 flex items-center justify-between">
+                            <p className="text-sm font-semibold">Katalogmodell wählen</p>
+                            <Button size="sm" variant="ghost" onClick={() => setShowDevicePicker(false)}>Abbrechen</Button>
+                          </div>
+                          <CatalogDevicePicker compact onSelect={handleDeviceSelect} disabled={savingDevice} selectedModelId={typeof detail.deviceModelId === "object" ? detail.deviceModelId?._id : (detail.deviceModelId as string | undefined)} />
+                          {savingDevice && <p className="mt-2 flex items-center gap-2 text-xs text-slate-600"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Wird gespeichert …</p>}
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="outline" className="mt-3" onClick={() => setShowDevicePicker(true)}>
+                          {detail.deviceSource === "catalog" ? "Zuordnung ändern" : "Katalogmodell zuordnen"}
+                        </Button>
+                      )}
+                    </section>
+
+                    <section className="rounded-lg border bg-white p-4 text-sm">
+                      <h3 className="mb-2 text-sm font-bold text-[#1a2a5e]">Problem</h3>
+                      <p className="whitespace-pre-wrap">{detail.issueDescription}</p>
+                      <div className="mt-3 grid gap-1 sm:grid-cols-2">
+                        {detail.issueOccurredDate && <p><span className="text-slate-500">Seit:</span> {detail.issueOccurredDate}</p>}
+                        <p><span className="text-slate-500">Flüssigkeitsschaden:</span> {detail.waterDamage === "yes" ? "Ja" : detail.waterDamage === "unsure" ? "Nicht sicher" : "Nein"}</p>
+                        <p><span className="text-slate-500">Gerätezustand:</span> {detail.itemCondition === "original" ? "Original" : detail.itemCondition === "refurbished" ? "Gebraucht/aufbereitet" : "Nicht sicher"}</p>
+                        {detail.previousRepairDetails && <p className="sm:col-span-2"><span className="text-slate-500">Frühere Reparaturversuche:</span> {detail.previousRepairDetails}</p>}
+                      </div>
+                      {detail.images && detail.images.length > 0 && (
+                        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                          {detail.images.map((img, idx) => (
+                            <a key={idx} href={img} target="_blank" rel="noreferrer" className="block">
+                              <img src={img} alt={`Gerätefoto ${idx + 1}`} className="h-20 w-full rounded border object-cover" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    {/* Kostenvoranschlag */}
+                    <section ref={quoteSectionRef} className="scroll-mt-4 rounded-lg border-2 border-[#1a2a5e]/20 bg-white p-4">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-sm font-bold text-[#1a2a5e]">Kostenvoranschlag</h3>
+                        {detailQuote ? (
+                          <span className={`${chip} ${quoteChipClass(detailQuote.status)}`}>{detailQuote.legacy && !detail.quote ? "Altbestand (vom Kunden bereits gesehen)" : QUOTE_STATUS_LABELS[detailQuote.status]}</span>
+                        ) : (
+                          <span className={`${chip} bg-white text-slate-500 ring-slate-200`}>Noch keiner</span>
+                        )}
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
+                        <div className="space-y-1">
+                          <Label htmlFor="rr-quote-amount" className="text-xs">Betrag (brutto, EUR)</Label>
+                          <Input id="rr-quote-amount" ref={quoteAmountRef} inputMode="decimal" placeholder="z. B. 89,00" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} disabled={isConverted || detailQuote?.status === "accepted"} />
+                          <p className="text-[11px] text-slate-500">0,00 € ist erlaubt (kostenlos).</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="rr-quote-desc" className="text-xs">Leistungsbeschreibung für den Kunden</Label>
+                          <Textarea id="rr-quote-desc" rows={3} maxLength={2000} placeholder="z. B. Displaytausch inkl. Original-Ersatzteil, 12 Monate Garantie" value={quoteDescription} onChange={(e) => setQuoteDescription(e.target.value)} disabled={isConverted || detailQuote?.status === "accepted"} />
+                        </div>
+                      </div>
+                      <div className="mt-3 space-y-1 text-xs text-slate-600">
+                        {detailQuote?.status === "draft" && <p>Entwurf{detailQuote.draftUpdatedAt ? ` gespeichert am ${formatDateDe(detailQuote.draftUpdatedAt, true)}` : ""}{detailQuote.draftUpdatedByName ? ` von ${detailQuote.draftUpdatedByName}` : ""} – der Kunde sieht ihn noch nicht.</p>}
+                        {detailQuote?.publishedAt && <p>Gesendet am {formatDateDe(detailQuote.publishedAt, true)}{detailQuote.publishedByName ? ` von ${detailQuote.publishedByName}` : ""}{detailQuote.version ? ` (Version ${detailQuote.version})` : ""}.</p>}
+                        {detailQuote?.emailStatus === "accepted" && <p className="text-emerald-700">E-Mail an den Kunden: vom Mailserver angenommen{detailQuote.emailSentAt ? ` (${formatDateDe(detailQuote.emailSentAt, true)})` : ""}.</p>}
+                        {detailQuote?.emailStatus === "failed" && <p className="font-semibold text-red-700">E-Mail an den Kunden fehlgeschlagen{detailQuote.emailError ? `: ${detailQuote.emailError}` : ""}. Der Kostenvoranschlag ist trotzdem im Kundenkonto/Tracking-Link sichtbar.</p>}
+                        {detailQuote?.status === "accepted" && <p className="font-semibold text-emerald-800">Angenommen am {formatDateDe(detailQuote.respondedAt, true)}{detailQuote.respondedByName ? ` von ${detailQuote.respondedByName}` : ""}{detailQuote.responseChannel === "guest" ? " (Gast-Link)" : ""}.</p>}
+                        {detailQuote?.status === "declined" && <p className="font-semibold text-red-700">Abgelehnt am {formatDateDe(detailQuote.respondedAt, true)}{detailQuote.respondedByName ? ` von ${detailQuote.respondedByName}` : ""}. Sie können einen neuen Entwurf senden.</p>}
+                      </div>
+                      {!isConverted && detailQuote?.status !== "accepted" && (
+                        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                          <Button variant="outline" onClick={handleSaveDraft} disabled={savingQuote || sendingQuote}>
+                            {savingQuote ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Entwurf speichern
+                          </Button>
+                          <Button className="bg-[#1a2a5e] text-white hover:bg-[#0f1d45]" onClick={() => {
+                            if (parseAmount() === null) {
+                              toast({ title: "Betrag fehlt", description: "Bitte einen Betrag ab 0,00 € eingeben.", variant: "destructive" })
+                              return
+                            }
+                            setConfirmSendOpen(true)
+                          }} disabled={savingQuote || sendingQuote || detail.status === "rejected"}>
+                            <Send className="mr-2 h-4 w-4" /> Kostenvoranschlag an Kunden senden
+                          </Button>
+                        </div>
+                      )}
+                      {detail.status === "rejected" && !isConverted && <p className="mt-2 text-xs text-slate-500">Die Anfrage ist abgelehnt – zum Senden bitte zuerst den Status ändern.</p>}
+                    </section>
+
+                    {/* Bearbeitung */}
+                    <section className="rounded-lg border bg-white p-4">
+                      <h3 className="mb-3 text-sm font-bold text-[#1a2a5e]">Bearbeitung</h3>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="rr-status" className="text-xs">Status</Label>
+                          <select id="rr-status" className={selectClass} value={detail.status} disabled={isConverted || busyField === "status"} onChange={(e) => handleStatusChange(e.target.value)}>
+                            <option value="pending">Ausstehend</option>
+                            <option value="reviewing">In Prüfung</option>
+                            {detail.status === "approved" && <option value="approved" disabled>{detail.statusLabel || "Kostenvoranschlag angenommen"}</option>}
+                            <option value="rejected">Abgelehnt</option>
+                            {isConverted && <option value="converted">In Auftrag umgewandelt</option>}
+                          </select>
+                          <p className="text-[11px] text-slate-500">„Kostenvoranschlag angenommen“ setzt nur die Antwort des Kunden; „In Auftrag umgewandelt“ nur „In Auftrag umwandeln“.</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="rr-priority" className="text-xs">Priorität (intern)</Label>
+                          <select id="rr-priority" className={selectClass} value={detail.priority || "medium"} disabled={busyField === "priority"} onChange={(e) => handlePriorityChange(e.target.value)}>
+                            <option value="low">Niedrig</option>
+                            <option value="medium">Mittel</option>
+                            <option value="high">Hoch</option>
+                            <option value="urgent">Dringend</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label htmlFor="rr-assign" className="text-xs">Zuständiger Mitarbeiter</Label>
+                          <div className="flex gap-2">
+                            <select id="rr-assign" ref={assignRef} className={selectClass} value={selectedStaffId} onChange={(e) => setSelectedStaffId(e.target.value)}>
+                              <option value="">Mitarbeiter wählen …</option>
+                              {staff.map((member) => <option key={member._id} value={member._id}>{staffName(member)}</option>)}
+                            </select>
+                            <Button onClick={handleAssign} disabled={!selectedStaffId || busyField === "assign"}>
+                              {busyField === "assign" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Zuweisen"}
+                            </Button>
+                          </div>
+                          <p className="text-[11px] text-slate-500">{detail.assignedStaffName ? `Aktuell: ${detail.assignedStaffName}` : "Ohne Zuweisung erhalten alle Admins Kundennachrichten."}</p>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+
+                  {/* Rechte Spalte: Kommunikation + Intern */}
+                  <div className="space-y-4">
+                    <section ref={commRef} className="scroll-mt-4 rounded-lg border-2 border-blue-200 bg-white p-3">
+                      <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-[#1a2a5e]">
+                        <MessageSquare className="h-4 w-4" aria-hidden="true" /> Kommunikation mit dem Kunden
+                        <span className={`${chip} bg-blue-50 text-blue-900 ring-blue-200`}>An Kunden</span>
+                      </h3>
+                      <p className="mb-2 text-xs text-slate-600">Der Kunde sieht diese Nachrichten{detail.isGuest ? " über seinen Tracking-Link und erhält eine E-Mail" : " im Kundenkonto und erhält eine E-Mail"}.</p>
+                      <CommunicationPanel orderId={detail._id} entityType="repair-request" hideTitle />
+                    </section>
+
+                    <section className="rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/70 p-4">
+                      <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-amber-900">
+                        <Lock className="h-4 w-4" aria-hidden="true" /> Interne Notizen
+                        <span className={`${chip} bg-amber-100 text-amber-900 ring-amber-300`}>Intern – nur für das Team</span>
+                      </h3>
+                      <p className="mb-2 text-xs text-amber-900/80">Nur für Mitarbeiter sichtbar. Der Kunde wird nicht benachrichtigt.</p>
+                      <Textarea rows={2} placeholder="Interne Notiz …" value={internalNote} onChange={(e) => setInternalNote(e.target.value)} className="bg-white" aria-label="Interne Notiz" />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Button size="sm" className="bg-amber-600 text-white hover:bg-amber-700" onClick={handleAddNote} disabled={savingNote || !internalNote.trim()}>
+                          {savingNote ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Lock className="mr-1.5 h-3.5 w-3.5" />} Interne Notiz speichern
+                        </Button>
+                        {internalNote && <Button size="sm" variant="ghost" onClick={() => setInternalNote("")}>Entwurf verwerfen</Button>}
+                      </div>
+                      {(detail.adminNotes || []).length > 0 ? (
+                        <ul className="mt-3 max-h-72 space-y-2 overflow-y-auto">
+                          {[...(detail.adminNotes || [])].reverse().map((note, idx) => (
+                            <li key={note._id || idx} className="rounded-md border border-amber-200 bg-white p-2">
+                              <div className="mb-0.5 flex flex-wrap justify-between gap-2 text-[11px] text-slate-500">
+                                <span>{note.staffName}</span>
+                                <span>{formatDateDe(note.createdAt, true)}</span>
+                              </div>
+                              <p className="whitespace-pre-wrap text-xs text-slate-800">{note.note}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-500">Noch keine internen Notizen.</p>
+                      )}
+                    </section>
+
+                    {(detail.messages || []).length > 0 && (
+                      <section className="rounded-lg border bg-white p-4">
+                        <h3 className="mb-1 text-sm font-bold text-slate-700">Ältere Nachrichten (Altbestand)</h3>
+                        <p className="mb-2 text-xs text-slate-500">Aus dem früheren Nachrichtenspeicher – der Kunde sieht diese nicht im Portal. Neue Nachrichten bitte oben senden.</p>
+                        <ul className="space-y-2">
+                          {(detail.messages || []).map((msg, idx) => (
+                            <li key={msg._id || idx} className="rounded-md border p-2 text-xs">
+                              <div className="mb-0.5 flex justify-between gap-2 text-slate-500"><span>{msg.senderName}</span><span>{formatDateDe(msg.sentAt, true)}</span></div>
+                              <p className="whitespace-pre-wrap">{msg.message}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bestätigung: Kostenvoranschlag senden */}
+        <AlertDialog open={confirmSendOpen} onOpenChange={(open) => { if (!sendingQuote) setConfirmSendOpen(open) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Kostenvoranschlag an Kunden senden?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {detail ? `${formatMoney(parseAmount() ?? 0)} an ${detail.customerEmail}. ` : ""}
+                Der Kunde erhält eine Nachricht mit Betrag und Link zur Antwort. Jetzt senden?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={sendingQuote}>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction onClick={(e) => { e.preventDefault(); handleSendQuote() }} disabled={sendingQuote} className="bg-[#1a2a5e]">
+                {sendingQuote ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />} Jetzt senden
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Umwandeln */}
+        <Dialog open={Boolean(convertTarget)} onOpenChange={(open) => { if (!open && !converting) setConvertTarget(null) }}>
+          <DialogContent className="flex max-h-[94vh] w-[calc(100vw-1rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+            <DialogHeader className="mcrepair-dialog-header flex-shrink-0">
+              <DialogTitle className="mcrepair-dialog-title">In Auftrag umwandeln – {convertTarget?.requestNumber}</DialogTitle>
+              <DialogDescription className="mcrepair-dialog-description">Leistungen aus dem Katalog wählen. Der Auftragswert wird nach Katalogpreisen und Kundenkonditionen berechnet.</DialogDescription>
+            </DialogHeader>
+            {convertTarget && (
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+                <div className="grid gap-2 rounded-lg border bg-slate-50 p-3 text-sm sm:grid-cols-2">
+                  <p><span className="text-slate-500">Gerät im Auftrag:</span> <strong>{formatDeviceLabel(convertTarget.deviceBrand, convertTarget.deviceModel)}</strong></p>
+                  <p><span className="text-slate-500">Kundenangabe:</span> {formatDeviceLabel(convertTarget.reportedDevice?.brand, convertTarget.reportedDevice?.model) || "–"}{convertTarget.reportedDevice?.source === "manual" ? " (manuell)" : ""}</p>
+                  <p className="sm:col-span-2"><span className="text-slate-500">Kunde:</span> {convertTarget.customerName}{convertTarget.isGuest ? " – bleibt Gast (Tracking per E-Mail)" : ""}</p>
+                </div>
+                {convertTarget.deviceSource === "manual" && (
+                  <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    Gerät noch nicht zugeordnet – es werden alle Leistungen für „{convertTarget.deviceType}“ gezeigt. Für passende Leistungen zuerst im Detail „Katalogmodell zuordnen“.
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="rr-service-search" className="text-sm font-semibold">Passende Reparaturleistungen</Label>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                    <Input id="rr-service-search" className="pl-9" placeholder="Leistung suchen …" value={serviceSearch} onChange={(e) => setServiceSearch(e.target.value)} />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto rounded-lg border bg-white">
+                    {servicesState === "loading" ? (
+                      <p className="flex items-center gap-2 p-3 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" /> Wird geladen …</p>
+                    ) : servicesState === "error" ? (
+                      <p className="p-3 text-sm text-red-700">Leistungen konnten nicht geladen werden. <button type="button" className="font-semibold underline" onClick={() => openConvert(convertTarget)}>Erneut versuchen</button></p>
+                    ) : visibleServices.length === 0 ? (
+                      <p className="p-3 text-sm text-slate-600">{services.length === 0 ? "Noch keine passenden Leistungen im Katalog." : `Keine Leistung passt zu „${serviceSearch}“.`}</p>
+                    ) : (
+                      visibleServices.map((service) => (
+                        <label key={service._id} htmlFor={`svc-${service._id}`} className="flex cursor-pointer items-start gap-3 border-b border-slate-100 p-3 last:border-b-0 hover:bg-slate-50">
+                          <Checkbox
+                            id={`svc-${service._id}`}
+                            checked={selectedServices.includes(service._id)}
+                            onCheckedChange={(checked) => setSelectedServices((prev) => checked ? [...prev, service._id] : prev.filter((id) => id !== service._id))}
+                          />
+                          <span className="flex-1">
+                            <span className="block text-sm font-medium text-slate-900">{service.name}</span>
+                            {service.description && <span className="block text-xs text-slate-500 line-clamp-2">{service.description}</span>}
+                          </span>
+                          <span className="text-sm font-semibold text-slate-900">{formatMoney(service.price)}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1 rounded-lg border bg-slate-50 p-3 text-sm">
+                  <p className="flex justify-between"><span>Ausgewählte Leistungen</span><strong>{selectedServices.length}</strong></p>
+                  <p className="flex justify-between"><span>Summe Listenpreise (vor Kundenkonditionen)</span><strong>{formatMoney(selectedServicesTotal)}</strong></p>
+                  {convertQuote && (
+                    <>
+                      <p className="flex justify-between"><span>Kostenvoranschlag ({QUOTE_SHORT[convertQuote.status]?.toLowerCase() || convertQuote.status})</span><strong>{formatMoney(convertQuote.amount)}</strong></p>
+                      {selectedServices.length > 0 && (
+                        <p className={`flex justify-between ${quoteDifference !== 0 ? "font-semibold text-amber-800" : "text-emerald-800"}`}>
+                          <span>Abweichung</span><span>{quoteDifference > 0 ? "+" : ""}{formatMoney(quoteDifference)}</span>
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                {needsDifferenceConfirm && (
+                  <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                    <Checkbox checked={confirmDifference} onCheckedChange={(c) => setConfirmDifference(Boolean(c))} />
+                    <span>Mir ist bewusst, dass der Auftragswert vom angenommenen Kostenvoranschlag ({formatMoney(convertQuote?.amount)}) abweicht. Ich passe den Auftrag ggf. danach an.</span>
+                  </label>
+                )}
+
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-semibold">Versandart</legend>
+                  <label className="flex cursor-pointer items-start gap-2 rounded-lg border bg-white p-3 text-sm">
+                    <input type="radio" name="rr-shipping" className="mt-1" checked={shippingMode === "none"} onChange={() => setShippingMode("none")} />
+                    <span><strong>Gerät liegt vor bzw. Abgabe im Laden</strong><span className="block text-xs text-slate-500">Es wird kein DHL-Einsendelabel erstellt.</span></span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-2 rounded-lg border bg-white p-3 text-sm">
+                    <input type="radio" name="rr-shipping" className="mt-1" checked={shippingMode === "inbound_label"} onChange={() => setShippingMode("inbound_label")} />
+                    <span><strong className="inline-flex items-center gap-1"><Truck className="h-4 w-4" aria-hidden="true" /> Gerät wird eingesendet</strong><span className="block text-xs text-slate-500">DHL-Einsendelabel (Kunde → McRepair) wird für die Buchung erstellt.</span></span>
+                  </label>
+                </fieldset>
               </div>
             )}
-          </div>
+            <DialogFooter className="flex-shrink-0 gap-2 border-t bg-white p-3 sm:p-4">
+              <Button variant="outline" onClick={() => setConvertTarget(null)} disabled={converting}>Abbrechen</Button>
+              <Button onClick={handleConvert} disabled={converting || selectedServices.length === 0 || (needsDifferenceConfirm && !confirmDifference)} className="bg-[#1a2a5e] text-white hover:bg-[#0f1d45]">
+                {converting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-4 w-4" />} Auftrag anlegen
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConvertDialog(false)}>
-              Abbrechen
-            </Button>
-            <Button
-              onClick={handleConvertToOrder}
-              disabled={actionLoading || selectedServices.length === 0}
-              style={{background: '#1a2a5e', color: '#fff'}}
-            >
-              {actionLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Konvertiere...
-                </>
-              ) : (
-                <>
-                  <ShoppingCart className="mr-2 h-4 w-4" />
-                  In Auftrag umwandeln
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="overflow-hidden">
-          <AlertDialogHeader className="mcrepair-dialog-header">
-            <AlertDialogTitle className="mcrepair-dialog-title">Reparaturanfrage löschen</AlertDialogTitle>
-            <AlertDialogDescription className="mcrepair-dialog-description">
-              Diese Aktion kann nicht rückgängig gemacht werden. Anfrage #{selectedRequest?.requestNumber}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteRequest}
-              className="bg-red-600 hover:bg-red-700"
-              disabled={actionLoading}
-            >
-              {actionLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Löschen...
-                </>
-              ) : (
-                "Löschen"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-        </div>
-      )}
+        {/* Löschen */}
+        <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open && !deleting) setDeleteTarget(null) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reparaturanfrage löschen?</AlertDialogTitle>
+              <AlertDialogDescription>Anfrage {deleteTarget?.requestNumber} wird endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction onClick={(e) => { e.preventDefault(); handleDelete() }} className="bg-red-600 hover:bg-red-700" disabled={deleting}>
+                {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Endgültig löschen
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   )
 }

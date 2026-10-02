@@ -1,0 +1,410 @@
+(node:1102362) [MONGOOSE] Warning: Duplicate schema index on {"messageNumber":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1102362) [MONGOOSE] Warning: Duplicate schema index on {"code":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:1102362) [MONGOOSE] Warning: Duplicate schema index on {"orderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+[RR-1/RR-3/RR-19] Anlegen: manuell, Katalog, ungültige ID, Fotogröße
+Generated request number: RR-1790940014364-00001
+  PASS Mitglied manuell mit deviceModelId "" -> 201, ohne Katalog-ID, source manual, Angabe exakt :: 201 Reparaturanfrage erfolgreich übermittelt. manual
+  PASS Antwort ist Kundensicht (keine adminNotes) :: 27
+Generated request number: RR-1790940014440-00002
+  PASS Katalog-ID + widersprüchlicher Text -> Katalognamen gespeichert :: 201 Apple iPhone 15
+  PASS unbekannte/inaktive Katalog-ID (Mitglied+Gast) -> 400 deutsch, kein Dokument :: 400 400 400 Das gewählte Modell ist nicht mehr in unserem Katalog. Bitte erneut auswählen oder „Mein Gerät ist nicht aufgeführt“ nutzen.
+  PASS manuell ohne Marke/Modell -> 400 deutsch :: 400 Bitte geben Sie Marke und Modellbezeichnung Ihres Geräts an.
+Generated request number: RR-1790940014505-00003
+  PASS Gast manuell -> 201, Marke/Modell exakt, Vor-/Nachname getrennt gespeichert :: 201 Gast Müller
+  PASS Fotos zusammen > 8 MB -> 413 deutsch, kein Dokument :: 413 Die Fotos sind zusammen zu groß (max. 8 MB). Bitte weniger oder kleinere Fotos wählen.
+
+[RR-8/RR-15/COMMS-8] Kundensicht ohne interne Daten; Gast-Anfrage per ID für Personal
+Generated request number: RR-1790940014639-00004
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Gast-Tracking: keine internen Notizen, keine Mitarbeiter-E-Mail, kein Token, keine Priorität :: 200 909
+  PASS Personal GET /:id auf Gast-Anfrage -> 200 (kein 500) inkl. interner Notizen :: 200
+Generated request number: RR-1790940014708-00005
+RequireRole middleware: User rr-admin@test.invalid has required role admin
+  PASS Eigentümer GET /:id -> 200 ohne adminNotes :: 200
+  PASS fremder Kunde GET /:id -> 403 deutsch ohne Daten :: 403 Zugriff verweigert.
+  PASS ungültige ID: Kunde 403, Personal 404 :: 403 404
+
+[RR-7/COMMS-7] Gast-Token ist an genau eine Anfrage gebunden
+Generated request number: RR-1790940014763-00006
+Generated request number: RR-1790940014773-00007
+  PASS Token A liest Thread B -> 403 :: 403
+  PASS Token A schreibt in Thread B -> 403, Thread B unverändert :: 403 1
+  PASS eigener Thread -> 200 :: 200
+
+[RR-9/COMMS-6] Kommunikations-Routen: Besitz- und Rollenprüfung
+Generated request number: RR-1790940014832-00008
+  PASS fremder Kunde GET / -> 403 :: 403
+  PASS fremder Kunde POST /message -> 403 :: 403
+  PASS fremder Kunde GET /unread-count -> 403 :: 403
+  PASS fremder Kunde PUT /mark-read -> 403 :: 403
+  PASS fremder Kunde GET /pending-feedback -> 403 :: 403
+RequireRole middleware: User rr-stranger@test.invalid has role customer, but requires one of: admin, staff
+  PASS Kunde legt Rückfrage/Aktion an -> 403 :: 403 403
+  PASS fremder Kunde Legacy POST /:id/messages -> 403 :: 403
+  PASS Eigentümer liest Thread -> 200, ohne internalNotes :: 200
+  PASS Personal liest Thread -> 200 mit internalNotes (separat) :: 200
+  PASS Personal/fremder Kunde beantworten Rückfrage -> 403 :: 403 403
+  PASS Eigentümer antwortet einmal; zweite Antwort -> 409, erste bleibt :: 200 409 yes
+  PASS Antwort benachrichtigt Admins (unzugewiesen) deutsch mit Deep-Link :: Kunde hat eine Rückfrage beantwortet – RR-1790940014832-00008
+
+[RR-5/NOTIF-14] Kostenvoranschlag: Entwurf sendet nichts, Senden genau einmal, 0 € gültig
+Generated request number: RR-1790940015032-00009
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Entwurf (0 €): keine Mail, keine Thread-Nachricht, Gast sieht keinen Kostenvoranschlag :: 200 mails+0 quote=null
+  PASS DB: quote draft 0 €, deutsche Notiz ohne $ :: Kostenvoranschlag-Entwurf gespeichert: 0,00 €
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Senden -> 200, E-Mail vom Mailserver angenommen :: 200 {"status":"accepted","error":""}
+  PASS zweites Senden (Doppelklick) -> alreadySent, nichts erneut :: 200 true
+  PASS genau 1 Mail an den Gast mit "0,00 €" und Tracking-/Antwort-Link :: 1 /guest-repair-tracking?token=<entfernt>&email=g-quote%40test.invalid
+  PASS genau 1 Rückfrage (Kostenvoranschlag) im Thread :: 1
+  PASS Gast sieht veröffentlichten Kostenvoranschlag 0 € + "Antwort erforderlich" :: {"amount":0,"description":"Kostenlose Reinigung","status":"sent","version":1,"legacy":false,"publishedAt":"2026-10-02T11:20:15.072Z","respondedAt":null,"feedbackMessageId":"6abf936f387ca0e48a21faf8"}
+Generated request number: RR-1790940015113-00010
+RequireRole middleware: User rr-admin@test.invalid has required role admin
+  PASS Mitglied: 1 In-App-Hinweis mit Deep-Link (ohne generische Zusatz-Mail) :: 1 /my-repair-requests?requestId=6abf936f387ca0e48a21fb0c
+  PASS Mitglied: genau 1 Kostenvoranschlags-Mail mit 89,00 € und Deep-Link :: 1
+RequireRole middleware: User rr-admin@test.invalid has required role admin
+  PASS Änderung nach Senden -> Entwurf, alte Rückfrage "expired" :: draft expired
+  PASS Kunde sieht Entwurf NICHT :: null
+RequireRole middleware: User rr-admin@test.invalid has required role admin
+  PASS neue Version wird gesendet (Version 2) :: 2
+
+[RR-6/RR-9] Antwort auf den Kostenvoranschlag: Gast strukturiert, genau einmal
+Generated request number: RR-1790940015191-00011
+Generated request number: RR-1790940015200-00012
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Token einer anderen Anfrage -> 403 :: 403
+  PASS Gast nimmt an -> quote accepted, Status approved ("Kostenvoranschlag angenommen") :: 200 accepted approved
+  PASS zweite Antwort (beide Wege) -> 409 :: 409 409
+  PASS Team wird über die Annahme benachrichtigt :: Kostenvoranschlag angenommen – RR-1790940015191-00011
+Generated request number: RR-1790940015270-00013
+  PASS Gast beantwortet freie Rückfrage strukturiert (E-Mail mit Antwort-Link, Antwort gespeichert) :: true 200 no
+  PASS zweite Gast-Antwort -> 409 :: 409
+Generated request number: RR-1790940015319-00014
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Personal/fremder Kunde beantworten Kostenvoranschlag -> 403 :: 403 403
+  PASS Mitglied lehnt ab -> declined, Anfrage bleibt "In Prüfung", Rückfrage beantwortet, zweite Antwort 409 :: 200 declined reviewing 409
+Generated request number: RR-1790940015399-00015
+  PASS Altbestand estimatedCost 75 ohne quote: Kunde sieht ihn weiterhin (legacy) :: {"amount":75,"description":"","status":"sent","version":0,"legacy":true,"publishedAt":null,"respondedAt":null,"feedbackMessageId":null}
+  PASS Altbestand kann angenommen werden :: 200 accepted
+
+[REVIEW RR-6/RR-9] Antwort ist an die gesehene Version gebunden; Thread und Kostenvoranschlag widersprechen sich nie
+Generated request number: RR-1790940015440-00016
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS v1 (89 €) gesehen, v2 (150 €) gesendet: Annahme mit v1 -> 409 QUOTE_CHANGED, v2 bleibt offen :: 409 QUOTE_CHANGED sent v2 reviewing
+  PASS ohne quoteVersion bzw. mit falschem Betrag -> 409, nichts angenommen :: 409 409
+  PASS Annahme mit aktueller Version (v2, 150 €) -> 200, Status "Kostenvoranschlag angenommen" :: 200 accepted
+  PASS Thread: alte Rückfrage (v1) verfallen, aktuelle (v2) als "angenommen" beantwortet :: expired responded quote_accept
+  PASS Verlauf (intern): Notiz "Kostenvoranschlag angenommen: 150,00 € (Version 2)" mit Akteur Kunde :: Kostenvoranschlag angenommen: 150,00 € (Version 2) – im Kundenkonto
+  PASS Kundensicht enthält die interne Verlaufsnotiz nicht :: ok
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS save() mit Kunden-Verlaufseintrag (ohne staffId) validiert weiterhin :: 201 Nachricht gespeichert.
+Generated request number: RR-1790940015592-00017
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Gast: veraltete Version -> 409; aktuelle Version ablehnen -> declined, "In Prüfung", Verlaufsnotiz (Gast) :: 409 200 declined
+Generated request number: RR-1790940015674-00018
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Antwort über Rückfrage bei abgelehnter Anfrage -> 409, Rückfrage verfallen (nicht "beantwortet"), quote unverändert :: 409 expired undefined
+Generated request number: RR-1790940015724-00019
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Rückfrage-Antwort während Entwurf -> 409, Rückfrage verfallen, Entwurf unverändert :: 409 expired
+Generated request number: RR-1790940015782-00020
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS parallel Karte + Rückfrage: 200/409, Thread-Antwort = gespeicherte Entscheidung, keine offene Rückfrage :: 200/409 quote=accepted thread=quote_accept pending=0
+Generated request number: RR-1790940015868-00021
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Status "Abgelehnt": Rückfrage verfallen, keine "Antwort erforderlich" :: expired false
+Generated request number: RR-1790940015942-00022
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf936d387ca0e48a21f92c'),
+  deviceType: 'Smartphone',
+  deviceBrand: 'Fairphone',
+  deviceModel: 'Fairphone 5',
+  reportedDevice: {
+    brand: 'Fairphone',
+    model: 'Fairphone 5',
+    deviceType: 'Smartphone',
+    capturedAt: 2026-10-02T11:20:15.938Z
+  },
+  services: [ '6abf936e387ca0e48a21f9fb' ],
+  addOns: [],
+  customerNotes: 'Aus Reparaturanfrage RR-1790940015942-00022 übernommen.\n' +
+    'Kundenangabe Gerät: Fairphone 5 – manuell angegeben\n' +
+    'Fehlerbeschreibung: Das Display flackert seit gestern und reagiert nicht mehr zuverlässig.\n' +
+    'Kostenvoranschlag (gesendet, unbeantwortet): 79,00 €',
+  photos: [],
+  status: 'pending'
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9370387ca0e48a21fe15')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf936d387ca0e48a21f92c'),
+  orderIds: [ new ObjectId('6abf9370387ca0e48a21fe15') ],
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  discount: 0,
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf9370387ca0e48a21fe15') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0001
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf9370387ca0e48a21fe28') Number: BKG-2026-0001
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+BookingService: Shipping label creation disabled for booking.
+  PASS Umwandlung: offene Kostenvoranschlags-Rückfrage verfallen :: 201 expired
+Generated request number: RR-1790940016104-00023
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS PUT status approved durch Personal -> 400 deutsch, Status unverändert, keine "freigegeben"-Mail :: 400 pending
+  PASS Altbestand "approved" ohne angenommenen Kostenvoranschlag heisst "Freigegeben" (nicht "Kostenvoranschlag angenommen") :: Freigegeben
+  PASS Client: Karte/API senden quoteVersion; "Antwort erforderlich" nur bei open && canRespond :: ok
+
+[RR-11/NOTIF-11] Status: "converted" nicht manuell; gleiche Änderung mailt nur einmal
+Generated request number: RR-1790940016224-00024
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS PUT status converted -> 400 deutsch :: 400 Umwandlung nur über „In Auftrag umwandeln“.
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS zweimal derselbe Status -> genau 1 Mail mit gültigem Link :: 1 http://test.invalid/my-repair-requests?requestId=6abf9370387ca0e48a21fe52
+  PASS genau 1 deutsche Statusnotiz :: Status geändert: Ausstehend → In Prüfung
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Ablehnung: Mail sagt "abgelehnt" (nicht "in Bearbeitung") :: Ihre Reparaturanfrage RR-1790940016224-00024 wurde abgelehnt
+
+[RR-4/RR-12] Gerät zuordnen: Kundenangabe bleibt, eine Notiz, 409 nach Umwandlung
+Generated request number: RR-1790940016450-00025
+RequireRole middleware: User rr-owner@test.invalid has role customer, but requires one of: admin, staff
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Kunde PUT /:id/device -> 403 :: 403
+  PASS Personal ordnet zu: aktuelles Gerät = Katalog, reportedDevice = manuelle Kundenangabe :: Fairphone 5 / Fairphone 5 (2023)
+  PASS Wiederholung ohne neue Notiz; genau 1 Notiz mit Akteur :: 1
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf936d387ca0e48a21f92c'),
+  deviceType: 'Smartphone',
+  deviceBrand: 'Fairphone',
+  deviceModel: 'Fairphone 5',
+  reportedDevice: {
+    brand: 'Fairphone',
+    model: 'Fairphone 5 (2023)',
+    deviceType: 'Smartphone',
+    capturedAt: 2026-10-02T11:20:16.447Z
+  },
+  services: [ '6abf936e387ca0e48a21f9fb' ],
+  addOns: [],
+  customerNotes: 'Aus Reparaturanfrage RR-1790940016450-00025 übernommen.\n' +
+    'Kundenangabe Gerät: Fairphone 5 (2023) – manuell angegeben\n' +
+    'Fehlerbeschreibung: Das Display flackert seit gestern und reagiert nicht mehr zuverlässig.',
+  photos: [],
+  status: 'pending'
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9370387ca0e48a21fe82')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf936d387ca0e48a21f92c'),
+  orderIds: [ new ObjectId('6abf9370387ca0e48a21fe82') ],
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  discount: 0,
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf9370387ca0e48a21fe82') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0002
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf9370387ca0e48a21fe95') Number: BKG-2026-0002
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+BookingService: Shipping label creation disabled for booking.
+  PASS Umwandlung: Auftrag mit zugeordnetem Gerät, reportedDevice = Kundenangabe, deutsche Notiz :: 201 Fairphone 5 / Fairphone 5 (2023)
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS nach Umwandlung -> 409 "im Auftrag korrigieren" :: 409 Nach der Umwandlung bitte das Gerät im Auftrag korrigieren.
+  PASS Mitglied sieht Link zum Auftrag :: {"orderNumber":"ORD-2026-002","status":"pending","path":"/orders/6abf9370387ca0e48a21fe82"}
+
+[RR-10/RR-11/RR-20] Umwandlung: atomar, Gast bleibt Gast, kein Label ohne Wahl
+Generated request number: RR-1790940016608-00026
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+RequireRole middleware: User rr-admin@test.invalid has required role admin
+OrderService: Creating new order with data: {
+  guestInfo: {
+    isGuest: true,
+    email: 'g-convert@test.invalid',
+    firstName: 'Gisela',
+    lastName: 'Gast Müller',
+    phone: '0123'
+  },
+  deviceType: 'Smartphone',
+  deviceBrand: 'Apple',
+  deviceModel: 'iPhone 15',
+  reportedDevice: {
+    brand: 'Apple',
+    model: 'iPhone 15',
+    deviceType: 'Smartphone',
+    capturedAt: 2026-10-02T11:20:16.605Z
+  },
+  services: [ '6abf936e387ca0e48a21f9f8' ],
+  addOns: [],
+  customerNotes: 'Aus Reparaturanfrage RR-1790940016608-00026 übernommen.\n' +
+    'Kundenangabe Gerät: Apple iPhone 15\n' +
+    'Fehlerbeschreibung: Das Display flackert seit gestern und reagiert nicht mehr zuverlässig.',
+  photos: [],
+  status: 'pending'
+}
+Order: Generated guest tracking token for order: ORD-2026-003
+OrderService: Order created successfully with ID: new ObjectId('6abf9370387ca0e48a21fec9')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+BookingService: Creating new booking with data: {
+  guestInfo: {
+    isGuest: true,
+    email: 'g-convert@test.invalid',
+    firstName: 'Gisela',
+    lastName: 'Gast Müller',
+    phone: '0123'
+  },
+  orderIds: [ new ObjectId('6abf9370387ca0e48a21fec9') ],
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  discount: 0,
+  createShippingLabel: false
+}
+BookingService: Processing order: new ObjectId('6abf9370387ca0e48a21fec9') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0003
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+Booking pre-save: Generated guest tracking token for guest booking
+BookingService: Booking created successfully with ID: new ObjectId('6abf9370387ca0e48a21fed8') Number: BKG-2026-0003
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+BookingService: Shipping label creation disabled for booking.
+  PASS zwei parallele Umwandlungen -> 201 + 409 :: 201,409
+  PASS genau 1 Auftrag und 1 Buchung :: 1 1
+  PASS Gast-Auftrag: guestInfo (Gast bleibt Gast), Tracking-Token :: {"email":"g-convert@test.invalid","firstName":"Gisela","lastName":"Gast Müller","phone":"0123","isGuest":true,"billingAd
+  PASS Gast-Buchung mit Tracking-Token :: true
+  PASS ohne ausdrückliche Wahl: 0 DHL-Labelaufrufe :: 0
+  PASS genau 1 Gast-Buchungsmail :: 1
+  PASS Gast sieht "Auftrag verfolgen"-Link auf die Buchung :: /track-order/booking?token=<entfernt>&email=g-convert%40test.invalid
+OrderTrackingRoutes: Booking found: BKG-2026-0003
+  PASS Gast-Buchungstracking mit diesem Token -> 200 :: 200
+Generated request number: RR-1790940016856-00027
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+OrderService: Creating new order with data: {
+  customerId: new ObjectId('6abf936d387ca0e48a21f92c'),
+  deviceType: 'Smartphone',
+  deviceBrand: 'Fairphone',
+  deviceModel: '5',
+  reportedDevice: {
+    brand: 'Fairphone',
+    model: '5',
+    deviceType: 'Smartphone',
+    capturedAt: 2026-10-02T11:20:16.853Z
+  },
+  services: [ '6abf936e387ca0e48a21f9fb' ],
+  addOns: [],
+  customerNotes: 'Aus Reparaturanfrage RR-1790940016856-00027 übernommen.\n' +
+    'Kundenangabe Gerät: Fairphone 5 – manuell angegeben\n' +
+    'Fehlerbeschreibung: Das Display flackert seit gestern und reagiert nicht mehr zuverlässig.',
+  photos: [],
+  status: 'pending'
+}
+OrderService: Order created successfully with ID: new ObjectId('6abf9370387ca0e48a21ff12')
+OrderService: Order unlock data - Pattern: [] Code:  NoLock: false
+BookingService: Creating new booking with data: {
+  customerId: new ObjectId('6abf936d387ca0e48a21f92c'),
+  orderIds: [ new ObjectId('6abf9370387ca0e48a21ff12') ],
+  status: 'pending',
+  billingStatus: 'unpaid',
+  paymentStatus: 'pending',
+  discount: 0,
+  createShippingLabel: true
+}
+BookingService: Processing order: new ObjectId('6abf9370387ca0e48a21ff12') Type: Smartphone
+Booking pre-save: Generating booking number
+Booking pre-save: Generated booking number: BKG-2026-0004
+Booking pre-save: Total orders: 1 Booking status: pending
+Booking pre-save: Adding initial timeline entry
+BookingService: Booking created successfully with ID: new ObjectId('6abf9370387ca0e48a21ff25') Number: BKG-2026-0004
+BookingService: Linking booking to orders
+BookingService: Booking creation completed. Total orders: 1
+  PASS mit Wahl "eingesendet": genau 1 Labelaufruf :: 201 1
+Generated request number: RR-1790940016941-00028
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS ohne Leistung -> 400 deutsch :: 400
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS umgewandelte Anfrage löschen -> 409 :: 409
+
+[COMMS-10/11/15, NOTIF-12] Nachrichten: Empfänger, Idempotenz, ungelesen, Antwort ausstehend
+Generated request number: RR-1790940016966-00029
+  PASS gleiche clientMessageId zweimal -> 1 Nachricht :: 201 200 1
+  PASS unzugewiesen: beide aktiven Admins benachrichtigt (deutsch, Deep-Link), keine Doppelbenachrichtigung :: Neue Kundennachricht zur Reparaturanfrage RR-1790940016966-00029 | Neue Kundennachricht zur Reparaturanfrage RR-1790940016966-00029
+  PASS 3 parallele gleiche Sendungen -> 1 Nachricht, 1 Thread :: 201,200,200
+  PASS Kunde schreibt: Admin1/Admin2 je 2 ungelesen, Antwort ausstehend; Kunde zählt eigene nicht :: 2 2 true 0
+  PASS Admin1 liest: nur Admin1 = 0, Antwort weiter ausstehend :: 0 2 true
+  PASS Team antwortet: nicht mehr ausstehend; Staff-Nachricht zählt nicht für Admin2; Kunde 1 ungelesen :: false 2 1
+  PASS Kunde liest -> 0 :: 0
+RequireRole middleware: User rr-admin2@test.invalid has required role admin
+  PASS Admin-Liste liefert Zusammenfassung je Anfrage (kein N+1) :: {"unreadCount":2,"awaitingReply":false,"pendingFeedbackCount":0,"pendingActionsCount":0,"messageCount":3,"lastMessageAt":"2026-10-02T11:20:17.109Z"}
+Generated request number: RR-1790940017170-00030
+  PASS Team-Nachricht an Gast -> E-Mail mit Tracking-/Antwort-Link :: /guest-repair-tracking?token=<entfernt>&email=g-msg%40test.invalid
+  PASS Gast-Nachricht -> Admins benachrichtigt :: 201 2
+RequireRole middleware: User rr-admin@test.invalid has required role admin
+  PASS zugewiesen: nur Mitarbeiter, Staff-Deep-Link :: /staff/repair-requests?requestId=6abf9370387ca0e48a21ff42
+
+[RR-14/COMMS-14] Liste: Serverseitige Seiten, Projektion, Sonderzeichen in der Suche
+Generated request number: RR-1790940017228-00031
+Generated request number: RR-1790940017232-00032
+Generated request number: RR-1790940017236-00033
+Generated request number: RR-1790940017240-00034
+Generated request number: RR-1790940017243-00035
+Generated request number: RR-1790940017247-00036
+Generated request number: RR-1790940017250-00037
+Generated request number: RR-1790940017255-00038
+Generated request number: RR-1790940017258-00039
+Generated request number: RR-1790940017261-00040
+Generated request number: RR-1790940017265-00041
+Generated request number: RR-1790940017268-00042
+Generated request number: RR-1790940017271-00043
+Generated request number: RR-1790940017275-00044
+Generated request number: RR-1790940017280-00045
+Generated request number: RR-1790940017283-00046
+Generated request number: RR-1790940017286-00047
+Generated request number: RR-1790940017289-00048
+Generated request number: RR-1790940017294-00049
+Generated request number: RR-1790940017300-00050
+Generated request number: RR-1790940017304-00051
+Generated request number: RR-1790940017308-00052
+Generated request number: RR-1790940017312-00053
+Generated request number: RR-1790940017315-00054
+Generated request number: RR-1790940017318-00055
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Seite 2 liefert die restlichen 5 :: 20 5 25
+  PASS Listeneintrag enthält Typ, Kosten, Quelle, Kostenvoranschlag, Gast-Kennzeichen :: _id,customerId,customerName,customerEmail,customerPhone,isGuest,deviceType,deviceBrand,deviceModel,issueDescription,modelNumber,status,assignedStaffName,priority,estimatedCost,createdAt,updatedAt,requestNumber,assignedStaffId,convertedToOrderId,communicationSummary,deviceLabel,deviceSource,reportedDevice,effectiveQuote,statusLabel
+RequireRole middleware: User rr-staff@test.invalid has required role staff
+  PASS Suche "(" / "[" -> 200 statt 500 :: 200 200
+  PASS Kunde: Kommunikationsliste nur eigene, ohne Kundendaten :: 10
+  PASS my-requests: Kundensicht ohne adminNotes/Priorität :: 19
+
+[RR-2/RR-17/RR-11] Client-Quelltext: Gerätevertrag, kein Altspeicher, kein manuelles "Umgewandelt"
+  PASS Fragebogen: keine Markenschätzung aus dem Freitext, sendet deviceSource, "Mein Gerät ist nicht aufgeführt" vorhanden :: ok
+  PASS Fragebogen: kein Katalog-Modal mehr :: ok
+  PASS Admin: "Nachricht senden" schreibt nicht mehr in RepairRequest.messages :: ok
+  PASS Admin: "Umgewandelt" nicht manuell wählbar :: ok
+  PASS Admin: sichtbare Aktionen "Öffnen", "Kostenvoranschlag an Kunden senden", "Interne Notiz speichern" :: ok
+
+==== 107 bestanden, 0 fehlgeschlagen ====
+  server/logs: 0 Schreibzugriff(e) dieses Tests umgeleitet nach /tmp/rr-flow-logs-q9A3j8
