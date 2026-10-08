@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { mergeGuestCartWithUserCart } from '@/utils/guestCart'
 import { addToCart, addRepairOrderToCart } from '@/api/shop'
+import { getCsrfHeaders } from '@/api/api'
 import { SEO } from '@/components/SEO'
 
 export function VerifyEmail() {
@@ -62,7 +63,7 @@ export function VerifyEmail() {
         const response = await fetch('/api/auth/verify-email', {
           method: 'POST',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getCsrfHeaders() },
           body: JSON.stringify({ token })
         })
 

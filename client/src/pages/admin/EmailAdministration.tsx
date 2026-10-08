@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from 'react-i18next'
 import { useToast } from "@/hooks/useToast"
+import { getCsrfHeaders } from "@/api/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -317,6 +318,7 @@ export function EmailAdministration() {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+          ...getCsrfHeaders(),
         },
       })
 
@@ -341,6 +343,7 @@ export function EmailAdministration() {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+          ...getCsrfHeaders(),
         },
       })
 
@@ -373,6 +376,7 @@ export function EmailAdministration() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+          ...getCsrfHeaders(),
         },
         body: JSON.stringify({
           to: testEmailTo,
@@ -427,6 +431,7 @@ export function EmailAdministration() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+          ...getCsrfHeaders(),
         },
         body: JSON.stringify({
           to: composeEmailTo.trim(),
@@ -503,6 +508,7 @@ export function EmailAdministration() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+          ...getCsrfHeaders(),
         },
         body: JSON.stringify({
           emailSettings: settingsToSave,

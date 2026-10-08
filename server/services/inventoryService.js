@@ -19,7 +19,18 @@ class InventoryService {
       });
 
       const inventory = new Inventory(itemData);
-      const savedInventory = await inventory.save();
+      let savedInventory;
+      try {
+        savedInventory = await inventory.save();
+      } catch (error) {
+        // Two creates at the same moment can compute the same SKU; retry once with a fresh one
+        if (error && error.code === 11000 && error.keyPattern && error.keyPattern.sku && !itemData.sku) {
+          inventory.sku = undefined;
+          savedInventory = await inventory.save();
+        } else {
+          throw error;
+        }
+      }
 
       console.log('InventoryService: Inventory item created successfully with ID:', savedInventory._id);
       return savedInventory;
@@ -38,20 +49,22 @@ class InventoryService {
 
       // Apply filters
       if (filters.search) {
+        // Escape the input: characters like "(" would otherwise make the regex invalid (500)
+        const search = String(filters.search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         query.$or = [
-          { itemName: { $regex: filters.search, $options: 'i' } },
-          { sku: { $regex: filters.search, $options: 'i' } },
-          { brand: { $regex: filters.search, $options: 'i' } },
-          { manufacturer: { $regex: filters.search, $options: 'i' } }
+          { itemName: { $regex: search, $options: 'i' } },
+          { sku: { $regex: search, $options: 'i' } },
+          { model: { $regex: search, $options: 'i' } },
+          { manufacturer: { $regex: search, $options: 'i' } }
         ];
       }
 
-      if (filters.category && filters.category !== 'all') {
+      if (typeof filters.category === 'string' && filters.category && filters.category !== 'all') {
         query.category = filters.category;
       }
 
-      if (filters.brand && filters.brand !== 'all') {
-        query.brand = filters.brand;
+      if (typeof filters.model === 'string' && filters.model && filters.model !== 'all') {
+        query.model = filters.model;
       }
 
       if (filters.lowStock === 'true') {
@@ -63,11 +76,18 @@ class InventoryService {
       const limit = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 20));
       const skip = (page - 1) * limit;
 
-      // Sorting
-      const sortBy = filters.sortBy || 'lastUpdated';
+      // Sorting: column keys of the parts table -> stored fields (unknown keys keep the default order)
+      const sortFields = {
+        lastUpdated: 'lastUpdated',
+        partNumber: 'sku',
+        itemName: 'itemName',
+        category: 'category',
+        model: 'model',
+        location: 'versions.0.storageLocation'
+      };
+      const sortBy = Object.prototype.hasOwnProperty.call(sortFields, filters.sortBy) ? sortFields[filters.sortBy] : 'lastUpdated';
       const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
-      const sortOptions = {};
-      sortOptions[sortBy] = sortOrder;
+      const sortOptions = { [sortBy]: sortOrder, _id: sortOrder };
 
       console.log('InventoryService: Sorting by', sortBy, 'in', sortOrder === 1 ? 'ascending' : 'descending', 'order');
 
@@ -240,6 +260,35 @@ class InventoryService {
     console.log('InventoryService: Updating inventory item:', itemId);
 
     try {
+      // Versions added in the edit dialog have no versionId yet (required by the schema)
+      if (Array.isArray(updateData.versions) && updateData.versions.some((version) => version && !version.versionId)) {
+        const existingItem = await Inventory.findById(itemId).select('sku').lean();
+        if (!existingItem) {
+          throw new Error('Inventory item not found');
+        }
+        const prefix = existingItem.sku || 'TEMP';
+        const usedIds = new Set(updateData.versions.map((version) => version && version.versionId).filter(Boolean));
+        let next = 1;
+        updateData.versions.forEach((version) => {
+          if (version && !version.versionId) {
+            while (usedIds.has(`${prefix}-V${next}`)) {
+              next += 1;
+            }
+            version.versionId = `${prefix}-V${next}`;
+            usedIds.add(version.versionId);
+          }
+        });
+      }
+
+      // findByIdAndUpdate skips the pre('save') hook that keeps the low-stock flag in sync
+      if (Array.isArray(updateData.versions)) {
+        updateData.versions.forEach((version) => {
+          if (version) {
+            version.lowStockAlert = Number(version.quantity ?? 0) <= Number(version.minStockLevel ?? 5);
+          }
+        });
+      }
+
       const updatedItem = await Inventory.findByIdAndUpdate(
         itemId,
         { ...updateData, lastUpdated: new Date() },

@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
 
 const supplierInfoSchema = new mongoose.Schema({
+  // Optional: the parts form has no supplier fields and always sends an empty name
   name: {
     type: String,
-    required: true,
+    default: '',
   },
   contactPerson: {
     type: String,
@@ -178,9 +179,18 @@ const inventorySchema = new mongoose.Schema({
 inventorySchema.pre('save', async function(next) {
   if (this.isNew && !this.sku) {
     try {
+      const Inventory = mongoose.model('Inventory');
       const categoryPrefix = this.category.substring(0, 3).toUpperCase();
-      const count = await mongoose.model('Inventory').countDocuments({ category: this.category });
-      this.sku = `${categoryPrefix}-${String(count + 1).padStart(4, '0')}`;
+      const count = await Inventory.countDocuments({ category: this.category });
+      // Categories can share a prefix (e.g. "microphone" / "Microfone Flex") and CSV imports
+      // assign their own SKUs, so continue after the highest number already used for the prefix.
+      const escapedPrefix = categoryPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const usedSkus = await Inventory.find({ sku: new RegExp(`^${escapedPrefix}-\\d+$`) }).select('sku').lean();
+      const highestUsed = usedSkus.reduce((max, item) => {
+        const number = parseInt(item.sku.split('-').pop(), 10);
+        return Number.isSafeInteger(number) ? Math.max(max, number) : max;
+      }, 0);
+      this.sku = `${categoryPrefix}-${String(Math.max(count, highestUsed) + 1).padStart(4, '0')}`;
     } catch (error) {
       console.error('Error generating SKU:', error);
       this.sku = `INV-${Date.now()}`;

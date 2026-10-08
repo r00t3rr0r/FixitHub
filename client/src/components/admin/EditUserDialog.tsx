@@ -132,7 +132,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
         email: user.email || "",
         phone: user.phone || "",
         role: user.role || "customer",
-        isActive: user.isActive !== false,
+        isActive: user.status ? user.status === 'active' : user.isActive !== false,
         firstName: (user as any).firstName || "",
         lastName: (user as any).lastName || "",
         surname: (user as any).surname || "",

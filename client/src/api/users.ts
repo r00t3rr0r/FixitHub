@@ -158,10 +158,8 @@ export const updateUserStatus = async (userId: string, status: string) => {
 export const bulkUpdateUserStatus = async (userIds: string[], status: string) => {
   console.log('bulkUpdateUserStatus called with IDs:', userIds, 'and status:', status);
 
-  const isActive = status === 'active';
-
   try {
-    const response = await api.put('/api/admin/users/bulk-status', { userIds, isActive });
+    const response = await api.put('/api/admin/users/bulk-status', { userIds, status });
     console.log('bulkUpdateUserStatus API response:', response.data);
     return response.data;
   } catch (error) {

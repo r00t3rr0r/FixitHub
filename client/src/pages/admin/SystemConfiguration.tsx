@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
+import { getCsrfHeaders } from "@/api/api"
 import {
   getSystemConfig,
   updateSystemConfig,
@@ -433,6 +434,7 @@ export function SystemConfiguration() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          ...getCsrfHeaders(),
         },
         body: JSON.stringify({ to: templateTestEmail.trim() }),
       })

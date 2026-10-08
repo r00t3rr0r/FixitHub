@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 const User = require('../models/User.js');
 const { generatePasswordHash, validatePassword } = require('../utils/password.js');
+const { statusUpdateFor, effectiveUserStatus } = require('../utils/userStatus.js');
 
 const normalizeEmailAddress = (email) => String(email || '').trim().toLowerCase();
 
@@ -49,13 +50,13 @@ class UserService {
     }
   }
 
-  static async bulkUpdateStatus(userIds, isActive) {
+  static async bulkUpdateStatus(userIds, status) {
     try {
-      console.log('UserService.bulkUpdateStatus: Updating users:', userIds, 'isActive:', isActive);
+      console.log('UserService.bulkUpdateStatus: Updating users:', userIds, 'status:', status);
 
       const result = await User.updateMany(
         { _id: { $in: userIds } },
-        { $set: { isActive } }
+        { $set: statusUpdateFor(status) }
       ).exec();
 
       console.log('UserService.bulkUpdateStatus: Update result:', result);
@@ -450,7 +451,7 @@ class UserService {
         activityLog: activityLog,
 
         // Additional metadata
-        status: user.isActive ? 'active' : 'inactive',
+        status: effectiveUserStatus(user),
         lastActivity: user.lastLoginAt || user.createdAt,
         totalOrders: user.totalOrders,
         totalSpent: user.totalSpent

@@ -2,6 +2,13 @@ const express = require('express');
 const UserService = require('../services/userService.js');
 const CustomerGroupService = require('../services/customerGroupService');
 const { requireUser } = require('./middleware/auth.js');
+const {
+  isValidUserStatus,
+  statusUpdateFor,
+  effectiveUserStatus,
+  resolveStatusUpdate,
+  effectiveStatusFilter,
+} = require('../utils/userStatus');
 
 const router = express.Router();
 
@@ -51,13 +58,10 @@ router.get('/users', requireUser, requireAdmin, async (req, res) => {
       filters.role = role;
     }
 
-    // Build status filter - map frontend status to backend isActive
-    if (status !== 'all') {
-      if (status === 'active') {
-        filters.isActive = true;
-      } else if (status === 'inactive') {
-        filters.isActive = false;
-      }
+    const statusFilter = effectiveStatusFilter(status);
+    if (statusFilter) {
+      // Separate $and entry so the status $or does not clash with the search $or.
+      filters.$and = [statusFilter];
     }
 
     if (customerGroupId !== 'all') {
@@ -78,7 +82,7 @@ router.get('/users', requireUser, requireAdmin, async (req, res) => {
     // Transform users to match frontend expectations
     const transformedUsers = users.data.map(user => ({
       ...user.toJSON(),
-      status: user.isActive ? 'active' : 'inactive',
+      status: effectiveUserStatus(user),
       lastActivity: user.lastLoginAt || user.createdAt
     }));
 
@@ -135,7 +139,7 @@ router.post('/users', requireUser, requireAdmin, async (req, res) => {
 
     const responseUser = {
       ...newUser.toJSON(),
-      status: newUser.isActive ? 'active' : 'inactive',
+      status: effectiveUserStatus(newUser),
       lastActivity: newUser.lastLoginAt || newUser.createdAt
     };
 
@@ -153,6 +157,47 @@ router.post('/users', requireUser, requireAdmin, async (req, res) => {
   }
 });
 
+// Bulk update user status
+// Must be registered before PUT /users/:id, otherwise ":id" captures "bulk-status".
+router.put('/users/bulk-status', requireUser, requireAdmin, async (req, res) => {
+  console.log('Admin: Bulk status update request from:', req.user.email);
+  console.log('Admin: User IDs:', req.body.userIds, 'Status:', req.body.status);
+
+  try {
+    const { userIds, status } = req.body;
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      console.log('Admin: Invalid userIds provided for bulk update');
+      return res.status(400).json({ message: 'Valid array of user IDs is required' });
+    }
+
+    if (!isValidUserStatus(status)) {
+      console.log('Admin: Invalid status provided for bulk update:', status);
+      return res.status(400).json({ message: 'Valid status is required (active, inactive, suspended, blocked)' });
+    }
+
+    // Prevent admin from deactivating themselves
+    if (userIds.includes(req.user._id.toString()) && status !== 'active') {
+      console.log('Admin: Attempt to deactivate own account in bulk update blocked');
+      return res.status(400).json({ message: 'Cannot deactivate your own account' });
+    }
+
+    const result = await UserService.bulkUpdateStatus(userIds, status);
+
+    console.log(`Admin: Bulk status update completed - ${result.modifiedCount} users updated`);
+
+    return res.status(200).json({
+      success: true,
+      message: `${result.modifiedCount} users updated successfully`,
+      updatedCount: result.modifiedCount
+    });
+
+  } catch (error) {
+    console.error('Admin: Error in bulk status update:', error);
+    return res.status(500).json({ message: error.message || 'Failed to update users' });
+  }
+});
+
 // Update user details
 router.put('/users/:id', requireUser, requireAdmin, async (req, res) => {
   console.log('Admin: Update user request from:', req.user.email, 'for user:', req.params.id);
@@ -166,6 +211,8 @@ router.put('/users/:id', requireUser, requireAdmin, async (req, res) => {
       createdAt,
       primaryCustomerGroupId,
       customerGroupIds,
+      status,
+      isActive,
       ...updateData
     } = req.body;
 
@@ -176,6 +223,17 @@ router.put('/users/:id', requireUser, requireAdmin, async (req, res) => {
     if (id === req.user._id.toString() && updateData.role && updateData.role !== 'admin') {
       return res.status(400).json({ message: 'Cannot change your own role from admin' });
     }
+
+    const currentUser = await UserService.get(id);
+    if (!currentUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const statusUpdate = resolveStatusUpdate(currentUser, { status, isActive });
+    if (id === req.user._id.toString() && statusUpdate.status && statusUpdate.status !== 'active') {
+      return res.status(400).json({ message: 'Cannot deactivate your own account' });
+    }
+    Object.assign(updateData, statusUpdate);
 
     if (updateData.email) {
       updateData.email = String(updateData.email).toLowerCase();
@@ -220,7 +278,7 @@ router.put('/users/:id', requireUser, requireAdmin, async (req, res) => {
       message: 'User updated successfully',
       user: {
         ...refreshedUser.toJSON(),
-        status: refreshedUser.isActive ? 'active' : 'inactive',
+        status: effectiveUserStatus(refreshedUser),
         lastActivity: refreshedUser.lastLoginAt || refreshedUser.createdAt,
       },
     });
@@ -285,9 +343,9 @@ router.put('/users/:id/status', requireUser, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!status || !['active', 'inactive', 'suspended'].includes(status)) {
+    if (!isValidUserStatus(status)) {
       console.log('Admin: Invalid status provided:', status);
-      return res.status(400).json({ message: 'Valid status is required (active, inactive, suspended)' });
+      return res.status(400).json({ message: 'Valid status is required (active, inactive, suspended, blocked)' });
     }
 
     // Prevent admin from deactivating themselves
@@ -296,10 +354,7 @@ router.put('/users/:id/status', requireUser, requireAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Cannot deactivate your own account' });
     }
 
-    // Map frontend status to backend isActive field
-    const isActive = status === 'active';
-    
-    const updatedUser = await UserService.update(id, { isActive });
+    const updatedUser = await UserService.update(id, statusUpdateFor(status));
 
     if (!updatedUser) {
       console.log('Admin: User not found for status update:', id);
@@ -308,7 +363,8 @@ router.put('/users/:id/status', requireUser, requireAdmin, async (req, res) => {
 
     const responseUser = {
       _id: updatedUser._id,
-      status: updatedUser.isActive ? 'active' : 'inactive'
+      status: effectiveUserStatus(updatedUser),
+      isActive: updatedUser.isActive
     };
 
     console.log('Admin: User status updated successfully');
@@ -322,49 +378,6 @@ router.put('/users/:id/status', requireUser, requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Admin: Error updating user status:', error);
     return res.status(500).json({ message: error.message || 'Failed to update user status' });
-  }
-});
-
-// Bulk update user status
-router.put('/users/bulk-status', requireUser, requireAdmin, async (req, res) => {
-  console.log('Admin: Bulk status update request from:', req.user.email);
-  console.log('Admin: User IDs:', req.body.userIds, 'Status:', req.body.status);
-
-  try {
-    const { userIds, status } = req.body;
-
-    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-      console.log('Admin: Invalid userIds provided for bulk update');
-      return res.status(400).json({ message: 'Valid array of user IDs is required' });
-    }
-
-    if (!status || !['active', 'inactive', 'suspended'].includes(status)) {
-      console.log('Admin: Invalid status provided for bulk update:', status);
-      return res.status(400).json({ message: 'Valid status is required (active, inactive, suspended)' });
-    }
-
-    // Prevent admin from deactivating themselves
-    if (userIds.includes(req.user._id.toString()) && status !== 'active') {
-      console.log('Admin: Attempt to deactivate own account in bulk update blocked');
-      return res.status(400).json({ message: 'Cannot deactivate your own account' });
-    }
-
-    // Map frontend status to backend isActive field
-    const isActive = status === 'active';
-    
-    const result = await UserService.bulkUpdateStatus(userIds, isActive);
-
-    console.log(`Admin: Bulk status update completed - ${result.modifiedCount} users updated`);
-
-    return res.status(200).json({
-      success: true,
-      message: `${result.modifiedCount} users updated successfully`,
-      updatedCount: result.modifiedCount
-    });
-
-  } catch (error) {
-    console.error('Admin: Error in bulk status update:', error);
-    return res.status(500).json({ message: error.message || 'Failed to update users' });
   }
 });
 

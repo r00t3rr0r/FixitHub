@@ -338,7 +338,7 @@ export function UserManagement() {
 
       // Update local state
       setUsers(users.map(user =>
-        user._id === userId ? { ...user, status: newStatus as any } : user
+        user._id === userId ? { ...user, status: newStatus, isActive: newStatus === 'active' } : user
       ))
 
       toast({
@@ -460,11 +460,15 @@ export function UserManagement() {
       case 'inactive':
         return 'badge badge-inactive'
       case 'suspended':
+      case 'blocked':
         return 'badge badge-suspended'
       default:
         return 'badge'
     }
   }
+
+  // Server sends the login-relevant status (combines `status` and `isActive`).
+  const getUserStatus = (user: User) => user.status || (user.isActive ? 'active' : 'inactive')
 
   const handleRowClick = (userId: string, e: React.MouseEvent) => {
     // Prevent row click when clicking on interactive elements
@@ -757,7 +761,7 @@ export function UserManagement() {
                   <Activity className="h-4 w-4" />
                 </div>
               </div>
-              <div className="stat-card-value">{users.filter(u => u.isActive).length}</div>
+              <div className="stat-card-value">{users.filter(u => getUserStatus(u) === 'active').length}</div>
             </CardContent>
           </Card>
           <Card className="stat-card stat-reviewing">
@@ -1020,12 +1024,12 @@ export function UserManagement() {
                               </SelectContent>
                             </Select>
                             <div className="flex items-center gap-2">
-                              <Badge className={getStatusColor(user.isActive ? 'active' : 'inactive')} variant="outline">
-                                {user.isActive ? 'active' : 'inactive'}
+                              <Badge className={getStatusColor(getUserStatus(user))} variant="outline">
+                                {getUserStatus(user)}
                               </Badge>
                               <Switch
-                                checked={user.isActive}
-                                onCheckedChange={() => handleStatusToggle(user._id, user.isActive ? 'active' : 'inactive')}
+                                checked={getUserStatus(user) === 'active'}
+                                onCheckedChange={() => handleStatusToggle(user._id, getUserStatus(user))}
                                 disabled={updating === user._id}
                                 size="sm"
                               />

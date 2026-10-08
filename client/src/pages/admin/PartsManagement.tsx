@@ -22,6 +22,28 @@ import { formatEUR } from '@/lib/utils';
 import './PartsManagement.css';
 
 const compactFieldClassName = "h-9 text-sm";
+
+// Defaults for a new part version (the Add form starts with one, the server requires at least one)
+const createDefaultVersion = (): Partial<PartVersion> => ({
+  versionType: 'original',
+  quantity: 0,
+  minStockLevel: 5,
+  reorderLevel: 10,
+  unitCost: 0,
+  sellingPrice: 0,
+  storageLocation: '',
+  supplierInfo: {
+    name: '',
+    contactPerson: '',
+    email: '',
+    phone: '',
+    address: ''
+  },
+  leadTime: 7,
+  status: 'active',
+  notes: '',
+  images: []
+} as Partial<PartVersion>);
 const compactLabelClassName = "parts-detail-tile__label";
 
 // ── Column Filter Menu ──────────────────────────────────────────────────────
@@ -199,6 +221,11 @@ export function PartsManagement() {
   const { t } = useTranslation()
   const [parts, setParts] = useState<Part[]>([]);
   const [loading, setLoading] = useState(true);
+  // Full-page skeleton only for the first load; later refetches (search, filters) keep the page mounted
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [savingPart, setSavingPart] = useState(false);
+  // Only the newest list request may update the table (typing in the search starts overlapping requests)
+  const fetchSeqRef = useRef(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [modelFilter, setModelFilter] = useState('all');
@@ -266,6 +293,7 @@ export function PartsManagement() {
   }, [currentPage, itemsPerPage, searchTerm, categoryFilter, modelFilter, sortBy, sortOrder]);
 
   const fetchParts = async () => {
+    const seq = ++fetchSeqRef.current;
     try {
       console.log('PartsManagement: Fetching parts data with pagination and sorting...');
       setLoading(true);
@@ -281,6 +309,7 @@ export function PartsManagement() {
       };
 
       const response = await getParts(filters);
+      if (seq !== fetchSeqRef.current) return;
       console.log('PartsManagement: Parts data received:', response);
 
       setParts(response.parts || []);
@@ -288,7 +317,12 @@ export function PartsManagement() {
       setTotalItems(response.totalItems || 0);
       setTotalValue(response.totalValue || 0);
       setLowStockCount(response.lowStockCount || 0);
+      const lastPage = Math.max(1, response.totalPages || 0);
+      if (currentPage > lastPage) {
+        setCurrentPage(lastPage);
+      }
     } catch (error) {
+      if (seq !== fetchSeqRef.current) return;
       console.error('PartsManagement: Error fetching parts:', error);
       toast({
         title: t('common.error'),
@@ -296,7 +330,10 @@ export function PartsManagement() {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      if (seq === fetchSeqRef.current) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
   };
 
@@ -380,10 +417,36 @@ export function PartsManagement() {
     }
   };
 
+  // Same required fields as the server, checked first so the user gets a German hint
+  const getPartFormProblem = () => {
+    if (!formData.category || !String(formData.manufacturer || '').trim() || !String(formData.model || '').trim()) {
+      return t('partsManagement.requiredFieldsMissing', 'Bitte Kategorie, Hersteller und Modell ausfüllen.');
+    }
+    if (formData.versions.length === 0) {
+      return t('partsManagement.versionRequired', 'Mindestens eine Version ist erforderlich (Reiter „Versions“).');
+    }
+    if (formData.versions.some((version) => !String(version.storageLocation || '').trim())) {
+      return t('partsManagement.storageLocationRequired', 'Bitte für jede Version einen Lagerort angeben (Reiter „Versions“).');
+    }
+    return null;
+  };
+
+  const getPartPayload = () => ({
+    ...formData,
+    compatibleDevices: formData.compatibleDevices.map((device) => device.trim()).filter(Boolean)
+  });
+
   const handleAddPart = async () => {
+    if (savingPart) return;
+    const problem = getPartFormProblem();
+    if (problem) {
+      toast({ title: t('common.error'), description: problem, variant: "destructive" });
+      return;
+    }
+    setSavingPart(true);
     try {
       console.log('PartsManagement: Adding new part with data:', formData);
-      await createInventoryItem(formData);
+      await createInventoryItem(getPartPayload());
       toast({
         title: t('common.success'),
         description: t('partsManagement.partCreatedSuccess'),
@@ -396,18 +459,28 @@ export function PartsManagement() {
       console.error('Error adding part:', error);
       toast({
         title: t('common.error'),
-        description: t('partsManagement.failedToCreatePart'),
+        // Show the server's reason (e.g. missing version or storage location), not only the generic text
+        description: error instanceof Error && error.message
+          ? `${t('partsManagement.failedToCreatePart')}: ${error.message}`
+          : t('partsManagement.failedToCreatePart'),
         variant: "destructive",
       });
+    } finally {
+      setSavingPart(false);
     }
   };
 
   const handleUpdatePart = async () => {
-    if (!selectedPart) return;
-    
+    if (!selectedPart || savingPart) return;
+    const problem = getPartFormProblem();
+    if (problem) {
+      toast({ title: t('common.error'), description: problem, variant: "destructive" });
+      return;
+    }
+    setSavingPart(true);
     try {
       console.log('PartsManagement: Updating part with data:', formData);
-      await updatePart(selectedPart._id, formData);
+      await updatePart(selectedPart._id, getPartPayload());
       toast({
         title: t('common.success'),
         description: t('partsManagement.partUpdated'),
@@ -420,9 +493,13 @@ export function PartsManagement() {
       console.error('Error updating part:', error);
       toast({
         title: t('common.error'),
-        description: t('partsManagement.failedToUpdatePart'),
+        description: error instanceof Error && error.message
+          ? `${t('partsManagement.failedToUpdatePart')}: ${error.message}`
+          : t('partsManagement.failedToUpdatePart'),
         variant: "destructive",
       });
+    } finally {
+      setSavingPart(false);
     }
   };
 
@@ -436,7 +513,7 @@ export function PartsManagement() {
       date: null,
       compatibleDevices: [],
       specifications: {},
-      versions: []
+      versions: [createDefaultVersion()]
     });
     setSelectedPart(null);
   };
@@ -590,26 +667,7 @@ export function PartsManagement() {
   const addVersion = () => {
     setFormData(prev => ({
       ...prev,
-      versions: [...prev.versions, {
-        versionType: 'original',
-        quantity: 0,
-        minStockLevel: 5,
-        reorderLevel: 10,
-        unitCost: 0,
-        sellingPrice: 0,
-        storageLocation: '',
-        supplierInfo: {
-          name: '',
-          contactPerson: '',
-          email: '',
-          phone: '',
-          address: ''
-        },
-        leadTime: 7,
-        status: 'active',
-        notes: '',
-        images: []
-      }]
+      versions: [...prev.versions, createDefaultVersion()]
     }));
   };
 
@@ -668,7 +726,7 @@ export function PartsManagement() {
     { value: 'efficient', label: 'Efficient' }
   ];
 
-  if (loading) {
+  if (loading && initialLoad) {
     return (
       <div className="parts-page-container">
         <div className="parts-page-header animate-pulse" style={{ minHeight: 96 }} />
@@ -796,6 +854,7 @@ export function PartsManagement() {
                   removeVersion={removeVersion}
                   updateVersion={updateVersion}
                   isEdit={false}
+                  isSaving={savingPart}
                 />
               </div>
             </DialogContent>
@@ -867,11 +926,11 @@ export function PartsManagement() {
               <Input
                 placeholder={t('partsManagement.searchParts')}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 className="h-9 text-sm"
               />
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <Select value={categoryFilter} onValueChange={(value) => { setCategoryFilter(value); setCurrentPage(1); }}>
               <SelectTrigger className="h-9 w-full text-sm md:w-[200px]">
                 <SelectValue placeholder={t('partsManagement.filterByCategory')} />
               </SelectTrigger>
@@ -884,13 +943,13 @@ export function PartsManagement() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={modelFilter} onValueChange={setModelFilter}>
+            <Select value={modelFilter} onValueChange={(value) => { setModelFilter(value); setCurrentPage(1); }}>
               <SelectTrigger className="h-9 w-full text-sm md:w-[200px]">
                 <SelectValue placeholder="Filter by model" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Models</SelectItem>
-                {Array.from(new Set(parts.map(p => p.model))).filter(m => m).map(model => (
+                {Array.from(new Set([...colValues.model, ...(modelFilter !== 'all' ? [modelFilter] : [])])).map(model => (
                   <SelectItem key={model} value={model}>
                     {model}
                   </SelectItem>
@@ -1226,6 +1285,7 @@ export function PartsManagement() {
               removeVersion={removeVersion}
               updateVersion={updateVersion}
               isEdit={true}
+              isSaving={savingPart}
             />
           </div>
         </DialogContent>
@@ -1611,7 +1671,8 @@ function AddEditPartForm({
   addVersion,
   removeVersion,
   updateVersion,
-  isEdit
+  isEdit,
+  isSaving = false
 }: {
   formData: any;
   setFormData: (data: any) => void;
@@ -1623,6 +1684,7 @@ function AddEditPartForm({
   removeVersion: (index: number) => void;
   updateVersion: (index: number, field: string, value: any) => void;
   isEdit: boolean;
+  isSaving?: boolean;
 }) {
   const { t } = useTranslation()
   // Auto-generate Item Name when manufacturer, model, or category changes
@@ -1788,8 +1850,11 @@ function AddEditPartForm({
                         <Label className={compactLabelClassName}>Min Stock Level</Label>
                         <Input
                           type="number"
-                          value={version.minStockLevel || 5}
-                          onChange={(e) => updateVersion(index, 'minStockLevel', parseInt(e.target.value) || 5)}
+                          value={version.minStockLevel ?? 5}
+                          onChange={(e) => {
+                            const minStock = parseInt(e.target.value, 10);
+                            updateVersion(index, 'minStockLevel', Number.isNaN(minStock) ? 0 : minStock);
+                          }}
                           min="0"
                           className={compactFieldClassName}
                         />
@@ -1849,10 +1914,10 @@ function AddEditPartForm({
           <div className="space-y-1.5">
             <Label className={compactLabelClassName}>Compatible Devices</Label>
             <Input
-              value={formData.compatibleDevices.join(', ')}
-              onChange={(e) => setFormData(prev => ({ 
-                ...prev, 
-                compatibleDevices: e.target.value.split(',').map(d => d.trim()).filter(d => d) 
+              value={formData.compatibleDevices.join(',')}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                compatibleDevices: e.target.value.split(',')
               }))}
               placeholder="Enter compatible devices (comma separated)"
               className={compactFieldClassName}
@@ -1867,7 +1932,7 @@ function AddEditPartForm({
         <Button type="button" variant="outline" onClick={onCancel} size="sm" className="parts-dialog-btn-outline">
           {t('common.cancel')}
         </Button>
-        <Button type="button" onClick={onSubmit} size="sm" className="parts-dialog-btn-primary">
+        <Button type="button" onClick={onSubmit} size="sm" className="parts-dialog-btn-primary" disabled={isSaving}>
           {isEdit ? t('partsManagement.editPart') : t('partsManagement.createNewPart')}
         </Button>
       </div>
