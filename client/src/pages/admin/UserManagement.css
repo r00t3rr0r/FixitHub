@@ -375,6 +375,20 @@
   text-align: right;
 }
 
+/* Keep the actions column (details/edit/delete) reachable without horizontal scrolling. */
+.user-management-page .requests-table thead th:last-child,
+.user-management-page .requests-table tbody td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--white);
+  box-shadow: -6px 0 8px -6px rgba(15, 23, 42, 0.18);
+}
+
+.user-management-page .requests-table tbody tr:hover td:last-child {
+  background: var(--gray-50);
+}
+
 .user-management-page .badge {
   display: inline-flex;
   align-items: center;

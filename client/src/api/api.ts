@@ -24,6 +24,12 @@ const readCookie = (name: string): string | null => {
   return match ? decodeURIComponent(match[1]) : null;
 };
 
+/** CSRF header for raw `fetch` write requests that bypass the axios instance below. */
+export const getCsrfHeaders = (): Record<string, string> => {
+  const csrfToken = readCookie(CSRF_COOKIE_NAME);
+  return csrfToken ? { 'X-CSRF-Token': csrfToken } : {};
+};
+
 const shouldAttachCsrfToken = (method?: string) => {
   const normalizedMethod = (method || 'get').toUpperCase();
   return !['GET', 'HEAD', 'OPTIONS'].includes(normalizedMethod);

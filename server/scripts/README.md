@@ -151,6 +151,33 @@ node server/scripts/test-api.js --host=https://api.example.com
 
 ---
 
+### 6. seed-test-repair-services.js
+Fills gaps in the repair catalog so every device model has selectable repairs in the repair configurator (step 3), and adds missing add-on services (step 4).
+
+**Usage:**
+```bash
+# Preview what is missing (no writes)
+node server/scripts/seed-test-repair-services.js --dry-run
+
+# Create the missing test data
+node server/scripts/seed-test-repair-services.js
+
+# Remove everything this script created
+node server/scripts/seed-test-repair-services.js --remove
+```
+
+**What it does:**
+- Checks every active device model with the same filters the configurator uses (`ServiceService.list` with device type, manufacturer and model)
+- Creates only repair types the model is missing: display, battery, mainboard, charging port, camera/webcam, speaker/keyboard, software and liquid damage (depending on device type)
+- Prices per model: anchored on the model's existing display/battery prices, otherwise estimated from the model name (e.g. iPhone generation, Pro/Ultra), with a small per-model spread
+- Adds missing German add-ons (protective case, camera protector, charger, data backup, loaner device)
+- Marks created services with `source: "test-seed:repair-gap-fill"`; safe to re-run (already covered repairs are skipped)
+
+**When to use:**
+- After resetting or importing the catalog when the configurator shows no repair options for some models
+
+---
+
 ## Common Workflows
 
 ### Initial Setup

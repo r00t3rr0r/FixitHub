@@ -20,10 +20,12 @@ router.get('/', requireUser, requireAdminOrStaff, async (req, res) => {
     const filters = {
       search: req.query.search,
       category: req.query.category,
-      brand: req.query.brand,
+      model: req.query.model,
       lowStock: req.query.lowStock,
       page: req.query.page,
-      limit: req.query.limit
+      limit: req.query.limit,
+      sortBy: req.query.sortBy,
+      sortOrder: req.query.sortOrder
     };
 
     const result = await InventoryService.getAll(filters);
@@ -44,10 +46,10 @@ router.post('/', requireUser, requireAdminOrStaff, async (req, res) => {
   try {
     const itemData = req.body;
 
-    // Validate required fields
-    if (!itemData.itemName || !itemData.category || !itemData.manufacturer || !itemData.brand) {
+    // Validate required fields (same as the Inventory schema; 'brand' was replaced by 'model')
+    if (!itemData.itemName || !itemData.category || !itemData.manufacturer || !itemData.model) {
       return res.status(400).json({
-        error: 'Item name, category, manufacturer, and brand are required'
+        error: 'Item name, category, manufacturer, and model are required'
       });
     }
 
@@ -146,6 +148,13 @@ router.put('/:id', requireUser, requireAdminOrStaff, async (req, res) => {
 
   try {
     const updateData = req.body;
+
+    if (updateData.versions !== undefined && (!Array.isArray(updateData.versions) || updateData.versions.length === 0)) {
+      return res.status(400).json({
+        error: 'At least one version is required'
+      });
+    }
+
     const updatedItem = await InventoryService.update(req.params.id, updateData);
 
     return res.status(200).json({
